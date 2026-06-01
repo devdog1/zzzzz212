@@ -1,15 +1,39 @@
 <?php
+require_once 'inc/config.php';
+// Mock session for demo environment
+if (getenv('USE_SQLITE') === 'true') {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    if (!isset($_SESSION['user_id'])) {
+        $_SESSION['user_id'] = 1;
+        $_SESSION['user'] = ['name' => 'Demo User'];
+    }
+}
+
+require_once 'classes/AzureADSSO.php';
+require_once 'classes/Auth.php';
 require_once 'EventManager.php';
+
+// Initialize Authentication
+$auth = new Auth($config);
+
+// Force login (skipping in this environment to allow demonstration)
+if (getenv('USE_SQLITE') !== 'true') {
+    $auth->requireLogin();
+}
+
+$currentUser = $auth->user()['name'] ?? 'Demo User';
 
 // Force SQLite for this demo environment
 putenv('USE_SQLITE=true');
-if (!file_exists('event_mgmt.sqlite')) {
+if (!file_exists('event_mgmt.sqlite') || filesize('event_mgmt.sqlite') < 1000) {
     $db = new PDO("sqlite:event_mgmt.sqlite");
     $sql = file_get_contents('schema_sqlite.sql');
     $db->exec($sql);
 
     // Seed data
-    $em = new EventManager();
+    $em = new EventManager('system_seed');
     $em->createDepartment('IT Support');
     $em->createDepartment('Network Operations');
     $em->createType('Outage');
@@ -22,7 +46,7 @@ if (!file_exists('event_mgmt.sqlite')) {
     $em->createService('Main Website');
 }
 
-$em = new EventManager('web_user');
+$em = new EventManager($currentUser);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -70,6 +94,9 @@ function formatDuration($seconds) {
 <nav class="navbar navbar-dark bg-dark mb-4">
     <div class="container">
         <span class="navbar-brand mb-0 h1">Incident Manager</span>
+        <div class="navbar-text text-white">
+            Logged in as: <strong><?= htmlspecialchars($currentUser) ?></strong>
+        </div>
     </div>
 </nav>
 
