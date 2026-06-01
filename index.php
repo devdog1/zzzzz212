@@ -54,7 +54,6 @@ if (!$useSqlite) {
         $auth->requireLogin();
         $currentUser = $auth->user()['name'] ?? 'Unknown User';
     } catch (PDOException $e) {
-        // Fallback to demo mode if Auth DB fails
         putenv('USE_SQLITE=true');
         $useSqlite = true;
     }
@@ -165,8 +164,8 @@ function formatDuration($seconds) {
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold">Affected Area</label>
-                            <input type="text" name="area_affected" class="form-control form-control-sm" list="areaList" placeholder="Town, Node, etc.">
+                            <label class="form-label small fw-bold">Affected Areas (comma separated)</label>
+                            <input type="text" name="areas" class="form-control form-control-sm" list="areaList" placeholder="Town, Node, etc.">
                             <datalist id="areaList">
                                 <?php foreach ($allAreas as $a): ?>
                                     <option value="<?= htmlspecialchars($a['name']) ?>">
@@ -186,8 +185,8 @@ function formatDuration($seconds) {
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold">Tags</label>
-                            <input type="text" name="tags" class="form-control form-control-sm" list="tagList" placeholder="comma separated">
+                            <label class="form-label small fw-bold">Tags (comma separated)</label>
+                            <input type="text" name="tags" class="form-control form-control-sm" list="tagList">
                             <datalist id="tagList">
                                 <?php foreach ($allTags as $t): ?>
                                     <option value="<?= htmlspecialchars($t['name']) ?>">
@@ -240,14 +239,18 @@ function formatDuration($seconds) {
                                                     <span class="badge bg-dark me-1">Service: <?= htmlspecialchars($svc['name']) ?></span>
                                                 <?php endforeach; ?>
                                             </div>
+                                            <div class="mb-2">
+                                                <?php foreach ($e['areas'] as $area): ?>
+                                                    <span class="badge bg-success me-1">Area: <?= htmlspecialchars($area['name']) ?></span>
+                                                <?php endforeach; ?>
+                                            </div>
                                             <div>
                                                 <?php foreach ($e['tags'] as $tag): ?>
                                                     <span class="badge rounded-pill bg-light text-dark border tag-badge me-1">#<?= htmlspecialchars($tag['name']) ?></span>
                                                 <?php endforeach; ?>
                                             </div>
                                         </div>
-                                        <div class="col-md-4 border-start">
-                                            <div class="small"><strong>Area:</strong> <?= htmlspecialchars($e['area_affected'] ?? 'N/A') ?></div>
+                                        <div class="col-md-4 border-start text-end">
                                             <div class="small"><strong>Customers:</strong> <?= (int)$e['customers_affected'] ?></div>
                                             <div class="small"><strong>Impact Score:</strong> <span class="badge bg-danger"><?= (int)$e['impactScore'] ?></span></div>
                                         </div>
@@ -301,6 +304,12 @@ function formatDuration($seconds) {
                                                 <input type="text" name="tags" class="form-control form-control-sm" value="<?= htmlspecialchars(implode(',', array_column($e['tags'], 'name'))) ?>">
                                             </div>
                                             <div class="col-md-6">
+                                                <label class="small fw-bold">Update Areas</label>
+                                                <input type="text" name="areas" class="form-control form-control-sm" value="<?= htmlspecialchars(implode(',', array_column($e['areas'], 'name'))) ?>">
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-12">
                                                 <label class="small fw-bold">Update Services</label>
                                                 <select name="service_ids[]" class="form-select form-select-sm" multiple size="2">
                                                     <?php

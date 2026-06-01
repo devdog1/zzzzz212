@@ -41,8 +41,6 @@ CREATE TABLE IF NOT EXISTS `wb_events` (
     `update_user` TEXT,
     `department_id` INTEGER,
     `customers_affected` INTEGER DEFAULT 0,
-    `area_affected` TEXT,
-    `services_affected` TEXT,
     `description` TEXT,
     `state_id` INTEGER DEFAULT 0,
     `teams_message_Id` TEXT,
@@ -67,6 +65,14 @@ CREATE TABLE IF NOT EXISTS `event_tags` (
     PRIMARY KEY (`event_id`, `tag_id`),
     FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE,
     FOREIGN KEY (`tag_id`) REFERENCES `tag`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `event_areas` (
+    `event_id` INTEGER,
+    `area_id` INTEGER,
+    PRIMARY KEY (`event_id`, `area_id`),
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`area_id`) REFERENCES `area`(`id`) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS `event_updates` (

@@ -41,8 +41,6 @@ CREATE TABLE IF NOT EXISTS `wb_events` (
     `update_user` VARCHAR(255),
     `department_id` INT,
     `customers_affected` INT DEFAULT 0,
-    `area_affected` VARCHAR(255),
-    `services_affected` VARCHAR(255),
     `description` TEXT,
     `state_id` INT DEFAULT 0,
     `teams_message_Id` VARCHAR(255),
@@ -67,6 +65,14 @@ CREATE TABLE IF NOT EXISTS `event_tags` (
     PRIMARY KEY (`event_id`, `tag_id`),
     FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE,
     FOREIGN KEY (`tag_id`) REFERENCES `tag`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `event_areas` (
+    `event_id` INT,
+    `area_id` INT,
+    PRIMARY KEY (`event_id`, `area_id`),
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`area_id`) REFERENCES `area`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `event_updates` (

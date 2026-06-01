@@ -3,13 +3,12 @@
 require_once 'Database.php';
 
 class EventManager {
-    private $db;
+    public $db;
     private $currentUser;
 
     private $allowedEventFields = [
         'type_id', 'ticket_id', 'ticket_nr', 'department_id', 'customers_affected',
-        'services_affected', 'area_affected', 'description', 'state_id',
-        'teams_message_Id', 'impactScoreNotified', 'impactScore'
+        'description', 'state_id', 'teams_message_Id', 'impactScoreNotified', 'impactScore'
     ];
 
     private $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Mitigating', 'Reopened'];
@@ -58,7 +57,7 @@ class EventManager {
 
         $eventId = $this->db->lastInsertId();
 
-        // Handle Services (multi-select)
+        // Handle Services
         if (isset($data['service_ids']) && is_array($data['service_ids'])) {
             $this->updateEventServices($eventId, $data['service_ids']);
         }
@@ -69,9 +68,10 @@ class EventManager {
             $this->updateEventTags($eventId, $tagsArray);
         }
 
-        // Handle Area Affected (Suggestions)
-        if (isset($filteredData['area_affected']) && !empty($filteredData['area_affected'])) {
-            $this->ensureAreaExists($filteredData['area_affected']);
+        // Handle Areas
+        if (isset($data['areas']) && !empty($data['areas'])) {
+            $areasArray = is_array($data['areas']) ? $data['areas'] : explode(',', $data['areas']);
+            $this->updateEventAreas($eventId, $areasArray);
         }
 
         // Log initial state in history
@@ -132,19 +132,20 @@ class EventManager {
         }
 
         // Handle Services
-        if (isset($data['service_ids'])) {
+        if (!$isClosed && isset($data['service_ids'])) {
             $this->updateEventServices($eventId, (array)$data['service_ids']);
         }
 
         // Handle Tags
-        if (isset($data['tags'])) {
+        if (!$isClosed && isset($data['tags'])) {
             $tagsArray = is_array($data['tags']) ? $data['tags'] : explode(',', $data['tags']);
             $this->updateEventTags($eventId, $tagsArray);
         }
 
-        // Handle Area
-        if (isset($filteredData['area_affected']) && !empty($filteredData['area_affected'])) {
-            $this->ensureAreaExists($filteredData['area_affected']);
+        // Handle Areas
+        if (!$isClosed && isset($data['areas'])) {
+            $areasArray = is_array($data['areas']) ? $data['areas'] : explode(',', $data['areas']);
+            $this->updateEventAreas($eventId, $areasArray);
         }
 
         $newEvent = $this->getEvent($eventId);
@@ -175,6 +176,7 @@ class EventManager {
         if ($event) {
             $event['services'] = $this->getEventServices($eventId);
             $event['tags'] = $this->getEventTags($eventId);
+            $event['areas'] = $this->getEventAreas($eventId);
             $event['state_history'] = $this->getStateHistory($eventId);
         }
         return $event;
@@ -194,6 +196,7 @@ class EventManager {
         foreach ($events as &$e) {
             $e['services'] = $this->getEventServices($e['id']);
             $e['tags'] = $this->getEventTags($e['id']);
+            $e['areas'] = $this->getEventAreas($e['id']);
         }
         return $events;
     }
@@ -243,7 +246,7 @@ class EventManager {
             $tagName = trim($tagName);
             if (empty($tagName)) continue;
 
-            $tagId = $this->ensureTagExists($tagName);
+            $tagId = $this->ensureRefExists('tag', $tagName);
 
             $sql = (getenv('USE_SQLITE') === 'true')
                 ? "INSERT OR IGNORE INTO event_tags (event_id, tag_id) VALUES (?, ?)"
@@ -252,37 +255,98 @@ class EventManager {
         }
     }
 
-    private function ensureTagExists($name) {
-        $tag = $this->db->query("SELECT id FROM tag WHERE name = ?", [$name])->fetch();
-        if (!$tag) {
-            $this->createRef('tag', $name);
-            return $this->db->lastInsertId();
-        }
-        return $tag['id'];
-    }
-
     public function getEventTags($eventId) {
         return $this->db->query("SELECT t.* FROM tag t
                                  JOIN event_tags et ON t.id = et.tag_id
                                  WHERE et.event_id = ?", [$eventId])->fetchAll();
     }
 
-    public function listAllTags() {
-        return $this->listRef('tag');
-    }
-
     // --- Areas ---
 
-    private function ensureAreaExists($name) {
-        $area = $this->db->query("SELECT id FROM area WHERE name = ?", [$name])->fetch();
-        if (!$area) {
-            $this->createRef('area', $name);
+    public function updateEventAreas($eventId, $areas) {
+        $this->db->query("DELETE FROM event_areas WHERE event_id = ?", [$eventId]);
+        foreach ($areas as $areaName) {
+            $areaName = trim($areaName);
+            if (empty($areaName)) continue;
+
+            $areaId = $this->ensureRefExists('area', $areaName);
+
+            $sql = (getenv('USE_SQLITE') === 'true')
+                ? "INSERT OR IGNORE INTO event_areas (event_id, area_id) VALUES (?, ?)"
+                : "INSERT IGNORE INTO event_areas (event_id, area_id) VALUES (?, ?)";
+            $this->db->query($sql, [$eventId, $areaId]);
         }
     }
 
-    public function listAllAreas() {
-        return $this->listRef('area');
+    public function getEventAreas($eventId) {
+        return $this->db->query("SELECT a.* FROM area a
+                                 JOIN event_areas ea ON a.id = ea.area_id
+                                 WHERE ea.event_id = ?", [$eventId])->fetchAll();
     }
+
+    // --- Generic Helpers ---
+
+    private function ensureRefExists($table, $name) {
+        $stmt = $this->db->query("SELECT id FROM `$table` WHERE name = ?", [$name]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            return $this->createRef($table, $name);
+        }
+        return $row['id'];
+    }
+
+    private function createRef($table, $name) {
+        $sql = "INSERT INTO `$table` (name) VALUES (?)";
+        $this->db->query($sql, [$name]);
+        $id = $this->db->lastInsertId();
+        $this->logAudit($table, $id, 'CREATE', null, ['name' => $name]);
+        return $id;
+    }
+
+    private function updateRef($table, $id, $name) {
+        $stmt = $this->db->query("SELECT * FROM `$table` WHERE id = ?", [$id]);
+        $oldRow = $stmt->fetch();
+        $sql = "UPDATE `$table` SET name = ? WHERE id = ?";
+        $this->db->query($sql, [$name, $id]);
+        $this->logAudit($table, $id, 'UPDATE', $oldRow, ['name' => $name]);
+        return true;
+    }
+
+    private function deleteRef($table, $id) {
+        $stmt = $this->db->query("SELECT * FROM `$table` WHERE id = ?", [$id]);
+        $oldRow = $stmt->fetch();
+        $sql = "DELETE FROM `$table` WHERE id = ?";
+        $this->db->query($sql, [$id]);
+        $this->logAudit($table, $id, 'DELETE', $oldRow, null);
+        return true;
+    }
+
+    private function listRef($table) {
+        return $this->db->query("SELECT * FROM `$table` ORDER BY name ASC")->fetchAll();
+    }
+
+    public function listDepartments() { return $this->listRef('department'); }
+    public function createDepartment($name) { return $this->createRef('department', $name); }
+    public function updateDepartment($id, $name) { return $this->updateRef('department', $id, $name); }
+    public function deleteDepartment($id) { return $this->deleteRef('department', $id); }
+
+    public function listTypes() { return $this->listRef('type'); }
+    public function createType($name) { return $this->createRef('type', $name); }
+    public function updateType($id, $name) { return $this->updateRef('type', $id, $name); }
+    public function deleteType($id) { return $this->deleteRef('type', $id); }
+
+    public function listStates() { return $this->listRef('state'); }
+    public function createState($name) { return $this->createRef('state', $name); }
+    public function updateState($id, $name) { return $this->updateRef('state', $id, $name); }
+    public function deleteState($id) { return $this->deleteRef('state', $id); }
+
+    public function listServices() { return $this->listRef('service'); }
+    public function createService($name) { return $this->createRef('service', $name); }
+    public function updateService($id, $name) { return $this->updateRef('service', $id, $name); }
+    public function deleteService($id) { return $this->deleteRef('service', $id); }
+
+    public function listAllTags() { return $this->listRef('tag'); }
+    public function listAllAreas() { return $this->listRef('area'); }
 
     // --- Event Updates ---
 
@@ -310,36 +374,6 @@ class EventManager {
         $stmt = $this->db->query("SELECT * FROM event_updates WHERE event_id = ? ORDER BY create_time DESC", [$eventId]);
         return $stmt->fetchAll();
     }
-
-    // --- Generic CRUD for reference tables ---
-
-    private function createRef($table, $name) {
-        $sql = "INSERT INTO `$table` (name) VALUES (?)";
-        $this->db->query($sql, [$name]);
-        $id = $this->db->lastInsertId();
-        $this->logAudit($table, $id, 'CREATE', null, ['name' => $name]);
-        return $id;
-    }
-
-    private function listRef($table) {
-        return $this->db->query("SELECT * FROM `$table` ORDER BY name ASC")->fetchAll();
-    }
-
-    // Department
-    public function createDepartment($name) { return $this->createRef('department', $name); }
-    public function listDepartments() { return $this->listRef('department'); }
-
-    // Type
-    public function createType($name) { return $this->createRef('type', $name); }
-    public function listTypes() { return $this->listRef('type'); }
-
-    // State
-    public function createState($name) { return $this->createRef('state', $name); }
-    public function listStates() { return $this->listRef('state'); }
-
-    // Service
-    public function createService($name) { return $this->createRef('service', $name); }
-    public function listServices() { return $this->listRef('service'); }
 
     // --- Audit Log Retrieval ---
 

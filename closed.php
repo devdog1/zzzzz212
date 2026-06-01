@@ -3,26 +3,35 @@ $docRoot = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__, '/\\');
 
 $configPath = $docRoot . '/inc/config.php';
 $hasConfig = file_exists($configPath);
+$config = [];
 if ($hasConfig) {
-    require_once $configPath;
+    require $configPath;
 }
 
-// Logic to force SQLite ONLY if MySQL config is missing
+// Logic to force SQLite ONLY if MySQL config is missing or invalid
 $useSqlite = !isset($config['db']['events']['dbhost']) || empty($config['db']['events']['dbhost']);
 if ($useSqlite) {
     putenv('USE_SQLITE=true');
 }
 
+require_once $docRoot . '/Database.php';
+require_once $docRoot . '/EventManager.php';
 require_once $docRoot . '/classes/AzureADSSO.php';
 require_once $docRoot . '/classes/Auth.php';
-require_once $docRoot . '/EventManager.php';
 
 $currentUser = 'Demo User';
-if (!$useSqlite && $hasConfig) {
-    $auth = new Auth($config);
-    $auth->requireLogin();
-    $currentUser = $auth->user()['name'] ?? 'Unknown User';
-} else {
+if (!$useSqlite) {
+    try {
+        $auth = new Auth($config);
+        $auth->requireLogin();
+        $currentUser = $auth->user()['name'] ?? 'Unknown User';
+    } catch (PDOException $e) {
+        putenv('USE_SQLITE=true');
+        $useSqlite = true;
+    }
+}
+
+if ($useSqlite) {
     if (session_status() === PHP_SESSION_NONE) session_start();
     $_SESSION['user_id'] = 1;
     $_SESSION['user'] = ['name' => 'Demo User'];
@@ -77,14 +86,13 @@ function formatDuration($seconds) {
         <div class="alert alert-secondary">No closed incidents found in the archive.</div>
     <?php else: ?>
         <div class="table-responsive">
-            <table class="table table-hover bg-white shadow-sm rounded border">
+            <table class="table table-hover bg-white shadow-sm rounded border text-center">
                 <thead class="table-light">
                     <tr>
                         <th>ID</th>
                         <th>Resolution Time</th>
                         <th>Type</th>
                         <th>Dept</th>
-                        <th>Description</th>
                         <th>Impact Score</th>
                         <th>Action</th>
                     </tr>
@@ -99,7 +107,6 @@ function formatDuration($seconds) {
                             <td><small><?= $lastState['enter_time'] ?? $e['update_time'] ?></small></td>
                             <td><span class="badge bg-info text-dark"><?= htmlspecialchars($e['type_name']) ?></span></td>
                             <td><?= htmlspecialchars($e['department_name']) ?></td>
-                            <td><?= htmlspecialchars(substr($e['description'], 0, 50)) ?>...</td>
                             <td><span class="badge bg-danger"><?= (int)$e['impactScore'] ?></span></td>
                             <td>
                                 <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-<?= $e['id'] ?>">View Details</button>
@@ -109,7 +116,7 @@ function formatDuration($seconds) {
                         <!-- Details Modal -->
                         <div class="modal fade" id="modal-<?= $e['id'] ?>" tabindex="-1">
                             <div class="modal-dialog modal-lg">
-                                <div class="modal-content">
+                                <div class="modal-content text-start">
                                     <div class="modal-header border-0 bg-dark text-white">
                                         <h5 class="modal-title">Incident #<?= $e['id'] ?> Details</h5>
                                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -119,13 +126,27 @@ function formatDuration($seconds) {
                                         <p class="fw-bold"><?= nl2br(htmlspecialchars($e['description'])) ?></p>
                                         <hr>
                                         <div class="row mb-3">
-                                            <div class="col-md-6">
-                                                <small><strong>Area:</strong> <?= htmlspecialchars($e['area_affected'] ?? 'N/A') ?></small><br>
-                                                <small><strong>Customers:</strong> <?= (int)$e['customers_affected'] ?></small>
+                                            <div class="col-md-6 border-end">
+                                                <h6>Geography & Impact</h6>
+                                                <div class="mb-2">
+                                                    <strong>Areas:</strong>
+                                                    <?php foreach ($e['areas'] as $area): ?>
+                                                        <span class="badge bg-success small"><?= htmlspecialchars($area['name']) ?></span>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                                <div class="small"><strong>Customers Affected:</strong> <?= (int)$e['customers_affected'] ?></div>
+                                                <div class="small"><strong>Impact Score:</strong> <span class="badge bg-danger"><?= (int)$e['impactScore'] ?></span></div>
                                             </div>
-                                            <div class="col-md-6">
-                                                <small><strong>Impact Score:</strong> <?= (int)$e['impactScore'] ?></small><br>
-                                                <small><strong>Final State:</strong> Closed</small>
+                                            <div class="col-md-6 ps-4">
+                                                <h6>Metadata</h6>
+                                                <div class="small"><strong>Type:</strong> <?= htmlspecialchars($e['type_name']) ?></div>
+                                                <div class="small"><strong>Dept:</strong> <?= htmlspecialchars($e['department_name']) ?></div>
+                                                <div class="mt-2">
+                                                    <strong>Services:</strong><br>
+                                                    <?php foreach ($e['services'] as $svc): ?>
+                                                        <span class="badge bg-dark small"><?= htmlspecialchars($svc['name']) ?></span>
+                                                    <?php endforeach; ?>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -143,7 +164,7 @@ function formatDuration($seconds) {
                                             <?php endforeach; ?>
                                         </div>
 
-                                        <h6>Updates</h6>
+                                        <h6>Timeline Updates</h6>
                                         <div class="update-list shadow-none">
                                             <?php
                                             $updates = $em->getEventUpdates($e['id']);
