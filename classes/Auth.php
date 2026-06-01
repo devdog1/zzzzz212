@@ -44,14 +44,6 @@ class Auth
 
     private function initDb(array $config): PDO
     {
-        // Environment check for SQLite fallback in demo
-        if (getenv('USE_SQLITE') === 'true') {
-            return new PDO("sqlite:event_mgmt.sqlite", null, null, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-            ]);
-        }
-
         $dsn = sprintf(
             "mysql:host=%s;dbname=%s;charset=utf8mb4",
             $config['db']['local']['dbhost'],

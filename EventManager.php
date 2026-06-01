@@ -71,7 +71,20 @@ class EventManager {
         return $eventId;
     }
 
+    private function isEventClosed($eventId) {
+        $stmt = $this->db->query("SELECT s.name FROM wb_events e JOIN state s ON e.state_id = s.id WHERE e.id = ?", [$eventId]);
+        $res = $stmt->fetch();
+        return ($res && strtolower($res['name']) === 'closed');
+    }
+
     public function updateEvent($eventId, $data) {
+        $isClosed = $this->isEventClosed($eventId);
+
+        // If closed, only allow state transition (to re-open)
+        if ($isClosed && !isset($data['state_id'])) {
+            return false;
+        }
+
         $oldEvent = $this->getEvent($eventId);
         if (!$oldEvent) return false;
 
@@ -97,13 +110,13 @@ class EventManager {
             $this->db->query($sql, $values);
         }
 
-        // Handle Services
-        if (isset($data['service_ids'])) {
+        // Handle Services - allow clearing if explicitly passed or if not closed
+        if (!$isClosed && isset($data['service_ids'])) {
             $this->updateEventServices($eventId, (array)$data['service_ids']);
         }
 
-        // Handle Tags
-        if (isset($data['tags'])) {
+        // Handle Tags - allow clearing if explicitly passed or if not closed
+        if (!$isClosed && isset($data['tags'])) {
             $tagsArray = is_array($data['tags']) ? $data['tags'] : explode(',', $data['tags']);
             $this->updateEventTags($eventId, $tagsArray);
         }
@@ -165,6 +178,7 @@ class EventManager {
     public function updateEventServices($eventId, $serviceIds) {
         $this->db->query("DELETE FROM event_services WHERE event_id = ?", [$eventId]);
         foreach ($serviceIds as $sid) {
+            if (empty($sid)) continue;
             $this->db->query("INSERT INTO event_services (event_id, service_id) VALUES (?, ?)", [$eventId, $sid]);
         }
     }
@@ -206,6 +220,10 @@ class EventManager {
     // --- Event Updates ---
 
     public function addEventUpdate($eventId, $updateText) {
+        if ($this->isEventClosed($eventId)) {
+            return false;
+        }
+
         $data = [
             'event_id' => $eventId,
             'update_text' => $updateText,

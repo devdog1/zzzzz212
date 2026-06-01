@@ -4,9 +4,10 @@ class Database {
     private $pdo;
 
     public function __construct() {
-        // Check if we are in a testing environment or if MySQL is unavailable
+        // Environment check for SQLite fallback (useful for testing/demo)
         if (getenv('USE_SQLITE') === 'true') {
-            $this->pdo = new PDO("sqlite:event_mgmt.sqlite");
+            $dbFile = (getenv('DOCUMENT_ROOT') ?: __DIR__) . '/event_mgmt.sqlite';
+            $this->pdo = new PDO("sqlite:$dbFile");
             $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
             return;
