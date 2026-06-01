@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS `tag` (
     `name` TEXT NOT NULL UNIQUE
 );
 
+CREATE TABLE IF NOT EXISTS `area` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `name` TEXT NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS `wb_events` (
     `id` INTEGER PRIMARY KEY AUTOINCREMENT,
     `type_id` INTEGER,
@@ -35,9 +40,9 @@ CREATE TABLE IF NOT EXISTS `wb_events` (
     `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `update_user` TEXT,
     `department_id` INTEGER,
-    `customers_affected` INTEGER,
-    `services_affected` TEXT,
+    `customers_affected` INTEGER DEFAULT 0,
     `area_affected` TEXT,
+    `services_affected` TEXT,
     `description` TEXT,
     `state_id` INTEGER DEFAULT 0,
     `teams_message_Id` TEXT,

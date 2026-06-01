@@ -12,6 +12,8 @@ class EventManager {
         'teams_message_Id', 'impactScoreNotified', 'impactScore'
     ];
 
+    private $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Mitigating', 'Reopened'];
+
     public function __construct($currentUser = 'system') {
         $this->db = new Database();
         $this->currentUser = $currentUser;
@@ -42,6 +44,12 @@ class EventManager {
         $filteredData = array_intersect_key($data, array_flip($this->allowedEventFields));
         $filteredData['create_user'] = $this->currentUser;
 
+        // Default to 'Identified' state if not provided
+        if (!isset($filteredData['state_id']) || empty($filteredData['state_id'])) {
+            $state = $this->db->query("SELECT id FROM state WHERE name = 'Identified'")->fetch();
+            if ($state) $filteredData['state_id'] = $state['id'];
+        }
+
         $fields = array_keys($filteredData);
         $placeholders = array_fill(0, count($fields), '?');
 
@@ -59,6 +67,11 @@ class EventManager {
         if (isset($data['tags']) && !empty($data['tags'])) {
             $tagsArray = is_array($data['tags']) ? $data['tags'] : explode(',', $data['tags']);
             $this->updateEventTags($eventId, $tagsArray);
+        }
+
+        // Handle Area Affected (Suggestions)
+        if (isset($filteredData['area_affected']) && !empty($filteredData['area_affected'])) {
+            $this->ensureAreaExists($filteredData['area_affected']);
         }
 
         // Log initial state in history
@@ -95,6 +108,14 @@ class EventManager {
         if (isset($filteredData['state_id']) && $filteredData['state_id'] != $oldEvent['state_id']) {
             $this->closeLastStateHistory($eventId);
             $this->logStateTransition($eventId, $filteredData['state_id']);
+
+            // Recalculate impact score on every state transition
+            $filteredData['impactScore'] = $this->calculateImpactScore($eventId, $filteredData['customers_affected'] ?? $oldEvent['customers_affected']);
+        }
+
+        // Recalculate impact if customers affected changed
+        if (isset($filteredData['customers_affected']) && $filteredData['customers_affected'] != $oldEvent['customers_affected']) {
+             $filteredData['impactScore'] = $this->calculateImpactScore($eventId, $filteredData['customers_affected']);
         }
 
         if (!empty($filteredData)) {
@@ -110,21 +131,42 @@ class EventManager {
             $this->db->query($sql, $values);
         }
 
-        // Handle Services - allow clearing if explicitly passed or if not closed
-        if (!$isClosed && isset($data['service_ids'])) {
+        // Handle Services
+        if (isset($data['service_ids'])) {
             $this->updateEventServices($eventId, (array)$data['service_ids']);
         }
 
-        // Handle Tags - allow clearing if explicitly passed or if not closed
-        if (!$isClosed && isset($data['tags'])) {
+        // Handle Tags
+        if (isset($data['tags'])) {
             $tagsArray = is_array($data['tags']) ? $data['tags'] : explode(',', $data['tags']);
             $this->updateEventTags($eventId, $tagsArray);
+        }
+
+        // Handle Area
+        if (isset($filteredData['area_affected']) && !empty($filteredData['area_affected'])) {
+            $this->ensureAreaExists($filteredData['area_affected']);
         }
 
         $newEvent = $this->getEvent($eventId);
         $this->logAudit('wb_events', $eventId, 'UPDATE', $oldEvent, $newEvent);
 
         return true;
+    }
+
+    public function calculateImpactScore($eventId, $customers) {
+        $history = $this->getStateHistory($eventId);
+        $totalOutageSeconds = 0;
+
+        foreach ($history as $h) {
+            if (in_array(ucfirst(strtolower($h['state_name'])), $this->outageStates)) {
+                $enter = strtotime($h['enter_time']);
+                $exit = $h['exit_time'] ? strtotime($h['exit_time']) : time();
+                $totalOutageSeconds += ($exit - $enter);
+            }
+        }
+
+        $outageHours = $totalOutageSeconds / 3600;
+        return round($outageHours * (int)$customers);
     }
 
     public function getEvent($eventId) {
@@ -138,13 +180,17 @@ class EventManager {
         return $event;
     }
 
-    public function listEvents() {
-        $events = $this->db->query("SELECT e.*, t.name as type_name, d.name as department_name, s.name as state_name
-                                 FROM wb_events e
-                                 LEFT JOIN type t ON e.type_id = t.id
-                                 LEFT JOIN department d ON e.department_id = d.id
-                                 LEFT JOIN state s ON e.state_id = s.id
-                                 ORDER BY e.create_time DESC")->fetchAll();
+    public function listEvents($includeClosed = false) {
+        $where = $includeClosed ? "" : "WHERE s.name != 'Closed'";
+        $sql = "SELECT e.*, t.name as type_name, d.name as department_name, s.name as state_name
+                FROM wb_events e
+                LEFT JOIN type t ON e.type_id = t.id
+                LEFT JOIN department d ON e.department_id = d.id
+                LEFT JOIN state s ON e.state_id = s.id
+                $where
+                ORDER BY e.create_time DESC";
+
+        $events = $this->db->query($sql)->fetchAll();
         foreach ($events as &$e) {
             $e['services'] = $this->getEventServices($e['id']);
             $e['tags'] = $this->getEventTags($e['id']);
@@ -197,13 +243,8 @@ class EventManager {
             $tagName = trim($tagName);
             if (empty($tagName)) continue;
 
-            // Get or create tag
-            $tag = $this->db->query("SELECT id FROM tag WHERE name = ?", [$tagName])->fetch();
-            if (!$tag) {
-                $tagId = $this->createRef('tag', $tagName);
-            } else {
-                $tagId = $tag['id'];
-            }
+            $tagId = $this->ensureTagExists($tagName);
+
             $sql = (getenv('USE_SQLITE') === 'true')
                 ? "INSERT OR IGNORE INTO event_tags (event_id, tag_id) VALUES (?, ?)"
                 : "INSERT IGNORE INTO event_tags (event_id, tag_id) VALUES (?, ?)";
@@ -211,10 +252,36 @@ class EventManager {
         }
     }
 
+    private function ensureTagExists($name) {
+        $tag = $this->db->query("SELECT id FROM tag WHERE name = ?", [$name])->fetch();
+        if (!$tag) {
+            $this->createRef('tag', $name);
+            return $this->db->lastInsertId();
+        }
+        return $tag['id'];
+    }
+
     public function getEventTags($eventId) {
         return $this->db->query("SELECT t.* FROM tag t
                                  JOIN event_tags et ON t.id = et.tag_id
                                  WHERE et.event_id = ?", [$eventId])->fetchAll();
+    }
+
+    public function listAllTags() {
+        return $this->listRef('tag');
+    }
+
+    // --- Areas ---
+
+    private function ensureAreaExists($name) {
+        $area = $this->db->query("SELECT id FROM area WHERE name = ?", [$name])->fetch();
+        if (!$area) {
+            $this->createRef('area', $name);
+        }
+    }
+
+    public function listAllAreas() {
+        return $this->listRef('area');
     }
 
     // --- Event Updates ---
@@ -254,36 +321,12 @@ class EventManager {
         return $id;
     }
 
-    private function updateRef($table, $id, $name) {
-        $old = $this->getRef($table, $id);
-        $sql = "UPDATE `$table` SET name = ? WHERE id = ?";
-        $this->db->query($sql, [$name, $id]);
-        $this->logAudit($table, $id, 'UPDATE', $old, ['name' => $name]);
-        return true;
-    }
-
-    private function deleteRef($table, $id) {
-        $old = $this->getRef($table, $id);
-        $sql = "DELETE FROM `$table` WHERE id = ?";
-        $this->db->query($sql, [$id]);
-        $this->logAudit($table, $id, 'DELETE', $old, null);
-        return true;
-    }
-
-    private function getRef($table, $id) {
-        $stmt = $this->db->query("SELECT * FROM `$table` WHERE id = ?", [$id]);
-        return $stmt->fetch();
-    }
-
     private function listRef($table) {
         return $this->db->query("SELECT * FROM `$table` ORDER BY name ASC")->fetchAll();
     }
 
     // Department
     public function createDepartment($name) { return $this->createRef('department', $name); }
-    public function updateDepartment($id, $name) { return $this->updateRef('department', $id, $name); }
-    public function deleteDepartment($id) { return $this->deleteRef('department', $id); }
-    public function getDepartment($id) { return $this->getRef('department', $id); }
     public function listDepartments() { return $this->listRef('department'); }
 
     // Type

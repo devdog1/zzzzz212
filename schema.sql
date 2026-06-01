@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS `tag` (
     `name` VARCHAR(255) NOT NULL UNIQUE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS `area` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(255) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS `wb_events` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `type_id` INT,
@@ -35,9 +40,9 @@ CREATE TABLE IF NOT EXISTS `wb_events` (
     `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `update_user` VARCHAR(255),
     `department_id` INT,
-    `customers_affected` INT,
-    `services_affected` VARCHAR(255),
+    `customers_affected` INT DEFAULT 0,
     `area_affected` VARCHAR(255),
+    `services_affected` VARCHAR(255),
     `description` TEXT,
     `state_id` INT DEFAULT 0,
     `teams_message_Id` VARCHAR(255),
