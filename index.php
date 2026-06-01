@@ -10,9 +10,13 @@ if (!file_exists('event_mgmt.sqlite')) {
 
     // Seed some data
     $em = new EventManager();
-    $em->createDepartment('IT');
+    $em->createDepartment('IT Support');
+    $em->createDepartment('Facilities');
     $em->createType('Hardware');
-    $em->createState('Open');
+    $em->createType('Software');
+    $em->createState('Active');
+    $em->createState('Resolved');
+    $em->createState('Closed');
 }
 
 $em = new EventManager('web_user');
@@ -38,93 +42,125 @@ $states = $em->listStates();
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Event Management System</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; margin: 20px; line-height: 1.6; }
-        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        th { background: #f4f4f4; }
-        .form-section { background: #f9f9f9; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px; }
-        .update-list { font-size: 0.9em; color: #555; }
+        body { background-color: #f8f9fa; }
+        .update-entry { border-left: 3px solid #0d6efd; padding-left: 10px; margin-bottom: 8px; }
+        .update-time { font-size: 0.75rem; color: #6c757d; }
     </style>
 </head>
 <body>
-    <h1>Event Management System</h1>
 
-    <div class="form-section">
-        <h2>Create New Event</h2>
-        <form method="POST">
-            <input type="hidden" name="action" value="create_event">
-            <div>
-                <label>Description:</label><br>
-                <textarea name="description" required></textarea>
-            </div>
-            <div>
-                <label>Department:</label>
-                <select name="department_id">
-                    <?php foreach ($departments as $d): ?>
-                        <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <label>Type:</label>
-                <select name="type_id">
-                    <?php foreach ($types as $t): ?>
-                        <option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <label>State:</label>
-                <select name="state_id">
-                    <?php foreach ($states as $s): ?>
-                        <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div style="margin-top: 10px;">
-                <button type="submit">Create Event</button>
-            </div>
-        </form>
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container">
+        <span class="navbar-brand mb-0 h1">Incident Manager</span>
     </div>
+</nav>
 
-    <h2>Events</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Time</th>
-                <th>Type</th>
-                <th>Dept</th>
-                <th>Description</th>
-                <th>State</th>
-                <th>Updates</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($events as $e): ?>
-                <tr>
-                    <td><?= $e['id'] ?></td>
-                    <td><?= $e['create_time'] ?></td>
-                    <td><?= htmlspecialchars($e['type_name']) ?></td>
-                    <td><?= htmlspecialchars($e['department_name']) ?></td>
-                    <td><?= htmlspecialchars($e['description']) ?></td>
-                    <td><?= htmlspecialchars($e['state_name']) ?></td>
-                    <td>
-                        <div class="update-list">
-                            <?php
-                            $updates = $em->getEventUpdates($e['id']);
-                            foreach ($updates as $u): ?>
-                                <div>[<?= $u['create_time'] ?>] <?= htmlspecialchars($u['update_text']) ?></div>
-                            <?php endforeach; ?>
+<div class="container">
+    <div class="row">
+        <!-- Event Creation Form -->
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">New Incident</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="action" value="create_event">
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" class="form-control" rows="3" required placeholder="Describe the incident..."></textarea>
                         </div>
-                        <form method="POST" style="margin-top:5px;">
-                            <input type="hidden" name="action" value="add_update">
-                            <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
-                            <input type="text" name="update_text" placeholder="Add update..." required>
-                            <button type="submit">Add</button>
-                        </form>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+                        <div class="mb-3">
+                            <label class="form-label">Department</label>
+                            <select name="department_id" class="form-select">
+                                <?php foreach ($departments as $d): ?>
+                                    <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Type</label>
+                            <select name="type_id" class="form-select">
+                                <?php foreach ($types as $t): ?>
+                                    <option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Initial State</label>
+                            <select name="state_id" class="form-select">
+                                <?php foreach ($states as $s): ?>
+                                    <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Report Incident</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event List -->
+        <div class="col-md-8">
+            <h2 class="mb-3">Active Incidents</h2>
+            <?php if (empty($events)): ?>
+                <div class="alert alert-info">No incidents reported yet.</div>
+            <?php else: ?>
+                <?php foreach ($events as $e): ?>
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>
+                                <span class="badge bg-secondary me-2">ID: <?= $e['id'] ?></span>
+                                <span class="badge bg-info text-dark"><?= htmlspecialchars($e['type_name']) ?></span>
+                                <span class="badge bg-warning text-dark ms-2"><?= htmlspecialchars($e['state_name']) ?></span>
+                            </span>
+                            <small class="text-muted"><?= $e['create_time'] ?></small>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted"><?= htmlspecialchars($e['department_name']) ?></h6>
+                            <p class="card-text fw-bold"><?= nl2br(htmlspecialchars($e['description'])) ?></p>
+
+                            <hr>
+                            <h6>Timeline Updates</h6>
+                            <div class="update-list mb-3">
+                                <?php
+                                $updates = $em->getEventUpdates($e['id']);
+                                if (empty($updates)): ?>
+                                    <small class="text-muted">No updates yet.</small>
+                                <?php else: ?>
+                                    <?php foreach ($updates as $u): ?>
+                                        <div class="update-entry">
+                                            <div class="update-time"><?= $u['create_time'] ?> by <?= htmlspecialchars($u['create_user']) ?></div>
+                                            <div><?= htmlspecialchars($u['update_text']) ?></div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+
+                            <form method="POST" class="row g-2">
+                                <input type="hidden" name="action" value="add_update">
+                                <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
+                                <div class="col">
+                                    <input type="text" name="update_text" class="form-control form-control-sm" placeholder="New update message..." required>
+                                </div>
+                                <div class="col-auto">
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">Add Update</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap 5 JS Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
