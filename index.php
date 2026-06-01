@@ -1,5 +1,7 @@
 <?php
-require_once 'inc/config.php';
+$docRoot = rtrim($_SERVER['DOCUMENT_ROOT'], '/\\');
+
+require_once $docRoot . '/inc/config.php';
 // Mock session for demo environment
 if (getenv('USE_SQLITE') === 'true') {
     if (session_status() === PHP_SESSION_NONE) {
@@ -11,9 +13,9 @@ if (getenv('USE_SQLITE') === 'true') {
     }
 }
 
-require_once 'classes/AzureADSSO.php';
-require_once 'classes/Auth.php';
-require_once 'EventManager.php';
+require_once $docRoot . '/classes/AzureADSSO.php';
+require_once $docRoot . '/classes/Auth.php';
+require_once $docRoot . '/EventManager.php';
 
 // Initialize Authentication
 $auth = new Auth($config);
@@ -27,9 +29,9 @@ $currentUser = $auth->user()['name'] ?? 'Demo User';
 
 // Force SQLite for this demo environment
 putenv('USE_SQLITE=true');
-if (!file_exists('event_mgmt.sqlite') || filesize('event_mgmt.sqlite') < 1000) {
-    $db = new PDO("sqlite:event_mgmt.sqlite");
-    $sql = file_get_contents('schema_sqlite.sql');
+if (!file_exists($docRoot . '/event_mgmt.sqlite') || filesize($docRoot . '/event_mgmt.sqlite') < 1000) {
+    $db = new PDO("sqlite:" . $docRoot . "/event_mgmt.sqlite");
+    $sql = file_get_contents($docRoot . '/schema_sqlite.sql');
     $db->exec($sql);
 
     // Seed data

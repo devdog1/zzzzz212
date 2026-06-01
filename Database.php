@@ -12,8 +12,10 @@ class Database {
             return;
         }
 
-        // Load configuration
-        $configPath = __DIR__ . '/inc/config.php';
+        // Load configuration using DOCUMENT_ROOT
+        $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? __DIR__;
+        $configPath = rtrim($docRoot, '/\\') . '/inc/config.php';
+
         if (file_exists($configPath)) {
             require $configPath;
         } else {
