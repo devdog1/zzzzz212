@@ -15,6 +15,16 @@ CREATE TABLE IF NOT EXISTS `state` (
     `name` VARCHAR(255) NOT NULL UNIQUE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS `service` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(255) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `tag` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(255) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS `wb_events` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `type_id` INT,
@@ -30,13 +40,28 @@ CREATE TABLE IF NOT EXISTS `wb_events` (
     `area_affected` VARCHAR(255),
     `description` TEXT,
     `state_id` INT DEFAULT 0,
-    `parent_service` VARCHAR(255),
     `teams_message_Id` VARCHAR(255),
     `impactScoreNotified` INT DEFAULT 0,
     `impactScore` INT DEFAULT 0,
     FOREIGN KEY (`type_id`) REFERENCES `type`(`id`),
     FOREIGN KEY (`department_id`) REFERENCES `department`(`id`),
     FOREIGN KEY (`state_id`) REFERENCES `state`(`id`)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `event_services` (
+    `event_id` INT,
+    `service_id` INT,
+    PRIMARY KEY (`event_id`, `service_id`),
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`service_id`) REFERENCES `service`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `event_tags` (
+    `event_id` INT,
+    `tag_id` INT,
+    PRIMARY KEY (`event_id`, `tag_id`),
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`tag_id`) REFERENCES `tag`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `event_updates` (
@@ -46,6 +71,17 @@ CREATE TABLE IF NOT EXISTS `event_updates` (
     `create_user` VARCHAR(255),
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `event_state_history` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `event_id` INT NOT NULL,
+    `state_id` INT NOT NULL,
+    `enter_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `exit_time` DATETIME NULL,
+    `user` VARCHAR(255),
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`state_id`) REFERENCES `state`(`id`)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `audit_log` (

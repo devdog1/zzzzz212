@@ -15,6 +15,16 @@ CREATE TABLE IF NOT EXISTS `state` (
     `name` TEXT NOT NULL UNIQUE
 );
 
+CREATE TABLE IF NOT EXISTS `service` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `name` TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS `tag` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `name` TEXT NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS `wb_events` (
     `id` INTEGER PRIMARY KEY AUTOINCREMENT,
     `type_id` INTEGER,
@@ -30,13 +40,28 @@ CREATE TABLE IF NOT EXISTS `wb_events` (
     `area_affected` TEXT,
     `description` TEXT,
     `state_id` INTEGER DEFAULT 0,
-    `parent_service` TEXT,
     `teams_message_Id` TEXT,
     `impactScoreNotified` INTEGER DEFAULT 0,
     `impactScore` INTEGER DEFAULT 0,
     FOREIGN KEY (`type_id`) REFERENCES `type`(`id`),
     FOREIGN KEY (`department_id`) REFERENCES `department`(`id`),
     FOREIGN KEY (`state_id`) REFERENCES `state`(`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `event_services` (
+    `event_id` INTEGER,
+    `service_id` INTEGER,
+    PRIMARY KEY (`event_id`, `service_id`),
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`service_id`) REFERENCES `service`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `event_tags` (
+    `event_id` INTEGER,
+    `tag_id` INTEGER,
+    PRIMARY KEY (`event_id`, `tag_id`),
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`tag_id`) REFERENCES `tag`(`id`) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS `event_updates` (
@@ -46,6 +71,17 @@ CREATE TABLE IF NOT EXISTS `event_updates` (
     `create_user` TEXT,
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `event_state_history` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `event_id` INTEGER NOT NULL,
+    `state_id` INTEGER NOT NULL,
+    `enter_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `exit_time` DATETIME NULL,
+    `user` TEXT,
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`state_id`) REFERENCES `state`(`id`)
 );
 
 CREATE TABLE IF NOT EXISTS `audit_log` (

@@ -9,7 +9,7 @@ class EventManager {
     private $allowedEventFields = [
         'type_id', 'ticket_id', 'ticket_nr', 'department_id', 'customers_affected',
         'services_affected', 'area_affected', 'description', 'state_id',
-        'parent_service', 'teams_message_Id', 'impactScoreNotified', 'impactScore'
+        'teams_message_Id', 'impactScoreNotified', 'impactScore'
     ];
 
     public function __construct($currentUser = 'system') {
@@ -49,6 +49,23 @@ class EventManager {
         $this->db->query($sql, array_values($filteredData));
 
         $eventId = $this->db->lastInsertId();
+
+        // Handle Services (multi-select)
+        if (isset($data['service_ids']) && is_array($data['service_ids'])) {
+            $this->updateEventServices($eventId, $data['service_ids']);
+        }
+
+        // Handle Tags
+        if (isset($data['tags']) && !empty($data['tags'])) {
+            $tagsArray = is_array($data['tags']) ? $data['tags'] : explode(',', $data['tags']);
+            $this->updateEventTags($eventId, $tagsArray);
+        }
+
+        // Log initial state in history
+        if (isset($filteredData['state_id'])) {
+            $this->logStateTransition($eventId, $filteredData['state_id']);
+        }
+
         $this->logAudit('wb_events', $eventId, 'CREATE', null, $filteredData);
 
         return $eventId;
@@ -61,18 +78,35 @@ class EventManager {
         $filteredData = array_intersect_key($data, array_flip($this->allowedEventFields));
         $filteredData['update_user'] = $this->currentUser;
 
-        if (empty($filteredData)) return false;
-
-        $fields = [];
-        $values = [];
-        foreach ($filteredData as $key => $value) {
-            $fields[] = "$key = ?";
-            $values[] = $value;
+        // Handle State Transition
+        if (isset($filteredData['state_id']) && $filteredData['state_id'] != $oldEvent['state_id']) {
+            $this->closeLastStateHistory($eventId);
+            $this->logStateTransition($eventId, $filteredData['state_id']);
         }
-        $values[] = $eventId;
 
-        $sql = "UPDATE wb_events SET " . implode(', ', $fields) . " WHERE id = ?";
-        $this->db->query($sql, $values);
+        if (!empty($filteredData)) {
+            $fields = [];
+            $values = [];
+            foreach ($filteredData as $key => $value) {
+                $fields[] = "$key = ?";
+                $values[] = $value;
+            }
+            $values[] = $eventId;
+
+            $sql = "UPDATE wb_events SET " . implode(', ', $fields) . " WHERE id = ?";
+            $this->db->query($sql, $values);
+        }
+
+        // Handle Services
+        if (isset($data['service_ids'])) {
+            $this->updateEventServices($eventId, (array)$data['service_ids']);
+        }
+
+        // Handle Tags
+        if (isset($data['tags'])) {
+            $tagsArray = is_array($data['tags']) ? $data['tags'] : explode(',', $data['tags']);
+            $this->updateEventTags($eventId, $tagsArray);
+        }
 
         $newEvent = $this->getEvent($eventId);
         $this->logAudit('wb_events', $eventId, 'UPDATE', $oldEvent, $newEvent);
@@ -82,16 +116,91 @@ class EventManager {
 
     public function getEvent($eventId) {
         $stmt = $this->db->query("SELECT * FROM wb_events WHERE id = ?", [$eventId]);
-        return $stmt->fetch();
+        $event = $stmt->fetch();
+        if ($event) {
+            $event['services'] = $this->getEventServices($eventId);
+            $event['tags'] = $this->getEventTags($eventId);
+            $event['state_history'] = $this->getStateHistory($eventId);
+        }
+        return $event;
     }
 
     public function listEvents() {
-        return $this->db->query("SELECT e.*, t.name as type_name, d.name as department_name, s.name as state_name
+        $events = $this->db->query("SELECT e.*, t.name as type_name, d.name as department_name, s.name as state_name
                                  FROM wb_events e
                                  LEFT JOIN type t ON e.type_id = t.id
                                  LEFT JOIN department d ON e.department_id = d.id
                                  LEFT JOIN state s ON e.state_id = s.id
                                  ORDER BY e.create_time DESC")->fetchAll();
+        foreach ($events as &$e) {
+            $e['services'] = $this->getEventServices($e['id']);
+            $e['tags'] = $this->getEventTags($e['id']);
+        }
+        return $events;
+    }
+
+    // --- State History ---
+
+    private function logStateTransition($eventId, $stateId) {
+        $sql = "INSERT INTO event_state_history (event_id, state_id, user) VALUES (?, ?, ?)";
+        $this->db->query($sql, [$eventId, $stateId, $this->currentUser]);
+    }
+
+    private function closeLastStateHistory($eventId) {
+        $sql = "UPDATE event_state_history SET exit_time = CURRENT_TIMESTAMP
+                WHERE event_id = ? AND exit_time IS NULL";
+        $this->db->query($sql, [$eventId]);
+    }
+
+    public function getStateHistory($eventId) {
+        return $this->db->query("SELECT h.*, s.name as state_name
+                                 FROM event_state_history h
+                                 JOIN state s ON h.state_id = s.id
+                                 WHERE h.event_id = ?
+                                 ORDER BY h.enter_time ASC", [$eventId])->fetchAll();
+    }
+
+    // --- Services ---
+
+    public function updateEventServices($eventId, $serviceIds) {
+        $this->db->query("DELETE FROM event_services WHERE event_id = ?", [$eventId]);
+        foreach ($serviceIds as $sid) {
+            $this->db->query("INSERT INTO event_services (event_id, service_id) VALUES (?, ?)", [$eventId, $sid]);
+        }
+    }
+
+    public function getEventServices($eventId) {
+        return $this->db->query("SELECT s.* FROM service s
+                                 JOIN event_services es ON s.id = es.service_id
+                                 WHERE es.event_id = ?", [$eventId])->fetchAll();
+    }
+
+    // --- Tags ---
+
+    public function updateEventTags($eventId, $tags) {
+        $this->db->query("DELETE FROM event_tags WHERE event_id = ?", [$eventId]);
+        foreach ($tags as $tagName) {
+            $tagName = trim($tagName);
+            if (empty($tagName)) continue;
+
+            // Get or create tag
+            $tag = $this->db->query("SELECT id FROM tag WHERE name = ?", [$tagName])->fetch();
+            if (!$tag) {
+                $tagId = $this->createRef('tag', $tagName);
+            } else {
+                $tagId = $tag['id'];
+            }
+            $sql = (getenv('USE_SQLITE') === 'true')
+                ? "INSERT OR IGNORE INTO event_tags (event_id, tag_id) VALUES (?, ?)"
+                : "INSERT IGNORE INTO event_tags (event_id, tag_id) VALUES (?, ?)";
+            $this->db->query($sql, [$eventId, $tagId]);
+        }
+    }
+
+    public function getEventTags($eventId) {
+        return $this->db->query("SELECT t.* FROM tag t
+                                 JOIN event_tags et ON t.id = et.tag_id
+                                 WHERE et.event_id = ?", [$eventId])->fetchAll();
     }
 
     // --- Event Updates ---
@@ -117,7 +226,7 @@ class EventManager {
         return $stmt->fetchAll();
     }
 
-    // --- Generic CRUD for reference tables (department, type, state) ---
+    // --- Generic CRUD for reference tables ---
 
     private function createRef($table, $name) {
         $sql = "INSERT INTO `$table` (name) VALUES (?)";
@@ -161,17 +270,15 @@ class EventManager {
 
     // Type
     public function createType($name) { return $this->createRef('type', $name); }
-    public function updateType($id, $name) { return $this->updateRef('type', $id, $name); }
-    public function deleteType($id) { return $this->deleteRef('type', $id); }
-    public function getType($id) { return $this->getRef('type', $id); }
     public function listTypes() { return $this->listRef('type'); }
 
     // State
     public function createState($name) { return $this->createRef('state', $name); }
-    public function updateState($id, $name) { return $this->updateRef('state', $id, $name); }
-    public function deleteState($id) { return $this->deleteRef('state', $id); }
-    public function getState($id) { return $this->getRef('state', $id); }
     public function listStates() { return $this->listRef('state'); }
+
+    // Service
+    public function createService($name) { return $this->createRef('service', $name); }
+    public function listServices() { return $this->listRef('service'); }
 
     // --- Audit Log Retrieval ---
 
