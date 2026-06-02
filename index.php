@@ -70,6 +70,7 @@ if (!$useSqlite) {
     $auth_obj = new Auth($config);
 }
 $em = new EventManager($currentUser, $auth_obj);
+$emError = null;
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -81,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($_POST['action'] === 'update_metadata') {
             $em->updateEvent($_POST['event_id'], $_POST);
         }
+        $emError = $em->getLastError();
     }
 }
 
@@ -142,6 +144,13 @@ function formatDuration($seconds) {
 </nav>
 
 <div class="container">
+    <?php if ($emError): ?>
+        <div class="alert alert-danger alert-dismissible fade show mb-4 shadow-sm" role="alert">
+            <strong>System Error:</strong> <?= htmlspecialchars($emError) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+
     <div class="row">
         <!-- Event Creation Form -->
         <div class="col-md-4">

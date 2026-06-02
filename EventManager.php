@@ -6,6 +6,7 @@ class EventManager {
     public $db;
     private $currentUser;
     private $auth;
+    private $lastError = null;
 
     private $allowedEventFields = [
         'type_id', 'ticket_id', 'ticket_nr', 'department_id', 'customers_affected',
@@ -180,7 +181,7 @@ class EventManager {
 
         foreach ($fields as $key => $label) {
             if ($old[$key] != $new[$key]) {
-                $changes[] = "**$label:** " . $old[$key] . " -> " . $new[$key];
+                $changes[] = ['title' => $label, 'value' => $old[$key] . " -> " . $new[$key]];
             }
         }
 
@@ -193,14 +194,17 @@ class EventManager {
             sort($newNames);
             if ($oldNames !== $newNames) {
                 $label = ucfirst($key);
-                $changes[] = "**$label:** " . implode(', ', $oldNames) . " -> " . implode(', ', $newNames);
+                $changes[] = ['title' => $label, 'value' => implode(', ', $oldNames) . " -> " . implode(', ', $newNames)];
             }
         }
 
         if (!empty($changes)) {
-            $msg = "**Incident Metadata Updated**\n\n";
-            $msg .= implode("\n", $changes);
-            $this->postToTeamsChat($new['id'], $msg);
+            $card = $this->getAdaptiveCardBase("Incident Metadata Updated (#" . $new['id'] . ")");
+            $card['body'][] = [
+                'type' => 'FactSet',
+                'facts' => $changes
+            ];
+            $this->postCardToTeamsChat($new['id'], $card);
         }
     }
 
@@ -487,39 +491,56 @@ class EventManager {
 
     // --- Teams Integration ---
 
-    private function formatEventMetadata($eventId) {
-        $event = $this->getEvent($eventId);
-        if (!$event) return "";
+    private function getAdaptiveCardBase($title) {
+        return [
+            'type' => 'AdaptiveCard',
+            'version' => '1.2',
+            'body' => [
+                [
+                    'type' => 'TextBlock',
+                    'text' => $title,
+                    'weight' => 'Bolder',
+                    'size' => 'Medium'
+                ]
+            ],
+            '$schema' => 'http://adaptivecards.io/schemas/adaptive-card.json'
+        ];
+    }
 
-        $msg = "**Incident Details for #" . $event['id'] . "**\n\n";
-        $msg .= "--------------------------------\n";
-        $msg .= "**Description:** " . $event['description'] . "\n";
-        $msg .= "**Status:** " . $event['state_name'] . "\n";
-        $msg .= "**Type:** " . $event['type_name'] . "\n";
-        $msg .= "**Department:** " . $event['department_name'] . "\n";
+    private function formatEventMetadataCard($eventId) {
+        $event = $this->getEvent($eventId);
+        if (!$event) return null;
+
+        $card = $this->getAdaptiveCardBase("Incident Details for #" . $event['id']);
+
+        $facts = [
+            ['title' => 'Description', 'value' => $event['description']],
+            ['title' => 'Status', 'value' => $event['state_name']],
+            ['title' => 'Type', 'value' => $event['type_name']],
+            ['title' => 'Department', 'value' => $event['department_name']]
+        ];
 
         if (!empty($event['areas'])) {
-            $areas = array_column($event['areas'], 'name');
-            $msg .= "**Affected Areas:** " . implode(', ', $areas) . "\n";
+            $facts[] = ['title' => 'Affected Areas', 'value' => implode(', ', array_column($event['areas'], 'name'))];
         }
-
         if (!empty($event['services'])) {
-            $svcs = array_column($event['services'], 'name');
-            $msg .= "**Impacted Services:** " . implode(', ', $svcs) . "\n";
+            $facts[] = ['title' => 'Impacted Services', 'value' => implode(', ', array_column($event['services'], 'name'))];
         }
-
         if (!empty($event['tags'])) {
-            $tags = array_column($event['tags'], 'name');
-            $msg .= "**Tags:** " . implode(', ', $tags) . "\n";
+            $facts[] = ['title' => 'Tags', 'value' => implode(', ', array_column($event['tags'], 'name'))];
         }
-
         if ($event['ticket_nr'] && $event['ticket_nr'] !== '0') {
-            $msg .= "**Ticket:** " . $event['ticket_nr'] . "\n";
+            $facts[] = ['title' => 'Ticket #', 'value' => $event['ticket_nr']];
         }
 
-        $msg .= "**Impact Score:** " . number_format($event['impactScore']) . " (Customers: " . $event['customers_affected'] . ")\n";
+        $facts[] = ['title' => 'Impact Score', 'value' => number_format($event['impactScore']) . " (" . $event['customers_affected'] . " customers)"];
 
-        return $msg;
+        $card['body'][] = [
+            'type' => 'FactSet',
+            'facts' => $facts
+        ];
+
+        return $card;
     }
 
     private function logTeams($message, $data = null) {
@@ -540,6 +561,7 @@ class EventManager {
         }
         $accessToken = $this->auth->getAccessToken();
         if (!$accessToken) {
+            $this->lastError = "Teams integration error: Failed to get access token.";
             $this->logTeams("Skipping Teams chat: Failed to get access token.");
             return;
         }
@@ -552,6 +574,10 @@ class EventManager {
 
         $sso = $this->auth->getSSO();
         $memberData = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
+        if ($memberData === null) {
+            $this->lastError = "Teams integration error: Failed to fetch department members.";
+            return;
+        }
         $members = array_column($memberData, 'id');
 
         // Ensure current user is in the chat
@@ -573,10 +599,11 @@ class EventManager {
 
         if ($chat && isset($chat['id'])) {
             $this->db->query("UPDATE wb_events SET teams_chat_id = ? WHERE id = ?", [$chat['id'], $eventId]);
-            $msg = $this->formatEventMetadata($eventId);
-            $sso->sendMessageToChat($accessToken, $chat['id'], $msg);
+            $card = $this->formatEventMetadataCard($eventId);
+            $sso->sendAdaptiveCardToChat($accessToken, $chat['id'], $card);
             $this->logAudit('wb_events', $eventId, 'TEAMS_CHAT_CREATED', null, ['teams_chat_id' => $chat['id'], 'topic' => $topic]);
         } else {
+            $this->lastError = "Teams integration error: Failed to create chat.";
             $this->logAudit('wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['reason' => 'API Error or Missing Chat ID']);
         }
     }
@@ -623,25 +650,32 @@ class EventManager {
     }
 
     private function postToTeamsChat($eventId, $message) {
-        if (!$this->auth) {
-            $this->logTeams("Skipping post: No auth object.");
-            return;
-        }
+        if (!$this->auth) return;
         $accessToken = $this->auth->getAccessToken();
-        if (!$accessToken) {
-            $this->logTeams("Skipping post: No access token.");
-            return;
-        }
+        if (!$accessToken) return;
 
         $event = $this->db->query("SELECT teams_chat_id FROM wb_events WHERE id = ?", [$eventId])->fetch();
-        if (!$event || !$event['teams_chat_id']) {
-            $this->logTeams("Skipping post: Event #$eventId has no Teams chat ID.");
-            return;
-        }
+        if (!$event || !$event['teams_chat_id']) return;
 
         $res = $this->auth->getSSO()->sendMessageToChat($accessToken, $event['teams_chat_id'], $message);
         if (!$res) {
+            $this->lastError = "Teams integration error: Failed to post message.";
             $this->logAudit('wb_events', $eventId, 'TEAMS_POST_FAILED', null, ['message' => $message]);
+        }
+    }
+
+    private function postCardToTeamsChat($eventId, $card) {
+        if (!$this->auth) return;
+        $accessToken = $this->auth->getAccessToken();
+        if (!$accessToken) return;
+
+        $event = $this->db->query("SELECT teams_chat_id FROM wb_events WHERE id = ?", [$eventId])->fetch();
+        if (!$event || !$event['teams_chat_id']) return;
+
+        $res = $this->auth->getSSO()->sendAdaptiveCardToChat($accessToken, $event['teams_chat_id'], $card);
+        if (!$res) {
+            $this->lastError = "Teams integration error: Failed to post adaptive card.";
+            $this->logAudit('wb_events', $eventId, 'TEAMS_POST_CARD_FAILED', null, ['card' => $card]);
         }
     }
 }

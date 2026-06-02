@@ -51,6 +51,19 @@ class AzureADSSO
         return $this->makePostRequest($this->tokenUrl, $postFields);
     }
 
+    public function refreshAccessToken($refreshToken)
+    {
+        $postFields = [
+            'grant_type'    => 'refresh_token',
+            'client_id'     => $this->clientId,
+            'client_secret' => $this->clientSecret,
+            'refresh_token' => $refreshToken,
+            'scope'         => $this->scopes,
+        ];
+
+        return $this->makePostRequest($this->tokenUrl, $postFields);
+    }
+
     public function getUserInfo($idToken)
     {
         list($header, $payload, $signature) = explode(".", $idToken);
@@ -139,6 +152,26 @@ class AzureADSSO
         $body = [
             'body' => [
                 'content' => $message
+            ]
+        ];
+        return $this->makePostRequestJson("https://graph.microsoft.com/v1.0/chats/$chatId/messages", $body, $accessToken);
+    }
+
+    public function sendAdaptiveCardToChat($accessToken, $chatId, $cardBody) {
+        $body = [
+            'body' => [
+                'contentType' => 'html',
+                'content' => '<attachment id="adaptiveCard"></attachment>'
+            ],
+            'attachments' => [
+                [
+                    'id' => 'adaptiveCard',
+                    'contentType' => 'application/vnd.microsoft.card.adaptive',
+                    'contentUrl' => null,
+                    'content' => json_encode($cardBody),
+                    'name' => null,
+                    'thumbnailUrl' => null
+                ]
             ]
         ];
         return $this->makePostRequestJson("https://graph.microsoft.com/v1.0/chats/$chatId/messages", $body, $accessToken);

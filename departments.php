@@ -41,6 +41,7 @@ if (!$useSqlite) {
     $auth_obj = new Auth($config);
 }
 $em = new EventManager($currentUser, $auth_obj);
+$emError = null;
 
 $message = '';
 $error = '';
@@ -61,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $em->deleteDepartment($_POST['id']);
             $message = "Department deleted successfully.";
         }
+        $emError = $em->getLastError();
     }
 }
 
@@ -102,6 +104,13 @@ if (!$useSqlite && $auth_obj) {
 </nav>
 
 <div class="container">
+    <?php if ($emError): ?>
+        <div class="alert alert-danger alert-dismissible fade show mb-4 shadow-sm" role="alert">
+            <strong>System Error:</strong> <?= htmlspecialchars($emError) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+
     <div class="row">
         <div class="col-md-4">
             <div class="card shadow-sm mb-4">

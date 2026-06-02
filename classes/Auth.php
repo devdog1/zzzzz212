@@ -104,7 +104,9 @@ class Auth
             'email'     => $email,
             'name'      => $name,
             'groups'    => $groups,
-            'access_token' => $tokens['access_token']
+            'access_token' => $tokens['access_token'],
+            'refresh_token' => $tokens['refresh_token'] ?? null,
+            'expires_at' => time() + ($tokens['expires_in'] ?? 3600)
         ];
 
         $_SESSION['roles'] = $this->getRoles($userId, $groups);
@@ -298,7 +300,23 @@ class Auth
 
     public function getAccessToken(): ?string
     {
-        return $_SESSION['user']['access_token'] ?? null;
+        if (!isset($_SESSION['user']['access_token'])) {
+            return null;
+        }
+
+        // Check if token is expired or expiring soon (within 5 minutes)
+        if (time() + 300 >= ($_SESSION['user']['expires_at'] ?? 0)) {
+            if (isset($_SESSION['user']['refresh_token'])) {
+                $tokens = $this->sso()->refreshAccessToken($_SESSION['user']['refresh_token']);
+                if ($tokens && isset($tokens['access_token'])) {
+                    $_SESSION['user']['access_token'] = $tokens['access_token'];
+                    $_SESSION['user']['refresh_token'] = $tokens['refresh_token'] ?? $_SESSION['user']['refresh_token'];
+                    $_SESSION['user']['expires_at'] = time() + ($tokens['expires_in'] ?? 3600);
+                }
+            }
+        }
+
+        return $_SESSION['user']['access_token'];
     }
 
     public function getSSO(): AzureADSSO
