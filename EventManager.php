@@ -163,7 +163,45 @@ class EventManager {
         $newEvent = $this->getEvent($eventId);
         $this->logAudit('wb_events', $eventId, 'UPDATE', $oldEvent, $newEvent);
 
+        $this->notifyTeamsOfMetadataChange($oldEvent, $newEvent);
+
         return true;
+    }
+
+    private function notifyTeamsOfMetadataChange($old, $new) {
+        $changes = [];
+        $fields = [
+            'state_name' => 'Status',
+            'type_name' => 'Type',
+            'department_name' => 'Department',
+            'customers_affected' => 'Customers Affected',
+            'ticket_nr' => 'Ticket #'
+        ];
+
+        foreach ($fields as $key => $label) {
+            if ($old[$key] != $new[$key]) {
+                $changes[] = "<b>$label:</b> " . htmlspecialchars($old[$key]) . " &rarr; " . htmlspecialchars($new[$key]);
+            }
+        }
+
+        // Check Services, Tags, Areas (Arrays)
+        $arrayFields = ['services', 'tags', 'areas'];
+        foreach ($arrayFields as $key) {
+            $oldNames = array_column($old[$key], 'name');
+            $newNames = array_column($new[$key], 'name');
+            sort($oldNames);
+            sort($newNames);
+            if ($oldNames !== $newNames) {
+                $label = ucfirst($key);
+                $changes[] = "<b>$label:</b> " . htmlspecialchars(implode(', ', $oldNames)) . " &rarr; " . htmlspecialchars(implode(', ', $newNames));
+            }
+        }
+
+        if (!empty($changes)) {
+            $msg = "<b>Incident Metadata Updated</b><br>";
+            $msg .= implode("<br>", $changes);
+            $this->postToTeamsChat($new['id'], $msg);
+        }
     }
 
     public function calculateImpactScore($eventId, $customers) {
@@ -443,6 +481,41 @@ class EventManager {
 
     // --- Teams Integration ---
 
+    private function formatEventMetadata($eventId) {
+        $event = $this->getEvent($eventId);
+        if (!$event) return "";
+
+        $msg = "<b>Incident Details for #" . $event['id'] . "</b><br>";
+        $msg .= "--------------------------------<br>";
+        $msg .= "<b>Description:</b> " . htmlspecialchars($event['description']) . "<br>";
+        $msg .= "<b>Status:</b> " . htmlspecialchars($event['state_name']) . "<br>";
+        $msg .= "<b>Type:</b> " . htmlspecialchars($event['type_name']) . "<br>";
+        $msg .= "<b>Department:</b> " . htmlspecialchars($event['department_name']) . "<br>";
+
+        if (!empty($event['areas'])) {
+            $areas = array_column($event['areas'], 'name');
+            $msg .= "<b>Affected Areas:</b> " . htmlspecialchars(implode(', ', $areas)) . "<br>";
+        }
+
+        if (!empty($event['services'])) {
+            $svcs = array_column($event['services'], 'name');
+            $msg .= "<b>Impacted Services:</b> " . htmlspecialchars(implode(', ', $svcs)) . "<br>";
+        }
+
+        if (!empty($event['tags'])) {
+            $tags = array_column($event['tags'], 'name');
+            $msg .= "<b>Tags:</b> " . htmlspecialchars(implode(', ', $tags)) . "<br>";
+        }
+
+        if ($event['ticket_nr'] && $event['ticket_nr'] !== '0') {
+            $msg .= "<b>Ticket:</b> " . htmlspecialchars($event['ticket_nr']) . "<br>";
+        }
+
+        $msg .= "<b>Impact Score:</b> " . number_format($event['impactScore']) . " (Customers: " . $event['customers_affected'] . ")<br>";
+
+        return $msg;
+    }
+
     private function logTeams($message, $data = null) {
         $logFile = __DIR__ . '/teams_integration.log';
         $timestamp = date('Y-m-d H:i:s');
@@ -494,7 +567,8 @@ class EventManager {
 
         if ($chat && isset($chat['id'])) {
             $this->db->query("UPDATE wb_events SET teams_chat_id = ? WHERE id = ?", [$chat['id'], $eventId]);
-            $sso->sendMessageToChat($accessToken, $chat['id'], "Incident management chat initiated for ID #$eventId");
+            $msg = $this->formatEventMetadata($eventId);
+            $sso->sendMessageToChat($accessToken, $chat['id'], $msg);
             $this->logAudit('wb_events', $eventId, 'TEAMS_CHAT_CREATED', null, ['teams_chat_id' => $chat['id'], 'topic' => $topic]);
         } else {
             $this->logAudit('wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['reason' => 'API Error or Missing Chat ID']);
