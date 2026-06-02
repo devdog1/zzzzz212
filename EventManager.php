@@ -180,7 +180,7 @@ class EventManager {
 
         foreach ($fields as $key => $label) {
             if ($old[$key] != $new[$key]) {
-                $changes[] = "<b>$label:</b> " . htmlspecialchars($old[$key]) . " &rarr; " . htmlspecialchars($new[$key]);
+                $changes[] = "**$label:** " . $old[$key] . " -> " . $new[$key];
             }
         }
 
@@ -193,13 +193,13 @@ class EventManager {
             sort($newNames);
             if ($oldNames !== $newNames) {
                 $label = ucfirst($key);
-                $changes[] = "<b>$label:</b> " . htmlspecialchars(implode(', ', $oldNames)) . " &rarr; " . htmlspecialchars(implode(', ', $newNames));
+                $changes[] = "**$label:** " . implode(', ', $oldNames) . " -> " . implode(', ', $newNames);
             }
         }
 
         if (!empty($changes)) {
-            $msg = "<b>Incident Metadata Updated</b><br>";
-            $msg .= implode("<br>", $changes);
+            $msg = "**Incident Metadata Updated**\n\n";
+            $msg .= implode("\n", $changes);
             $this->postToTeamsChat($new['id'], $msg);
         }
     }
@@ -221,7 +221,13 @@ class EventManager {
     }
 
     public function getEvent($eventId) {
-        $stmt = $this->db->query("SELECT * FROM wb_events WHERE id = ?", [$eventId]);
+        $sql = "SELECT e.*, t.name as type_name, d.name as department_name, s.name as state_name
+                FROM wb_events e
+                LEFT JOIN type t ON e.type_id = t.id
+                LEFT JOIN department d ON e.department_id = d.id
+                LEFT JOIN state s ON e.state_id = s.id
+                WHERE e.id = ?";
+        $stmt = $this->db->query($sql, [$eventId]);
         $event = $stmt->fetch();
         if ($event) {
             $event['services'] = $this->getEventServices($eventId);
@@ -458,7 +464,7 @@ class EventManager {
         $this->logAudit('event_updates', $updateId, 'CREATE', null, $data);
 
         // Post to Teams Chat
-        $this->postToTeamsChat($eventId, "NEW UPDATE: " . $updateText);
+        $this->postToTeamsChat($eventId, "**NEW UPDATE:** " . $updateText);
 
         return $updateId;
     }
@@ -485,33 +491,33 @@ class EventManager {
         $event = $this->getEvent($eventId);
         if (!$event) return "";
 
-        $msg = "<b>Incident Details for #" . $event['id'] . "</b><br>";
-        $msg .= "--------------------------------<br>";
-        $msg .= "<b>Description:</b> " . htmlspecialchars($event['description']) . "<br>";
-        $msg .= "<b>Status:</b> " . htmlspecialchars($event['state_name']) . "<br>";
-        $msg .= "<b>Type:</b> " . htmlspecialchars($event['type_name']) . "<br>";
-        $msg .= "<b>Department:</b> " . htmlspecialchars($event['department_name']) . "<br>";
+        $msg = "**Incident Details for #" . $event['id'] . "**\n\n";
+        $msg .= "--------------------------------\n";
+        $msg .= "**Description:** " . $event['description'] . "\n";
+        $msg .= "**Status:** " . $event['state_name'] . "\n";
+        $msg .= "**Type:** " . $event['type_name'] . "\n";
+        $msg .= "**Department:** " . $event['department_name'] . "\n";
 
         if (!empty($event['areas'])) {
             $areas = array_column($event['areas'], 'name');
-            $msg .= "<b>Affected Areas:</b> " . htmlspecialchars(implode(', ', $areas)) . "<br>";
+            $msg .= "**Affected Areas:** " . implode(', ', $areas) . "\n";
         }
 
         if (!empty($event['services'])) {
             $svcs = array_column($event['services'], 'name');
-            $msg .= "<b>Impacted Services:</b> " . htmlspecialchars(implode(', ', $svcs)) . "<br>";
+            $msg .= "**Impacted Services:** " . implode(', ', $svcs) . "\n";
         }
 
         if (!empty($event['tags'])) {
             $tags = array_column($event['tags'], 'name');
-            $msg .= "<b>Tags:</b> " . htmlspecialchars(implode(', ', $tags)) . "<br>";
+            $msg .= "**Tags:** " . implode(', ', $tags) . "\n";
         }
 
         if ($event['ticket_nr'] && $event['ticket_nr'] !== '0') {
-            $msg .= "<b>Ticket:</b> " . htmlspecialchars($event['ticket_nr']) . "<br>";
+            $msg .= "**Ticket:** " . $event['ticket_nr'] . "\n";
         }
 
-        $msg .= "<b>Impact Score:</b> " . number_format($event['impactScore']) . " (Customers: " . $event['customers_affected'] . ")<br>";
+        $msg .= "**Impact Score:** " . number_format($event['impactScore']) . " (Customers: " . $event['customers_affected'] . ")\n";
 
         return $msg;
     }
