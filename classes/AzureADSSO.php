@@ -95,7 +95,7 @@ class AzureADSSO
     {
         $members = [];
         foreach ($userOids as $oid) {
-            $role = ($oid === $ownerOid) ? ['owner'] : ['member'];
+            $role = ($oid === $ownerOid) ? ['owner'] : [];
             $members[] = [
                 '@odata.type' => '#microsoft.graph.aadUserConversationMember',
                 'roles' => $role,
@@ -128,7 +128,7 @@ class AzureADSSO
         foreach ($userOids as $oid) {
             $body = [
                 '@odata.type' => '#microsoft.graph.aadUserConversationMember',
-                'roles' => ['member'],
+                'roles' => [],
                 'user@odata.bind' => "https://graph.microsoft.com/v1.0/users/$oid"
             ];
             $this->makePostRequestJson("https://graph.microsoft.com/v1.0/chats/$chatId/members", $body, $accessToken);
