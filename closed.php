@@ -37,7 +37,11 @@ if ($useSqlite) {
     $_SESSION['user'] = ['name' => 'Demo User'];
 }
 
-$em = new EventManager($currentUser);
+$auth_obj = null;
+if (!$useSqlite) {
+    $auth_obj = new Auth($config);
+}
+$em = new EventManager($currentUser, $auth_obj);
 
 $events = $em->listEvents(true); // Show closed only
 $events = array_filter($events, function($e) { return strtolower($e['state_name']) === 'closed'; });

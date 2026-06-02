@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS `type` (
 
 CREATE TABLE IF NOT EXISTS `department` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `name` VARCHAR(255) NOT NULL UNIQUE
+    `name` VARCHAR(255) NOT NULL UNIQUE,
+    `azure_group_id` VARCHAR(255)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `state` (
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS `wb_events` (
     `description` TEXT,
     `state_id` INT DEFAULT 0,
     `teams_message_Id` VARCHAR(255),
+    `teams_chat_id` VARCHAR(255),
     `impactScoreNotified` INT DEFAULT 0,
     `impactScore` INT DEFAULT 0,
     FOREIGN KEY (`type_id`) REFERENCES `type`(`id`),

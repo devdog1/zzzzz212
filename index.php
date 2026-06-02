@@ -65,7 +65,11 @@ if ($useSqlite) {
     $_SESSION['user'] = ['name' => 'Demo User'];
 }
 
-$em = new EventManager($currentUser);
+$auth_obj = null;
+if (!$useSqlite) {
+    $auth_obj = new Auth($config);
+}
+$em = new EventManager($currentUser, $auth_obj);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

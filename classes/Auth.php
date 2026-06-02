@@ -102,7 +102,8 @@ class Auth
             'azure_oid' => $azureOid,
             'email'     => $email,
             'name'      => $name,
-            'groups'    => $groups
+            'groups'    => $groups,
+            'access_token' => $tokens['access_token']
         ];
 
         $_SESSION['roles'] = $this->getRoles($userId, $groups);
@@ -292,6 +293,16 @@ class Auth
     public function user(): ?array
     {
         return $_SESSION['user'] ?? null;
+    }
+
+    public function getAccessToken(): ?string
+    {
+        return $_SESSION['user']['access_token'] ?? null;
+    }
+
+    public function getSSO(): AzureADSSO
+    {
+        return $this->sso();
     }
 
     public function requireLogin(): void

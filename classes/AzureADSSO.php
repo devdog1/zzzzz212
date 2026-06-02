@@ -8,7 +8,7 @@ class AzureADSSO
     private $tenantId;
     private $authUrl;
     private $tokenUrl;
-    private $scopes = "openid profile email offline_access Group.Read.All";
+    private $scopes = "openid profile email offline_access Group.Read.All Chat.Create Chat.ReadWrite Chat.ReadWrite.All GroupMember.Read.All";
     private $logoutUrl = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout";
 
     public function __construct($clientId, $clientSecret, $redirectUri, $tenantId = 'common')
@@ -65,35 +65,105 @@ class AzureADSSO
 
     public function getUserGroups($accessToken)
     {
-        $graphUrl = "https://graph.microsoft.com/v1.0/me/memberOf";
+        $response = $this->makeGetRequest("https://graph.microsoft.com/v1.0/me/memberOf", $accessToken);
+        if ($response) {
+            $groupNames = [];
+            foreach ($response['value'] as $group) {
+                if (isset($group['displayName'])) {
+                    $groupNames[] = $group['displayName'];
+                }
+            }
+            return $groupNames;
+        }
+        return [];
+    }
 
+    public function createChat($accessToken, $topic, $userOids)
+    {
+        $members = [];
+        foreach ($userOids as $oid) {
+            $members[] = [
+                '@odata.type' => '#microsoft.graph.aadUserConversationMember',
+                'roles' => ['owner'],
+                'user@odata.bind' => "https://graph.microsoft.com/v1.0/users('$oid')"
+            ];
+        }
+
+        $body = [
+            'chatType' => 'multipleAttribute',
+            'topic' => $topic,
+            'members' => $members
+        ];
+
+        return $this->makePostRequestJson("https://graph.microsoft.com/v1.0/chats", $body, $accessToken);
+    }
+
+    public function addMembersToChat($accessToken, $chatId, $userOids)
+    {
+        foreach ($userOids as $oid) {
+            $body = [
+                '@odata.type' => '#microsoft.graph.aadUserConversationMember',
+                'roles' => ['member'],
+                'user@odata.bind' => "https://graph.microsoft.com/v1.0/users('$oid')"
+            ];
+            $this->makePostRequestJson("https://graph.microsoft.com/v1.0/chats/$chatId/members", $body, $accessToken);
+        }
+        return true;
+    }
+
+    public function sendMessageToChat($accessToken, $chatId, $message) {
+        $body = [
+            'body' => [
+                'content' => $message
+            ]
+        ];
+        return $this->makePostRequestJson("https://graph.microsoft.com/v1.0/chats/$chatId/messages", $body, $accessToken);
+    }
+
+    public function getGroupMembers($accessToken, $groupId) {
+        $response = $this->makeGetRequest("https://graph.microsoft.com/v1.0/groups/$groupId/members", $accessToken);
+        if ($response) {
+            return array_column($response['value'], 'id');
+        }
+        return [];
+    }
+
+    private function makeGetRequest($url, $accessToken) {
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $graphUrl);
+        curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Authorization: Bearer ' . $accessToken,
             'Content-Type: application/json',
         ]);
-
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if ($httpCode == 200) {
-            $groupsData = json_decode($response, true);
-            $groupNames = [];
-
-            // Extract group names from the response
-            foreach ($groupsData['value'] as $group) {
-                if (isset($group['displayName'])) {
-                    $groupNames[] = $group['displayName'];
-                }
-            }
-
-            return $groupNames;
+        if ($httpCode >= 200 && $httpCode < 300) {
+            return json_decode($response, true);
         }
+        return null;
+    }
 
-        return [];
+    private function makePostRequestJson($url, $body, $accessToken) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $accessToken,
+            'Content-Type: application/json',
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode >= 200 && $httpCode < 300) {
+            return json_decode($response, true);
+        }
+        return null;
     }
 
     private function makePostRequest($url, $postFields)

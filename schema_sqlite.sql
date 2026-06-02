@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS `type` (
 
 CREATE TABLE IF NOT EXISTS `department` (
     `id` INTEGER PRIMARY KEY AUTOINCREMENT,
-    `name` TEXT NOT NULL UNIQUE
+    `name` TEXT NOT NULL UNIQUE,
+    `azure_group_id` TEXT
 );
 
 CREATE TABLE IF NOT EXISTS `state` (
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS `wb_events` (
     `description` TEXT,
     `state_id` INTEGER DEFAULT 0,
     `teams_message_Id` TEXT,
+    `teams_chat_id` TEXT,
     `impactScoreNotified` INTEGER DEFAULT 0,
     `impactScore` INTEGER DEFAULT 0,
     FOREIGN KEY (`type_id`) REFERENCES `type`(`id`),

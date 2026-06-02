@@ -5,17 +5,19 @@ require_once 'Database.php';
 class EventManager {
     public $db;
     private $currentUser;
+    private $auth;
 
     private $allowedEventFields = [
         'type_id', 'ticket_id', 'ticket_nr', 'department_id', 'customers_affected',
-        'description', 'state_id', 'teams_message_Id', 'impactScoreNotified', 'impactScore'
+        'description', 'state_id', 'teams_message_Id', 'impactScoreNotified', 'impactScore', 'teams_chat_id'
     ];
 
     private $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Mitigating', 'Reopened'];
 
-    public function __construct($currentUser = 'system') {
+    public function __construct($currentUser = 'system', $auth = null) {
         $this->db = new Database();
         $this->currentUser = $currentUser;
+        $this->auth = $auth;
     }
 
     public function setCurrentUser($user) {
@@ -80,6 +82,11 @@ class EventManager {
         }
 
         $this->logAudit('wb_events', $eventId, 'CREATE', null, $filteredData);
+
+        // Handle Teams Chat Creation
+        if (isset($filteredData['department_id'])) {
+            $this->initTeamsChat($eventId, $filteredData['department_id'], $filteredData['description']);
+        }
 
         return $eventId;
     }
@@ -146,6 +153,11 @@ class EventManager {
         if (!$isClosed && isset($data['areas'])) {
             $areasArray = is_array($data['areas']) ? $data['areas'] : explode(',', $data['areas']);
             $this->updateEventAreas($eventId, $areasArray);
+        }
+
+        // Handle Department Change for Teams Chat
+        if (isset($filteredData['department_id']) && $filteredData['department_id'] != $oldEvent['department_id']) {
+            $this->syncTeamsChatMembers($eventId, $filteredData['department_id']);
         }
 
         $newEvent = $this->getEvent($eventId);
@@ -326,8 +338,32 @@ class EventManager {
     }
 
     public function listDepartments() { return $this->listRef('department'); }
-    public function createDepartment($name) { return $this->createRef('department', $name); }
-    public function updateDepartment($id, $name) { return $this->updateRef('department', $id, $name); }
+    public function createDepartment($name, $azureGroupId = null) {
+        $sql = "INSERT INTO department (name, azure_group_id) VALUES (?, ?)";
+        $this->db->query($sql, [$name, $azureGroupId]);
+        $id = $this->db->lastInsertId();
+        $this->logAudit('department', $id, 'CREATE', null, ['name' => $name, 'azure_group_id' => $azureGroupId]);
+        return $id;
+    }
+    public function updateDepartment($id, $data) {
+        $stmt = $this->db->query("SELECT * FROM department WHERE id = ?", [$id]);
+        $oldRow = $stmt->fetch();
+
+        $fields = [];
+        $values = [];
+        foreach (['name', 'azure_group_id'] as $f) {
+            if (isset($data[$f])) {
+                $fields[] = "$f = ?";
+                $values[] = $data[$f];
+            }
+        }
+        $values[] = $id;
+
+        $sql = "UPDATE department SET " . implode(', ', $fields) . " WHERE id = ?";
+        $this->db->query($sql, $values);
+        $this->logAudit('department', $id, 'UPDATE', $oldRow, $data);
+        return true;
+    }
     public function deleteDepartment($id) { return $this->deleteRef('department', $id); }
 
     public function listTypes() { return $this->listRef('type'); }
@@ -367,6 +403,9 @@ class EventManager {
         $updateId = $this->db->lastInsertId();
         $this->logAudit('event_updates', $updateId, 'CREATE', null, $data);
 
+        // Post to Teams Chat
+        $this->postToTeamsChat($eventId, "NEW UPDATE: " . $updateText);
+
         return $updateId;
     }
 
@@ -380,5 +419,66 @@ class EventManager {
     public function getAuditTrail($tableName, $recordId) {
         $stmt = $this->db->query("SELECT * FROM audit_log WHERE table_name = ? AND record_id = ? ORDER BY timestamp ASC", [$tableName, $recordId]);
         return $stmt->fetchAll();
+    }
+
+    // --- Teams Integration ---
+
+    private function initTeamsChat($eventId, $departmentId, $description) {
+        if (!$this->auth) return;
+        $accessToken = $this->auth->getAccessToken();
+        if (!$accessToken) return;
+
+        $dept = $this->db->query("SELECT azure_group_id FROM department WHERE id = ?", [$departmentId])->fetch();
+        if (!$dept || !$dept['azure_group_id']) return;
+
+        $sso = $this->auth->getSSO();
+        $members = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
+
+        // Ensure current user is in the chat
+        $currentUserOid = $this->auth->user()['azure_oid'] ?? null;
+        if ($currentUserOid && !in_array($currentUserOid, $members)) {
+            $members[] = $currentUserOid;
+        }
+
+        if (empty($members)) return;
+
+        $topic = "Incident #$eventId: " . substr($description, 0, 50);
+        $chat = $sso->createChat($accessToken, $topic, $members);
+
+        if ($chat && isset($chat['id'])) {
+            $this->db->query("UPDATE wb_events SET teams_chat_id = ? WHERE id = ?", [$chat['id'], $eventId]);
+            $sso->sendMessageToChat($accessToken, $chat['id'], "Incident management chat initiated for ID #$eventId");
+        }
+    }
+
+    private function syncTeamsChatMembers($eventId, $departmentId) {
+        if (!$this->auth) return;
+        $accessToken = $this->auth->getAccessToken();
+        if (!$accessToken) return;
+
+        $event = $this->getEvent($eventId);
+        if (!$event || !$event['teams_chat_id']) return;
+
+        $dept = $this->db->query("SELECT azure_group_id FROM department WHERE id = ?", [$departmentId])->fetch();
+        if (!$dept || !$dept['azure_group_id']) return;
+
+        $sso = $this->auth->getSSO();
+        $members = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
+
+        if (empty($members)) return;
+
+        $sso->addMembersToChat($accessToken, $event['teams_chat_id'], $members);
+        $sso->sendMessageToChat($accessToken, $event['teams_chat_id'], "Members from new department added to chat.");
+    }
+
+    private function postToTeamsChat($eventId, $message) {
+        if (!$this->auth) return;
+        $accessToken = $this->auth->getAccessToken();
+        if (!$accessToken) return;
+
+        $event = $this->db->query("SELECT teams_chat_id FROM wb_events WHERE id = ?", [$eventId])->fetch();
+        if (!$event || !$event['teams_chat_id']) return;
+
+        $this->auth->getSSO()->sendMessageToChat($accessToken, $event['teams_chat_id'], $message);
     }
 }
