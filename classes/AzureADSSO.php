@@ -93,16 +93,17 @@ class AzureADSSO
             $members[] = [
                 '@odata.type' => '#microsoft.graph.aadUserConversationMember',
                 'roles' => ['owner'],
-                'user@odata.bind' => "https://graph.microsoft.com/v1.0/users('$oid')"
+                'user@odata.bind' => "https://graph.microsoft.com/v1.0/users/$oid"
             ];
         }
 
         $body = [
-            'chatType' => 'multipleAttribute',
+            'chatType' => 'group',
             'topic' => $topic,
             'members' => $members
         ];
 
+        $this->log("Attempting to create Teams chat", ['topic' => $topic, 'member_count' => count($userOids)]);
         return $this->makePostRequestJson("https://graph.microsoft.com/v1.0/chats", $body, $accessToken);
     }
 
@@ -112,7 +113,7 @@ class AzureADSSO
             $body = [
                 '@odata.type' => '#microsoft.graph.aadUserConversationMember',
                 'roles' => ['member'],
-                'user@odata.bind' => "https://graph.microsoft.com/v1.0/users('$oid')"
+                'user@odata.bind' => "https://graph.microsoft.com/v1.0/users/$oid"
             ];
             $this->makePostRequestJson("https://graph.microsoft.com/v1.0/chats/$chatId/members", $body, $accessToken);
         }
@@ -130,20 +131,21 @@ class AzureADSSO
 
     public function getGroupMembers($accessToken, $groupId) {
         $response = $this->makeGetRequest("https://graph.microsoft.com/v1.0/groups/$groupId/members", $accessToken);
-        if ($response) {
-            return array_column($response['value'], 'id');
+        if ($response && isset($response['value'])) {
+            return $response['value'];
         }
         return [];
     }
 
     private function log($message, $data = null) {
-        $logFile = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__, '/\\') . '/teams_integration.log';
+        $logFile = __DIR__ . '/../teams_integration.log';
         $timestamp = date('Y-m-d H:i:s');
         $entry = "[$timestamp] $message";
         if ($data) {
             $entry .= " | Data: " . json_encode($data);
         }
         file_put_contents($logFile, $entry . PHP_EOL, FILE_APPEND);
+        error_log($entry);
     }
 
     private function makeGetRequest($url, $accessToken) {

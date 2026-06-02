@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$departments = $em->listDepartments();
+$departments = $em->listDepartments(true);
 $azureGroups = [];
 
 if (!$useSqlite && $auth_obj) {
@@ -170,15 +170,22 @@ if (!$useSqlite && $auth_obj) {
                                         <input type="text" name="name" form="<?= $formId ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($d['name']) ?>" required>
                                     </td>
                                     <td>
+                                            <?php
+                                            $memberList = "";
+                                            if (!empty($d['members'])) {
+                                                $names = array_column($d['members'], 'displayName');
+                                                $memberList = implode(", ", $names);
+                                            }
+                                            ?>
                                             <?php if (!empty($azureGroups)): ?>
-                                                <select name="azure_group_id" form="<?= $formId ?>" class="form-select form-select-sm">
+                                                <select name="azure_group_id" form="<?= $formId ?>" class="form-select form-select-sm" title="<?= htmlspecialchars($memberList) ?>">
                                                     <option value="">-- None --</option>
                                                     <?php foreach ($azureGroups as $g): ?>
                                                         <option value="<?= htmlspecialchars($g['id']) ?>" <?= $d['azure_group_id'] == $g['id'] ? 'selected' : '' ?>><?= htmlspecialchars($g['displayName']) ?></option>
                                                     <?php endforeach; ?>
                                                 </select>
                                             <?php else: ?>
-                                                <input type="text" name="azure_group_id" form="<?= $formId ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($d['azure_group_id'] ?? '') ?>">
+                                                <input type="text" name="azure_group_id" form="<?= $formId ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($d['azure_group_id'] ?? '') ?>" title="<?= htmlspecialchars($memberList) ?>">
                                             <?php endif; ?>
                                     </td>
                                     <td>

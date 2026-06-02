@@ -337,7 +337,23 @@ class EventManager {
         return $this->db->query("SELECT * FROM `$table` ORDER BY name ASC")->fetchAll();
     }
 
-    public function listDepartments() { return $this->listRef('department'); }
+    public function listDepartments($fetchMembers = false) {
+        $depts = $this->listRef('department');
+        if ($fetchMembers && $this->auth) {
+            $accessToken = $this->auth->getAccessToken();
+            if ($accessToken) {
+                $sso = $this->auth->getSSO();
+                foreach ($depts as &$d) {
+                    if ($d['azure_group_id']) {
+                        $d['members'] = $sso->getGroupMembers($accessToken, $d['azure_group_id']);
+                    } else {
+                        $d['members'] = [];
+                    }
+                }
+            }
+        }
+        return $depts;
+    }
     public function createDepartment($name, $azureGroupId = null) {
         $sql = "INSERT INTO department (name, azure_group_id) VALUES (?, ?)";
         $this->db->query($sql, [$name, $azureGroupId]);
@@ -428,13 +444,14 @@ class EventManager {
     // --- Teams Integration ---
 
     private function logTeams($message, $data = null) {
-        $logFile = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__, '/\\') . '/teams_integration.log';
+        $logFile = __DIR__ . '/teams_integration.log';
         $timestamp = date('Y-m-d H:i:s');
         $entry = "[$timestamp] [EventManager] $message";
         if ($data) {
             $entry .= " | Data: " . json_encode($data);
         }
         file_put_contents($logFile, $entry . PHP_EOL, FILE_APPEND);
+        error_log($entry);
     }
 
     private function initTeamsChat($eventId, $departmentId, $description) {
@@ -455,7 +472,8 @@ class EventManager {
         }
 
         $sso = $this->auth->getSSO();
-        $members = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
+        $memberData = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
+        $members = array_column($memberData, 'id');
 
         // Ensure current user is in the chat
         $currentUserOid = $this->auth->user()['azure_oid'] ?? null;
@@ -463,8 +481,9 @@ class EventManager {
             $members[] = $currentUserOid;
         }
 
-        if (empty($members)) {
-            $this->logTeams("Skipping Teams chat: No members found to initiate chat.");
+        // Teams requires at least 2 members for a group chat
+        if (count($members) < 2) {
+            $this->logTeams("Skipping Teams chat: Insufficient members (need at least 2).", ['members' => $members]);
             return;
         }
 
@@ -504,7 +523,8 @@ class EventManager {
         }
 
         $sso = $this->auth->getSSO();
-        $members = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
+        $memberData = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
+        $members = array_column($memberData, 'id');
 
         if (empty($members)) {
             $this->logTeams("Skipping member sync: No members found in Azure Group " . $dept['azure_group_id']);
