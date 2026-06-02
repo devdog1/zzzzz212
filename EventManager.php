@@ -590,18 +590,19 @@ class EventManager {
         }
 
         $dept = $this->db->query("SELECT azure_group_id FROM department WHERE id = ?", [$departmentId])->fetch();
-        if (!$dept || !$dept['azure_group_id']) {
-            $this->logTeams("Skipping Teams chat: Department #$departmentId has no Azure Group ID.");
-            return;
-        }
+        $deptGroupId = $dept['azure_group_id'] ?? null;
 
         $sso = $this->auth->getSSO();
-        $memberData = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
-        if ($memberData === null) {
-            $this->lastError = "Teams integration error: Failed to fetch department members.";
-            return;
+        $members = [];
+
+        if ($deptGroupId) {
+            $memberData = $sso->getGroupMembers($accessToken, $deptGroupId);
+            if ($memberData !== null) {
+                $members = array_column($memberData, 'id');
+            } else {
+                $this->logTeams("Warning: Failed to fetch members for department group $deptGroupId");
+            }
         }
-        $members = array_column($memberData, 'id');
 
         // Always include members from global default group if set
         $alwaysIncludeGroupId = $this->getDefault('always_include_azure_group_id');
@@ -659,14 +660,17 @@ class EventManager {
         }
 
         $dept = $this->db->query("SELECT azure_group_id FROM department WHERE id = ?", [$departmentId])->fetch();
-        if (!$dept || !$dept['azure_group_id']) {
-            $this->logTeams("Skipping member sync: Department #$departmentId has no Azure Group ID.");
-            return;
-        }
+        $deptGroupId = $dept['azure_group_id'] ?? null;
 
         $sso = $this->auth->getSSO();
-        $memberData = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
-        $members = array_column($memberData, 'id');
+        $members = [];
+
+        if ($deptGroupId) {
+            $memberData = $sso->getGroupMembers($accessToken, $deptGroupId);
+            if ($memberData !== null) {
+                $members = array_column($memberData, 'id');
+            }
+        }
 
         // Always include members from global default group if set
         $alwaysIncludeGroupId = $this->getDefault('always_include_azure_group_id');

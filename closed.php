@@ -46,6 +46,10 @@ $em = new EventManager($currentUser, $auth_obj);
 $events = $em->listEvents(true); // Show closed only
 $events = array_filter($events, function($e) { return strtolower($e['state_name']) === 'closed'; });
 
+$deptMap = array_column($em->listDepartments(), 'name', 'id');
+$typeMap = array_column($em->listTypes(), 'name', 'id');
+$stateMap = array_column($em->listStates(), 'name', 'id');
+
 function formatDuration($seconds) {
     if ($seconds < 60) return $seconds . "s";
     if ($seconds < 3600) return floor($seconds / 60) . "m";
@@ -203,12 +207,20 @@ function formatDuration($seconds) {
                                                                 if (in_array($key, ['update_time', 'update_user'])) continue;
                                                                 $oldVal = $old[$key] ?? null;
                                                                 if (json_encode($oldVal) === json_encode($val)) continue;
+
+                                                                $label = $key;
+                                                                $v_old = $oldVal;
+                                                                $v_new = $val;
+
+                                                                if ($key === 'state_id') { $label = 'Status'; $v_old = $stateMap[$oldVal] ?? $oldVal; $v_new = $stateMap[$val] ?? $val; }
+                                                                if ($key === 'type_id') { $label = 'Type'; $v_old = $typeMap[$oldVal] ?? $oldVal; $v_new = $typeMap[$val] ?? $val; }
+                                                                if ($key === 'department_id') { $label = 'Dept'; $v_old = $deptMap[$oldVal] ?? $oldVal; $v_new = $deptMap[$val] ?? $val; }
                                                             ?>
                                                                 <div>
-                                                                    <strong><?= htmlspecialchars($key) ?>:</strong>
-                                                                <span class="text-decoration-line-through text-muted"><?= htmlspecialchars(is_array($oldVal) ? json_encode($oldVal) : $oldVal) ?></span>
+                                                                    <strong><?= htmlspecialchars($label) ?>:</strong>
+                                                                <span class="text-decoration-line-through text-muted"><?= htmlspecialchars(is_array($v_old) ? json_encode($v_old) : $v_old) ?></span>
                                                                     &rarr;
-                                                                <span><?= htmlspecialchars(is_array($val) ? json_encode($val) : $val) ?></span>
+                                                                <span><?= htmlspecialchars(is_array($v_new) ? json_encode($v_new) : $v_new) ?></span>
                                                                 </div>
                                                             <?php endforeach; ?>
                                                         </div>

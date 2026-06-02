@@ -94,6 +94,11 @@ $services = $em->listServices();
 $allTags = $em->listAllTags();
 $allAreas = $em->listAllAreas();
 
+// Name maps for Audit translation
+$deptMap = array_column($departments, 'name', 'id');
+$typeMap = array_column($types, 'name', 'id');
+$stateMap = array_column($states, 'name', 'id');
+
 function formatDuration($seconds) {
     if ($seconds < 60) return $seconds . "s";
     if ($seconds < 3600) return floor($seconds / 60) . "m";
@@ -414,7 +419,7 @@ function formatDuration($seconds) {
                                             </form>
                                         </div>
                                         <div class="col-md-6">
-                                            <h6>Audit History (Metadata Changes)</h6>
+                                            <h6>Audit History</h6>
                                             <div class="audit-list overflow-auto" style="max-height: 250px;">
                                                 <?php
                                                 $audits = $em->getAuditTrail('wb_events', $e['id']);
@@ -423,21 +428,28 @@ function formatDuration($seconds) {
                                                     if ($audit['action'] !== 'UPDATE') continue;
                                                     $old = json_decode($audit['old_values'], true);
                                                     $new = json_decode($audit['new_values'], true);
-                                                    $diff = array_diff_assoc($new, $old);
-                                                    if (empty($diff)) continue;
+                                                    if (!$old || !$new) continue;
                                                 ?>
-                                                    <div class="mb-2 p-2 bg-white border rounded small">
-                                                        <div class="text-muted" style="font-size:0.7rem;"><?= $audit['timestamp'] ?> by <?= htmlspecialchars($audit['user']) ?></div>
+                                                    <div class="mb-2 p-2 bg-light border rounded small" style="font-size: 0.75rem;">
+                                                        <div class="text-muted" style="font-size:0.65rem;"><?= $audit['timestamp'] ?> by <?= htmlspecialchars($audit['user']) ?></div>
                                                         <?php foreach ($new as $key => $val):
                                                             if (in_array($key, ['update_time', 'update_user'])) continue;
                                                             $oldVal = $old[$key] ?? null;
                                                             if (json_encode($oldVal) === json_encode($val)) continue;
+
+                                                            $label = $key;
+                                                            $v_old = $oldVal;
+                                                            $v_new = $val;
+
+                                                            if ($key === 'state_id') { $label = 'Status'; $v_old = $stateMap[$oldVal] ?? $oldVal; $v_new = $stateMap[$val] ?? $val; }
+                                                            if ($key === 'type_id') { $label = 'Type'; $v_old = $typeMap[$oldVal] ?? $oldVal; $v_new = $typeMap[$val] ?? $val; }
+                                                            if ($key === 'department_id') { $label = 'Dept'; $v_old = $deptMap[$oldVal] ?? $oldVal; $v_new = $deptMap[$val] ?? $val; }
                                                         ?>
                                                             <div>
-                                                                <span class="fw-bold"><?= htmlspecialchars($key) ?>:</span>
-                                                                <span class="text-decoration-line-through text-muted"><?= htmlspecialchars(is_array($oldVal) ? json_encode($oldVal) : $oldVal) ?></span>
+                                                                <strong><?= htmlspecialchars($label) ?>:</strong>
+                                                                <span class="text-decoration-line-through text-muted"><?= htmlspecialchars(is_array($v_old) ? json_encode($v_old) : $v_old) ?></span>
                                                                 &rarr;
-                                                                <span><?= htmlspecialchars(is_array($val) ? json_encode($val) : $val) ?></span>
+                                                                <span><?= htmlspecialchars(is_array($v_new) ? json_encode($v_new) : $v_new) ?></span>
                                                             </div>
                                                         <?php endforeach; ?>
                                                     </div>
