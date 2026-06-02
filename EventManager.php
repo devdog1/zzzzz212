@@ -487,8 +487,10 @@ class EventManager {
             return;
         }
 
-        $topic = "Incident #$eventId: " . substr($description, 0, 50);
-        $chat = $sso->createChat($accessToken, $topic, $members);
+        $topic = "Incident #$eventId - " . substr($description, 0, 50);
+        $topic = str_replace([':', '"', "'"], ' ', $topic); // Sanitize colons and quotes
+
+        $chat = $sso->createChat($accessToken, $topic, $members, $currentUserOid);
 
         if ($chat && isset($chat['id'])) {
             $this->db->query("UPDATE wb_events SET teams_chat_id = ? WHERE id = ?", [$chat['id'], $eventId]);

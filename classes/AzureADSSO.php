@@ -86,14 +86,25 @@ class AzureADSSO
         return [];
     }
 
-    public function createChat($accessToken, $topic, $userOids)
+    public function createChat($accessToken, $topic, $userOids, $ownerOid = null)
     {
         $members = [];
         foreach ($userOids as $oid) {
+            $role = ($oid === $ownerOid) ? ['owner'] : ['member'];
+            $members[] = [
+                '@odata.type' => '#microsoft.graph.aadUserConversationMember',
+                'roles' => $role,
+                'user@odata.bind' => "https://graph.microsoft.com/v1.0/users/$oid"
+            ];
+        }
+
+        // Fallback: If ownerOid was provided but somehow not in userOids, ensure they are added as owner
+        $oids = array_column($members, 'user@odata.bind');
+        if ($ownerOid && !in_array("https://graph.microsoft.com/v1.0/users/$ownerOid", $oids)) {
             $members[] = [
                 '@odata.type' => '#microsoft.graph.aadUserConversationMember',
                 'roles' => ['owner'],
-                'user@odata.bind' => "https://graph.microsoft.com/v1.0/users/$oid"
+                'user@odata.bind' => "https://graph.microsoft.com/v1.0/users/$ownerOid"
             ];
         }
 
@@ -103,7 +114,7 @@ class AzureADSSO
             'members' => $members
         ];
 
-        $this->log("Attempting to create Teams chat", ['topic' => $topic, 'member_count' => count($userOids)]);
+        $this->log("Attempting to create Teams chat", ['topic' => $topic, 'member_count' => count($members), 'has_owner' => !empty($ownerOid)]);
         return $this->makePostRequestJson("https://graph.microsoft.com/v1.0/chats", $body, $accessToken);
     }
 
