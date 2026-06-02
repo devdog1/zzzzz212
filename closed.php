@@ -168,16 +168,51 @@ function formatDuration($seconds) {
                                             <?php endforeach; ?>
                                         </div>
 
-                                        <h6>Timeline Updates</h6>
-                                        <div class="update-list shadow-none">
-                                            <?php
-                                            $updates = $em->getEventUpdates($e['id']);
-                                            foreach ($updates as $u): ?>
-                                                <div class="update-entry small">
-                                                    <div class="update-time"><?= $u['create_time'] ?> by <?= htmlspecialchars($u['create_user']) ?></div>
-                                                    <div><?= htmlspecialchars($u['update_text']) ?></div>
+                                        <div class="row">
+                                            <div class="col-md-6 border-end">
+                                                <h6>Timeline Updates</h6>
+                                                <div class="update-list shadow-none">
+                                                    <?php
+                                                    $updates = $em->getEventUpdates($e['id']);
+                                                    if (empty($updates)) echo '<p class="text-muted small">No updates.</p>';
+                                                    foreach ($updates as $u): ?>
+                                                        <div class="update-entry small">
+                                                            <div class="update-time"><?= $u['create_time'] ?> by <?= htmlspecialchars($u['create_user']) ?></div>
+                                                            <div><?= htmlspecialchars($u['update_text']) ?></div>
+                                                        </div>
+                                                    <?php endforeach; ?>
                                                 </div>
-                                            <?php endforeach; ?>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6>Audit History</h6>
+                                                <div class="audit-list overflow-auto" style="max-height: 200px;">
+                                                    <?php
+                                                    $audits = $em->getAuditTrail('wb_events', $e['id']);
+                                                    $audits = array_reverse($audits);
+                                                    foreach ($audits as $audit):
+                                                        if ($audit['action'] !== 'UPDATE') continue;
+                                                        $old = json_decode($audit['old_values'], true);
+                                                        $new = json_decode($audit['new_values'], true);
+                                                        if (!$old || !$new) continue;
+                                                    ?>
+                                                        <div class="mb-2 p-2 bg-light border rounded small" style="font-size: 0.75rem;">
+                                                            <div class="text-muted" style="font-size:0.65rem;"><?= $audit['timestamp'] ?> by <?= htmlspecialchars($audit['user']) ?></div>
+                                                            <?php foreach ($new as $key => $val):
+                                                                if (in_array($key, ['update_time', 'update_user'])) continue;
+                                                                $oldVal = $old[$key] ?? null;
+                                                                if (json_encode($oldVal) === json_encode($val)) continue;
+                                                            ?>
+                                                                <div>
+                                                                    <strong><?= htmlspecialchars($key) ?>:</strong>
+                                                                    <span class="text-decoration-line-through text-muted"><?= htmlspecialchars(is_array($oldVal) ? json_encode($oldVal) : (string)$oldVal) ?></span>
+                                                                    &rarr;
+                                                                    <span><?= htmlspecialchars(is_array($val) ? json_encode($val) : (string)$val) ?></span>
+                                                                </div>
+                                                            <?php endforeach; ?>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="modal-footer border-0">

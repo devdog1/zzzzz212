@@ -115,6 +115,12 @@ function formatDuration($seconds) {
         .counter-box { font-size: 0.85rem; color: #444; background: #eee; padding: 2px 8px; border-radius: 4px; margin-left: 5px; }
         .card-header { cursor: pointer; transition: background 0.2s; }
         .card-header:hover { background-color: #f0f0f0 !important; }
+
+        .pill-container { border: 1px solid #dee2e6; padding: 5px; border-radius: 0.375rem; background: white; display: flex; flex-wrap: wrap; gap: 5px; }
+        .pill-container input { border: none; outline: none; flex-grow: 1; min-width: 100px; font-size: 0.875rem; }
+        .pill { display: inline-flex; align-items: center; background: #0d6efd; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
+        .pill .remove { margin-left: 5px; cursor: pointer; font-weight: bold; }
+        .pill .remove:hover { color: #ffc107; }
     </style>
 </head>
 <body>
@@ -168,8 +174,11 @@ function formatDuration($seconds) {
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold">Affected Areas (comma separated)</label>
-                            <input type="text" name="areas" class="form-control form-control-sm" list="areaList" placeholder="Town, Node, etc.">
+                            <label class="form-label small fw-bold">Affected Areas</label>
+                            <div class="pill-container" id="area-container-new">
+                                <input type="text" class="pill-input" list="areaList" placeholder="Add area...">
+                                <input type="hidden" name="areas" class="pill-hidden">
+                            </div>
                             <datalist id="areaList">
                                 <?php foreach ($allAreas as $a): ?>
                                     <option value="<?= htmlspecialchars($a['name']) ?>">
@@ -189,8 +198,11 @@ function formatDuration($seconds) {
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold">Tags (comma separated)</label>
-                            <input type="text" name="tags" class="form-control form-control-sm" list="tagList">
+                            <label class="form-label small fw-bold">Tags</label>
+                            <div class="pill-container" id="tag-container-new">
+                                <input type="text" class="pill-input" list="tagList" placeholder="Add tag...">
+                                <input type="hidden" name="tags" class="pill-hidden">
+                            </div>
                             <datalist id="tagList">
                                 <?php foreach ($allTags as $t): ?>
                                     <option value="<?= htmlspecialchars($t['name']) ?>">
@@ -236,27 +248,57 @@ function formatDuration($seconds) {
                                 <div class="card-body">
                                     <div class="row mb-3">
                                         <div class="col-md-8">
-                                            <h6 class="text-primary"><?= htmlspecialchars($e['department_name']) ?></h6>
-                                            <p class="card-text fw-bold fs-5"><?= nl2br(htmlspecialchars($e['description'])) ?></p>
-                                            <div class="mb-2">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <h6 class="text-primary mb-0 me-3"><?= htmlspecialchars($e['department_name'] ?: 'No Department') ?></h6>
+                                                <span class="badge bg-info text-dark me-2">Type: <?= htmlspecialchars($e['type_name'] ?: 'N/A') ?></span>
+                                                <?php if($e['ticket_nr'] && $e['ticket_nr'] !== '0'): ?>
+                                                    <span class="badge bg-secondary">Ticket: <?= htmlspecialchars($e['ticket_nr']) ?></span>
+                                                <?php endif; ?>
+                                            </div>
+
+                                            <p class="card-text fw-bold fs-5 mb-3"><?= nl2br(htmlspecialchars($e['description'])) ?></p>
+
+                                            <div class="mb-3">
+                                                <div class="small text-muted mb-1">Affected Areas & Services:</div>
+                                                <?php foreach ($e['areas'] as $area): ?>
+                                                    <span class="badge bg-success me-1">Area: <?= htmlspecialchars($area['name']) ?></span>
+                                                <?php endforeach; ?>
                                                 <?php foreach ($e['services'] as $svc): ?>
                                                     <span class="badge bg-dark me-1">Service: <?= htmlspecialchars($svc['name']) ?></span>
                                                 <?php endforeach; ?>
                                             </div>
-                                            <div class="mb-2">
-                                                <?php foreach ($e['areas'] as $area): ?>
-                                                    <span class="badge bg-success me-1">Area: <?= htmlspecialchars($area['name']) ?></span>
-                                                <?php endforeach; ?>
-                                            </div>
-                                            <div>
+
+                                            <div class="mb-3">
+                                                <div class="small text-muted mb-1">Tags:</div>
                                                 <?php foreach ($e['tags'] as $tag): ?>
                                                     <span class="badge rounded-pill bg-light text-dark border tag-badge me-1">#<?= htmlspecialchars($tag['name']) ?></span>
                                                 <?php endforeach; ?>
                                             </div>
+
+                                            <?php if($e['teams_chat_id']): ?>
+                                                <div class="mb-3">
+                                                    <a href="https://teams.microsoft.com/l/chat/0/0?users=8:orgid:<?= $e['teams_chat_id'] ?>" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c9/Microsoft_Office_Teams_%282018%E2%80%93present%29.svg" width="16" class="me-1">
+                                                        Open Teams Chat
+                                                    </a>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                         <div class="col-md-4 border-start text-end">
-                                            <div class="small"><strong>Customers:</strong> <?= (int)$e['customers_affected'] ?></div>
-                                            <div class="small"><strong>Impact Score:</strong> <span class="badge bg-danger"><?= (int)$e['impactScore'] ?></span></div>
+                                            <div class="p-3 bg-light rounded">
+                                                <div class="h6 mb-3 border-bottom pb-2 text-center">Impact Statistics</div>
+                                                <div class="d-flex justify-content-between mb-2">
+                                                    <strong>Affected:</strong>
+                                                    <span><?= number_format((int)$e['customers_affected']) ?> cust.</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between mb-2">
+                                                    <strong>Impact Score:</strong>
+                                                    <span class="badge bg-danger fs-6"><?= number_format((int)$e['impactScore']) ?></span>
+                                                </div>
+                                                <div class="text-muted" style="font-size: 0.7rem;">
+                                                    (Customers &times; Outage Minutes)
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -305,11 +347,17 @@ function formatDuration($seconds) {
                                         <div class="row g-2 mb-2">
                                             <div class="col-md-6">
                                                 <label class="small fw-bold">Update Tags</label>
-                                                <input type="text" name="tags" class="form-control form-control-sm" value="<?= htmlspecialchars(implode(',', array_column($e['tags'], 'name'))) ?>">
+                                                <div class="pill-container" id="tag-container-<?= $e['id'] ?>" data-initial="<?= htmlspecialchars(implode(',', array_column($e['tags'], 'name'))) ?>">
+                                                    <input type="text" class="pill-input" list="tagList">
+                                                    <input type="hidden" name="tags" class="pill-hidden">
+                                                </div>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="small fw-bold">Update Areas</label>
-                                                <input type="text" name="areas" class="form-control form-control-sm" value="<?= htmlspecialchars(implode(',', array_column($e['areas'], 'name'))) ?>">
+                                                <div class="pill-container" id="area-container-<?= $e['id'] ?>" data-initial="<?= htmlspecialchars(implode(',', array_column($e['areas'], 'name'))) ?>">
+                                                    <input type="text" class="pill-input" list="areaList">
+                                                    <input type="hidden" name="areas" class="pill-hidden">
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="row g-2 mb-2">
@@ -328,28 +376,64 @@ function formatDuration($seconds) {
                                     </form>
 
                                     <hr>
-                                    <h6>Timeline Updates</h6>
-                                    <div class="update-list mb-3">
-                                        <?php
-                                        $updates = $em->getEventUpdates($e['id']);
-                                        foreach ($updates as $u): ?>
-                                            <div class="update-entry">
-                                                <div class="update-time"><?= $u['create_time'] ?> by <?= htmlspecialchars($u['create_user']) ?></div>
-                                                <div><?= htmlspecialchars($u['update_text']) ?></div>
+                                    <div class="row">
+                                        <div class="col-md-6 border-end">
+                                            <h6>Timeline Updates</h6>
+                                            <div class="update-list mb-3">
+                                                <?php
+                                                $updates = $em->getEventUpdates($e['id']);
+                                                if (empty($updates)) echo '<p class="text-muted small">No updates yet.</p>';
+                                                foreach ($updates as $u): ?>
+                                                    <div class="update-entry">
+                                                        <div class="update-time"><?= $u['create_time'] ?> by <?= htmlspecialchars($u['create_user']) ?></div>
+                                                        <div><?= htmlspecialchars($u['update_text']) ?></div>
+                                                    </div>
+                                                <?php endforeach; ?>
                                             </div>
-                                        <?php endforeach; ?>
-                                    </div>
 
-                                    <form method="POST" class="row g-2">
-                                        <input type="hidden" name="action" value="add_update">
-                                        <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
-                                        <div class="col">
-                                            <input type="text" name="update_text" class="form-control form-control-sm" placeholder="Post new update..." required>
+                                            <form method="POST" class="row g-2 mb-3">
+                                                <input type="hidden" name="action" value="add_update">
+                                                <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
+                                                <div class="col">
+                                                    <input type="text" name="update_text" class="form-control form-control-sm" placeholder="Post new update..." required>
+                                                </div>
+                                                <div class="col-auto">
+                                                    <button type="submit" class="btn btn-outline-primary btn-sm">Post</button>
+                                                </div>
+                                            </form>
                                         </div>
-                                        <div class="col-auto">
-                                            <button type="submit" class="btn btn-outline-primary btn-sm">Post</button>
+                                        <div class="col-md-6">
+                                            <h6>Audit History (Metadata Changes)</h6>
+                                            <div class="audit-list overflow-auto" style="max-height: 250px;">
+                                                <?php
+                                                $audits = $em->getAuditTrail('wb_events', $e['id']);
+                                                $audits = array_reverse($audits);
+                                                foreach ($audits as $audit):
+                                                    if ($audit['action'] !== 'UPDATE') continue;
+                                                    $old = json_decode($audit['old_values'], true);
+                                                    $new = json_decode($audit['new_values'], true);
+                                                    $diff = array_diff_assoc($new, $old);
+                                                    if (empty($diff)) continue;
+                                                ?>
+                                                    <div class="mb-2 p-2 bg-white border rounded small">
+                                                        <div class="text-muted" style="font-size:0.7rem;"><?= $audit['timestamp'] ?> by <?= htmlspecialchars($audit['user']) ?></div>
+                                                        <?php foreach ($new as $key => $val):
+                                                            if (in_array($key, ['update_time', 'update_user'])) continue;
+                                                            $oldVal = $old[$key] ?? null;
+                                                            if (json_encode($oldVal) === json_encode($val)) continue;
+                                                        ?>
+                                                            <div>
+                                                                <span class="fw-bold"><?= htmlspecialchars($key) ?>:</span>
+                                                                <span class="text-decoration-line-through text-muted"><?= htmlspecialchars(is_array($oldVal) ? json_encode($oldVal) : (string)$oldVal) ?></span>
+                                                                &rarr;
+                                                                <span><?= htmlspecialchars(is_array($val) ? json_encode($val) : (string)$val) ?></span>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
                                         </div>
-                                    </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -362,6 +446,81 @@ function formatDuration($seconds) {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+function initPillInput(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const input = container.querySelector('.pill-input');
+    const hidden = container.querySelector('.pill-hidden');
+    let items = [];
+
+    const initial = container.getAttribute('data-initial');
+    if (initial) {
+        items = initial.split(',').filter(i => i.trim() !== '');
+        render();
+    }
+
+    function render() {
+        container.querySelectorAll('.pill').forEach(p => p.remove());
+        items.forEach((item, index) => {
+            const pill = document.createElement('span');
+            pill.className = 'pill';
+            pill.innerHTML = `${item} <span class="remove" data-index="${index}">&times;</span>`;
+            container.insertBefore(pill, input);
+        });
+        hidden.value = items.join(',');
+
+        container.querySelectorAll('.remove').forEach(r => {
+            r.onclick = (e) => {
+                items.splice(e.target.getAttribute('data-index'), 1);
+                render();
+            };
+        });
+    }
+
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = input.value.trim();
+            if (val && !items.includes(val)) {
+                items.push(val);
+                render();
+                input.value = '';
+            }
+        } else if (e.key === 'Backspace' && input.value === '' && items.length > 0) {
+            items.pop();
+            render();
+        }
+    };
+
+    // Also handle selection from datalist
+    input.oninput = (e) => {
+        const val = input.value.trim();
+        // Check if value matches an option in datalist
+        const list = input.getAttribute('list');
+        if (list) {
+            const options = document.getElementById(list).options;
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].value === val) {
+                    if (!items.includes(val)) {
+                        items.push(val);
+                        render();
+                        input.value = '';
+                    }
+                    break;
+                }
+            }
+        }
+    };
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initPillInput('area-container-new');
+    initPillInput('tag-container-new');
+    document.querySelectorAll('[id^="tag-container-"], [id^="area-container-"]').forEach(c => {
+        initPillInput(c.id);
+    });
+});
+
 function updateCounters() {
     const now = new Date();
     document.querySelectorAll('.counter-box').forEach(box => {

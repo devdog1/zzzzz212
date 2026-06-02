@@ -178,8 +178,8 @@ class EventManager {
             }
         }
 
-        $outageHours = $totalOutageSeconds / 3600;
-        return round($outageHours * (int)$customers);
+        $outageMinutes = $totalOutageSeconds / 60;
+        return (int)round($outageMinutes * (int)$customers);
     }
 
     public function getEvent($eventId) {
