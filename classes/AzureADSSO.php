@@ -63,6 +63,11 @@ class AzureADSSO
         return $this->logoutUrl . '?post_logout_redirect_uri=' . urlencode($postLogoutRedirectUri);
     }
 
+    public function getMe($accessToken)
+    {
+        return $this->makeGetRequest("https://graph.microsoft.com/v1.0/me", $accessToken);
+    }
+
     public function getUserGroups($accessToken)
     {
         $response = $this->makeGetRequest("https://graph.microsoft.com/v1.0/me/memberOf", $accessToken);

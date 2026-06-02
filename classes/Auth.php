@@ -89,9 +89,10 @@ class Auth
         if (!$tokens) return false;
 
         $userInfo = $this->sso()->getUserInfo($tokens['id_token']);
+        $me = $this->sso()->getMe($tokens['access_token']);
         $groups   = $this->sso()->getUserGroups($tokens['access_token']);
 
-        $azureOid = $userInfo['sub'] ?? '';
+        $azureOid = $me['id'] ?? $userInfo['sub'] ?? '';
         $email    = $userInfo['preferred_username'] ?? '';
         $name     = $userInfo['name'] ?? '';
 
