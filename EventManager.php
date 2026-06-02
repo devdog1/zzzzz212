@@ -508,6 +508,10 @@ class EventManager {
         return $stmt->fetchAll();
     }
 
+    public function getLastError() {
+        return $this->lastError;
+    }
+
     // --- Teams Integration ---
 
     private function getAdaptiveCardBase($title) {
