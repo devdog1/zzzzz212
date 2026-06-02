@@ -107,3 +107,12 @@ CREATE TABLE IF NOT EXISTS `audit_log` (
     `user` TEXT,
     `timestamp` DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS `defaults` (
+    `setting_key` TEXT PRIMARY KEY,
+    `setting_value` TEXT,
+    `description` TEXT
+);
+
+INSERT OR IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('always_include_azure_group_id', NULL, 'Azure AD Group ID to always include in all incident Teams chats');

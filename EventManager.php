@@ -448,6 +448,25 @@ class EventManager {
     public function listAllTags() { return $this->listRef('tag'); }
     public function listAllAreas() { return $this->listRef('area'); }
 
+    // --- System Defaults ---
+
+    public function getDefaults() {
+        return $this->db->query("SELECT * FROM defaults")->fetchAll();
+    }
+
+    public function getDefault($key) {
+        $stmt = $this->db->query("SELECT setting_value FROM defaults WHERE setting_key = ?", [$key]);
+        $row = $stmt->fetch();
+        return $row ? $row['setting_value'] : null;
+    }
+
+    public function updateDefault($key, $value) {
+        $old = $this->db->query("SELECT * FROM defaults WHERE setting_key = ?", [$key])->fetch();
+        $this->db->query("UPDATE defaults SET setting_value = ? WHERE setting_key = ?", [$value, $key]);
+        $this->logAudit('defaults', 0, 'UPDATE', $old, ['setting_key' => $key, 'setting_value' => $value]);
+        return true;
+    }
+
     // --- Event Updates ---
 
     public function addEventUpdate($eventId, $updateText) {
@@ -580,6 +599,16 @@ class EventManager {
         }
         $members = array_column($memberData, 'id');
 
+        // Always include members from global default group if set
+        $alwaysIncludeGroupId = $this->getDefault('always_include_azure_group_id');
+        if ($alwaysIncludeGroupId && $alwaysIncludeGroupId !== $dept['azure_group_id']) {
+            $extraMembers = $sso->getGroupMembers($accessToken, $alwaysIncludeGroupId);
+            if ($extraMembers) {
+                $extraIds = array_column($extraMembers, 'id');
+                $members = array_unique(array_merge($members, $extraIds));
+            }
+        }
+
         // Ensure current user is in the chat
         $currentUserOid = $this->auth->user()['azure_oid'] ?? null;
         if ($currentUserOid && !in_array($currentUserOid, $members)) {
@@ -634,6 +663,16 @@ class EventManager {
         $sso = $this->auth->getSSO();
         $memberData = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
         $members = array_column($memberData, 'id');
+
+        // Always include members from global default group if set
+        $alwaysIncludeGroupId = $this->getDefault('always_include_azure_group_id');
+        if ($alwaysIncludeGroupId && $alwaysIncludeGroupId !== $dept['azure_group_id']) {
+            $extraMembers = $sso->getGroupMembers($accessToken, $alwaysIncludeGroupId);
+            if ($extraMembers) {
+                $extraIds = array_column($extraMembers, 'id');
+                $members = array_unique(array_merge($members, $extraIds));
+            }
+        }
 
         if (empty($members)) {
             $this->logTeams("Skipping member sync: No members found in Azure Group " . $dept['azure_group_id']);

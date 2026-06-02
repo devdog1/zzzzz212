@@ -1,0 +1,7 @@
+[Tue Jun  2 19:29:33 2026] PHP 8.3.6 Development Server (http://0.0.0.0:8080) started
+[Tue Jun  2 19:29:36 2026] 127.0.0.1:47222 Accepted
+[Tue Jun  2 19:29:36 2026] 127.0.0.1:47222 [200]: GET /settings.php
+[Tue Jun  2 19:29:36 2026] 127.0.0.1:47222 Closing
+[Tue Jun  2 19:29:37 2026] 127.0.0.1:47234 Accepted
+[Tue Jun  2 19:29:37 2026] 127.0.0.1:47234 [200]: POST /settings.php
+[Tue Jun  2 19:29:37 2026] 127.0.0.1:47234 Closing

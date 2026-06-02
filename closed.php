@@ -76,6 +76,7 @@ function formatDuration($seconds) {
                 <li class="nav-item"><a class="nav-link" href="index.php">Active Incidents</a></li>
                 <li class="nav-item"><a class="nav-link active" href="closed.php">Closed Archive</a></li>
                 <li class="nav-item"><a class="nav-link" href="departments.php">Departments</a></li>
+                <li class="nav-item"><a class="nav-link" href="settings.php">Settings</a></li>
             </ul>
         </div>
         <div class="navbar-text text-white">
