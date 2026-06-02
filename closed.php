@@ -75,6 +75,7 @@ function formatDuration($seconds) {
             <ul class="navbar-nav me-auto">
                 <li class="nav-item"><a class="nav-link" href="index.php">Active Incidents</a></li>
                 <li class="nav-item"><a class="nav-link active" href="closed.php">Closed Archive</a></li>
+                <li class="nav-item"><a class="nav-link" href="departments.php">Departments</a></li>
             </ul>
         </div>
         <div class="navbar-text text-white">
@@ -204,9 +205,9 @@ function formatDuration($seconds) {
                                                             ?>
                                                                 <div>
                                                                     <strong><?= htmlspecialchars($key) ?>:</strong>
-                                                                    <span class="text-decoration-line-through text-muted"><?= htmlspecialchars(is_array($oldVal) ? json_encode($oldVal) : (string)$oldVal) ?></span>
+                                                                <span class="text-decoration-line-through text-muted"><?= htmlspecialchars(is_array($oldVal) ? json_encode($oldVal) : $oldVal) ?></span>
                                                                     &rarr;
-                                                                    <span><?= htmlspecialchars(is_array($val) ? json_encode($val) : (string)$val) ?></span>
+                                                                <span><?= htmlspecialchars(is_array($val) ? json_encode($val) : $val) ?></span>
                                                                 </div>
                                                             <?php endforeach; ?>
                                                         </div>

@@ -78,6 +78,14 @@ class AzureADSSO
         return [];
     }
 
+    public function getAllGroups($accessToken) {
+        $response = $this->makeGetRequest("https://graph.microsoft.com/v1.0/groups", $accessToken);
+        if ($response && isset($response['value'])) {
+            return $response['value'];
+        }
+        return [];
+    }
+
     public function createChat($accessToken, $topic, $userOids)
     {
         $members = [];

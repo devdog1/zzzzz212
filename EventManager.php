@@ -416,8 +416,12 @@ class EventManager {
 
     // --- Audit Log Retrieval ---
 
-    public function getAuditTrail($tableName, $recordId) {
-        $stmt = $this->db->query("SELECT * FROM audit_log WHERE table_name = ? AND record_id = ? ORDER BY timestamp ASC", [$tableName, $recordId]);
+    public function getAuditTrail($tableName, $recordId = null) {
+        if ($recordId) {
+            $stmt = $this->db->query("SELECT * FROM audit_log WHERE table_name = ? AND record_id = ? ORDER BY timestamp ASC", [$tableName, $recordId]);
+        } else {
+            $stmt = $this->db->query("SELECT * FROM audit_log WHERE table_name = ? ORDER BY timestamp DESC", [$tableName]);
+        }
         return $stmt->fetchAll();
     }
 
@@ -448,6 +452,9 @@ class EventManager {
         if ($chat && isset($chat['id'])) {
             $this->db->query("UPDATE wb_events SET teams_chat_id = ? WHERE id = ?", [$chat['id'], $eventId]);
             $sso->sendMessageToChat($accessToken, $chat['id'], "Incident management chat initiated for ID #$eventId");
+            $this->logAudit('wb_events', $eventId, 'TEAMS_CHAT_CREATED', null, ['teams_chat_id' => $chat['id'], 'topic' => $topic]);
+        } else {
+            $this->logAudit('wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['reason' => 'API Error or Missing Chat ID']);
         }
     }
 
@@ -467,8 +474,13 @@ class EventManager {
 
         if (empty($members)) return;
 
-        $sso->addMembersToChat($accessToken, $event['teams_chat_id'], $members);
-        $sso->sendMessageToChat($accessToken, $event['teams_chat_id'], "Members from new department added to chat.");
+        $res = $sso->addMembersToChat($accessToken, $event['teams_chat_id'], $members);
+        if ($res) {
+            $sso->sendMessageToChat($accessToken, $event['teams_chat_id'], "Members from new department added to chat.");
+            $this->logAudit('wb_events', $eventId, 'TEAMS_MEMBERS_SYNCED', null, ['count' => count($members)]);
+        } else {
+            $this->logAudit('wb_events', $eventId, 'TEAMS_MEMBERS_SYNC_FAILED', null, ['count' => count($members)]);
+        }
     }
 
     private function postToTeamsChat($eventId, $message) {
@@ -479,6 +491,9 @@ class EventManager {
         $event = $this->db->query("SELECT teams_chat_id FROM wb_events WHERE id = ?", [$eventId])->fetch();
         if (!$event || !$event['teams_chat_id']) return;
 
-        $this->auth->getSSO()->sendMessageToChat($accessToken, $event['teams_chat_id'], $message);
+        $res = $this->auth->getSSO()->sendMessageToChat($accessToken, $event['teams_chat_id'], $message);
+        if (!$res) {
+            $this->logAudit('wb_events', $eventId, 'TEAMS_POST_FAILED', null, ['message' => $message]);
+        }
     }
 }
