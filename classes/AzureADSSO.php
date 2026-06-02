@@ -136,6 +136,16 @@ class AzureADSSO
         return [];
     }
 
+    private function log($message, $data = null) {
+        $logFile = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__, '/\\') . '/teams_integration.log';
+        $timestamp = date('Y-m-d H:i:s');
+        $entry = "[$timestamp] $message";
+        if ($data) {
+            $entry .= " | Data: " . json_encode($data);
+        }
+        file_put_contents($logFile, $entry . PHP_EOL, FILE_APPEND);
+    }
+
     private function makeGetRequest($url, $accessToken) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -151,6 +161,12 @@ class AzureADSSO
         if ($httpCode >= 200 && $httpCode < 300) {
             return json_decode($response, true);
         }
+
+        $this->log("GET Request Failed", [
+            'url' => $url,
+            'httpCode' => $httpCode,
+            'response' => $response
+        ]);
         return null;
     }
 
@@ -171,6 +187,13 @@ class AzureADSSO
         if ($httpCode >= 200 && $httpCode < 300) {
             return json_decode($response, true);
         }
+
+        $this->log("POST JSON Request Failed", [
+            'url' => $url,
+            'httpCode' => $httpCode,
+            'body' => $body,
+            'response' => $response
+        ]);
         return null;
     }
 
@@ -194,6 +217,11 @@ class AzureADSSO
             return json_decode($response, true);
         }
 
+        $this->log("POST Request Failed (Form Data)", [
+            'url' => $url,
+            'httpCode' => $httpCode,
+            'response' => $response
+        ]);
         return null;
     }
 }

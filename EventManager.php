@@ -427,13 +427,32 @@ class EventManager {
 
     // --- Teams Integration ---
 
+    private function logTeams($message, $data = null) {
+        $logFile = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__, '/\\') . '/teams_integration.log';
+        $timestamp = date('Y-m-d H:i:s');
+        $entry = "[$timestamp] [EventManager] $message";
+        if ($data) {
+            $entry .= " | Data: " . json_encode($data);
+        }
+        file_put_contents($logFile, $entry . PHP_EOL, FILE_APPEND);
+    }
+
     private function initTeamsChat($eventId, $departmentId, $description) {
-        if (!$this->auth) return;
+        if (!$this->auth) {
+            $this->logTeams("Skipping Teams chat: No auth object provided.");
+            return;
+        }
         $accessToken = $this->auth->getAccessToken();
-        if (!$accessToken) return;
+        if (!$accessToken) {
+            $this->logTeams("Skipping Teams chat: Failed to get access token.");
+            return;
+        }
 
         $dept = $this->db->query("SELECT azure_group_id FROM department WHERE id = ?", [$departmentId])->fetch();
-        if (!$dept || !$dept['azure_group_id']) return;
+        if (!$dept || !$dept['azure_group_id']) {
+            $this->logTeams("Skipping Teams chat: Department #$departmentId has no Azure Group ID.");
+            return;
+        }
 
         $sso = $this->auth->getSSO();
         $members = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
@@ -444,7 +463,10 @@ class EventManager {
             $members[] = $currentUserOid;
         }
 
-        if (empty($members)) return;
+        if (empty($members)) {
+            $this->logTeams("Skipping Teams chat: No members found to initiate chat.");
+            return;
+        }
 
         $topic = "Incident #$eventId: " . substr($description, 0, 50);
         $chat = $sso->createChat($accessToken, $topic, $members);
@@ -459,20 +481,35 @@ class EventManager {
     }
 
     private function syncTeamsChatMembers($eventId, $departmentId) {
-        if (!$this->auth) return;
+        if (!$this->auth) {
+            $this->logTeams("Skipping member sync: No auth object.");
+            return;
+        }
         $accessToken = $this->auth->getAccessToken();
-        if (!$accessToken) return;
+        if (!$accessToken) {
+            $this->logTeams("Skipping member sync: No access token.");
+            return;
+        }
 
         $event = $this->getEvent($eventId);
-        if (!$event || !$event['teams_chat_id']) return;
+        if (!$event || !$event['teams_chat_id']) {
+            $this->logTeams("Skipping member sync: Event #$eventId has no Teams chat ID.");
+            return;
+        }
 
         $dept = $this->db->query("SELECT azure_group_id FROM department WHERE id = ?", [$departmentId])->fetch();
-        if (!$dept || !$dept['azure_group_id']) return;
+        if (!$dept || !$dept['azure_group_id']) {
+            $this->logTeams("Skipping member sync: Department #$departmentId has no Azure Group ID.");
+            return;
+        }
 
         $sso = $this->auth->getSSO();
         $members = $sso->getGroupMembers($accessToken, $dept['azure_group_id']);
 
-        if (empty($members)) return;
+        if (empty($members)) {
+            $this->logTeams("Skipping member sync: No members found in Azure Group " . $dept['azure_group_id']);
+            return;
+        }
 
         $res = $sso->addMembersToChat($accessToken, $event['teams_chat_id'], $members);
         if ($res) {
@@ -484,12 +521,21 @@ class EventManager {
     }
 
     private function postToTeamsChat($eventId, $message) {
-        if (!$this->auth) return;
+        if (!$this->auth) {
+            $this->logTeams("Skipping post: No auth object.");
+            return;
+        }
         $accessToken = $this->auth->getAccessToken();
-        if (!$accessToken) return;
+        if (!$accessToken) {
+            $this->logTeams("Skipping post: No access token.");
+            return;
+        }
 
         $event = $this->db->query("SELECT teams_chat_id FROM wb_events WHERE id = ?", [$eventId])->fetch();
-        if (!$event || !$event['teams_chat_id']) return;
+        if (!$event || !$event['teams_chat_id']) {
+            $this->logTeams("Skipping post: Event #$eventId has no Teams chat ID.");
+            return;
+        }
 
         $res = $this->auth->getSSO()->sendMessageToChat($accessToken, $event['teams_chat_id'], $message);
         if (!$res) {
