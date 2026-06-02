@@ -116,3 +116,9 @@ CREATE TABLE IF NOT EXISTS `defaults` (
 
 INSERT IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
 VALUES ('always_include_azure_group_id', NULL, 'Azure AD Group ID to always include in all incident Teams chats');
+
+INSERT IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('otrs_enabled', '0', 'Enable OTRS ticket integration (0 or 1)');
+
+INSERT IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('otrs_customer_user', 'customer@example.com', 'Default customer user for OTRS tickets');

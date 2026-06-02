@@ -6,6 +6,7 @@ class EventManager {
     public $db;
     private $currentUser;
     private $auth;
+    private $otrs = null;
     private $lastError = null;
 
     private $allowedEventFields = [
@@ -19,6 +20,16 @@ class EventManager {
         $this->db = new Database();
         $this->currentUser = $currentUser;
         $this->auth = $auth;
+
+        // Try to init OTRS if config exists
+        $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? __DIR__;
+        $configPath = rtrim($docRoot, '/\\') . '/inc/config.php';
+        if (file_exists($configPath)) {
+            include $configPath;
+            if (isset($config['soap']['otrs'])) {
+                $this->otrs = new OTRS($config);
+            }
+        }
     }
 
     public function setCurrentUser($user) {
@@ -88,6 +99,9 @@ class EventManager {
         if (isset($filteredData['department_id'])) {
             $this->initTeamsChat($eventId, $filteredData['department_id'], $filteredData['description']);
         }
+
+        // Handle OTRS Ticket Creation
+        $this->initOTRSTicket($eventId, $filteredData['description']);
 
         return $eventId;
     }
@@ -489,6 +503,9 @@ class EventManager {
         // Post to Teams Chat
         $this->postToTeamsChat($eventId, "**NEW UPDATE:** " . $updateText);
 
+        // Add OTRS Article
+        $this->addOTRSArticle($eventId, "Incident Update", $updateText);
+
         return $updateId;
     }
 
@@ -723,6 +740,62 @@ class EventManager {
         if (!$res) {
             $this->lastError = "Teams integration error: Failed to post adaptive card.";
             $this->logAudit('wb_events', $eventId, 'TEAMS_POST_CARD_FAILED', null, ['card' => $card]);
+        }
+    }
+
+    // --- OTRS Integration ---
+
+    private function logOTRS($message, $data = null) {
+        $logFile = __DIR__ . '/otrs_integration.log';
+        $timestamp = date('Y-m-d H:i:s');
+        $entry = "[$timestamp] [EventManager] $message";
+        if ($data) {
+            $entry .= " | Data: " . json_encode($data);
+        }
+        file_put_contents($logFile, $entry . PHP_EOL, FILE_APPEND);
+        error_log($entry);
+    }
+
+    private function initOTRSTicket($eventId, $description) {
+        if (!$this->otrs || $this->getDefault('otrs_enabled') !== '1') return;
+
+        $customerUser = $this->getDefault('otrs_customer_user') ?: 'customer@example.com';
+        $title = "Incident #$eventId: " . substr($description, 0, 100);
+
+        try {
+            $res = $this->otrs->ticketCreate($title, $customerUser, $description);
+            if ($res && isset($res['ticket_id'])) {
+                $this->db->query("UPDATE wb_events SET ticket_id = ?, ticket_nr = ? WHERE id = ?", [
+                    $res['ticket_id'],
+                    $res['ticket_nr'],
+                    $eventId
+                ]);
+                $this->logAudit('wb_events', $eventId, 'OTRS_TICKET_CREATED', null, $res);
+            } else {
+                $this->lastError = "OTRS integration error: Failed to create ticket.";
+                $this->logOTRS("Ticket creation failed for Event #$eventId");
+            }
+        } catch (Exception $e) {
+            $this->lastError = "OTRS integration exception: " . $e->getMessage();
+            $this->logOTRS("Exception during OTRS ticket creation", ['error' => $e->getMessage()]);
+        }
+    }
+
+    private function addOTRSArticle($eventId, $subject, $body) {
+        if (!$this->otrs || $this->getDefault('otrs_enabled') !== '1') return;
+
+        $event = $this->db->query("SELECT ticket_id FROM wb_events WHERE id = ?", [$eventId])->fetch();
+        if (!$event || !$event['ticket_id'] || $event['ticket_id'] === '0') return;
+
+        try {
+            $res = $this->otrs->articleCreate((int)$event['ticket_id'], $subject, $body);
+            if ($res) {
+                $this->logAudit('wb_events', $eventId, 'OTRS_ARTICLE_CREATED', null, ['article_id' => $res]);
+            } else {
+                $this->logOTRS("Article creation failed for Ticket #{$event['ticket_id']}");
+            }
+        } catch (Exception $e) {
+            $this->logOTRS("Exception during OTRS article creation", ['error' => $e->getMessage()]);
         }
     }
 }

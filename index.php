@@ -19,6 +19,7 @@ require_once $docRoot . '/Database.php';
 require_once $docRoot . '/EventManager.php';
 require_once $docRoot . '/classes/AzureADSSO.php';
 require_once $docRoot . '/classes/Auth.php';
+require_once $docRoot . '/classes/OTRS.php';
 
 // Force SQLite setup if needed
 if ($useSqlite) {

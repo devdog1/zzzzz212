@@ -17,6 +17,7 @@ require_once $docRoot . '/Database.php';
 require_once $docRoot . '/EventManager.php';
 require_once $docRoot . '/classes/AzureADSSO.php';
 require_once $docRoot . '/classes/Auth.php';
+require_once $docRoot . '/classes/OTRS.php';
 
 $currentUser = 'Demo User';
 if (!$useSqlite) {
@@ -121,6 +122,11 @@ if (!$useSqlite && $auth_obj) {
                                     <?php else: ?>
                                         <input type="text" name="settings[<?= $d['setting_key'] ?>]" class="form-control" value="<?= htmlspecialchars($d['setting_value'] ?? '') ?>" placeholder="Enter GUID">
                                     <?php endif; ?>
+                                <?php elseif ($d['setting_key'] === 'otrs_enabled'): ?>
+                                    <select name="settings[<?= $d['setting_key'] ?>]" class="form-select">
+                                        <option value="0" <?= $d['setting_value'] === '0' ? 'selected' : '' ?>>Disabled</option>
+                                        <option value="1" <?= $d['setting_value'] === '1' ? 'selected' : '' ?>>Enabled</option>
+                                    </select>
                                 <?php else: ?>
                                     <input type="text" name="settings[<?= $d['setting_key'] ?>]" class="form-control" value="<?= htmlspecialchars($d['setting_value'] ?? '') ?>">
                                 <?php endif; ?>
