@@ -26,8 +26,8 @@ class EventManager {
         $configPath = rtrim($docRoot, '/\\') . '/inc/config.php';
         if (file_exists($configPath)) {
             include $configPath;
-            if (isset($config['soap']['otrs'])) {
-                $this->otrs = new OTRS($config);
+            if (isset($config['api']['otrs'])) {
+                $this->otrs = new OTRSClient($config);
             }
         }
     }
@@ -763,11 +763,15 @@ class EventManager {
         $title = "Incident #$eventId: " . substr($description, 0, 100);
 
         try {
-            $res = $this->otrs->ticketCreate($title, $customerUser, $description);
-            if ($res && isset($res['ticket_id'])) {
+            $res = $this->otrs->CreateTicket([
+                'title' => $title,
+                'customer' => $customerUser,
+                'body' => $description
+            ]);
+            if ($res && isset($res['ticketid'])) {
                 $this->db->query("UPDATE wb_events SET ticket_id = ?, ticket_nr = ? WHERE id = ?", [
-                    $res['ticket_id'],
-                    $res['ticket_nr'],
+                    $res['ticketid'],
+                    $res['ticketnr'],
                     $eventId
                 ]);
                 $this->logAudit('wb_events', $eventId, 'OTRS_TICKET_CREATED', null, $res);
@@ -788,9 +792,13 @@ class EventManager {
         if (!$event || !$event['ticket_id'] || $event['ticket_id'] === '0') return;
 
         try {
-            $res = $this->otrs->articleCreate((int)$event['ticket_id'], $subject, $body);
+            $res = $this->otrs->createArticle([
+                'Ticketid' => (int)$event['ticket_id'],
+                'subject' => $subject,
+                'body' => $body
+            ]);
             if ($res) {
-                $this->logAudit('wb_events', $eventId, 'OTRS_ARTICLE_CREATED', null, ['article_id' => $res]);
+                $this->logAudit('wb_events', $eventId, 'OTRS_ARTICLE_CREATED', null, ['article_id' => 'API-Article']);
             } else {
                 $this->logOTRS("Article creation failed for Ticket #{$event['ticket_id']}");
             }
