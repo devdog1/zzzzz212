@@ -25,6 +25,24 @@ class OTRSClient
         $this->userID   = $otrs['default']['userID'];
     }
 
+    public function getUserId($username)
+    {
+        $url = $this->url;
+        $post = array (
+            "username"  => $username,
+            "function" => "getUserID",
+            "apikey" => $this->key
+        );
+        $postData = $this->urlPost($url, $post);
+        if($postData) {
+            $userID = $postData;
+            return $userID;
+        }
+        else {
+            return FALSE;
+        }
+    }
+
     public function CreateTicket($data)
     {
         if(isset($data['type'])) $this->type = $data['type'];

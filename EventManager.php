@@ -179,6 +179,7 @@ class EventManager {
         $this->logAudit('wb_events', $eventId, 'UPDATE', $oldEvent, $newEvent);
 
         $this->notifyTeamsOfMetadataChange($oldEvent, $newEvent);
+        $this->notifyOTRSOfMetadataChange($oldEvent, $newEvent);
 
         return true;
     }
@@ -745,6 +746,50 @@ class EventManager {
 
     // --- OTRS Integration ---
 
+    private function getOTRSUserId() {
+        if (!$this->otrs) return null;
+        $username = $this->currentUser;
+        if (strpos($username, '@') !== false) {
+            $username = explode('@', $username)[0];
+        }
+        $otrsId = $this->otrs->getUserId($username);
+        return $otrsId ?: null;
+    }
+
+    private function notifyOTRSOfMetadataChange($old, $new) {
+        $changes = [];
+        $fields = [
+            'state_name' => 'Status',
+            'type_name' => 'Type',
+            'department_name' => 'Department',
+            'customers_affected' => 'Customers Affected',
+            'ticket_nr' => 'Ticket #'
+        ];
+
+        foreach ($fields as $key => $label) {
+            if ($old[$key] != $new[$key]) {
+                $changes[] = "$label: " . $old[$key] . " -> " . $new[$key];
+            }
+        }
+
+        $arrayFields = ['services', 'tags', 'areas'];
+        foreach ($arrayFields as $key) {
+            $oldNames = array_column($old[$key], 'name');
+            $newNames = array_column($new[$key], 'name');
+            sort($oldNames);
+            sort($newNames);
+            if ($oldNames !== $newNames) {
+                $label = ucfirst($key);
+                $changes[] = "$label: " . implode(', ', $oldNames) . " -> " . implode(', ', $newNames);
+            }
+        }
+
+        if (!empty($changes)) {
+            $body = "Incident Metadata Updated:\n" . implode("\n", $changes);
+            $this->addOTRSArticle($new['id'], "Incident Metadata Updated", $body);
+        }
+    }
+
     private function logOTRS($message, $data = null) {
         $logFile = __DIR__ . '/otrs_integration.log';
         $timestamp = date('Y-m-d H:i:s');
@@ -759,15 +804,19 @@ class EventManager {
     private function initOTRSTicket($eventId, $description) {
         if (!$this->otrs || $this->getDefault('otrs_enabled') !== '1') return;
 
+        $otrsUserId = $this->getOTRSUserId();
         $customerUser = $this->getDefault('otrs_customer_user') ?: 'customer@example.com';
         $title = "Incident #$eventId: " . substr($description, 0, 100);
 
         try {
-            $res = $this->otrs->CreateTicket([
+            $params = [
                 'title' => $title,
                 'customer' => $customerUser,
                 'body' => $description
-            ]);
+            ];
+            if ($otrsUserId) $params['userID'] = $otrsUserId;
+
+            $res = $this->otrs->CreateTicket($params);
             if ($res && isset($res['ticketid'])) {
                 $this->db->query("UPDATE wb_events SET ticket_id = ?, ticket_nr = ? WHERE id = ?", [
                     $res['ticketid'],
@@ -775,6 +824,23 @@ class EventManager {
                     $eventId
                 ]);
                 $this->logAudit('wb_events', $eventId, 'OTRS_TICKET_CREATED', null, $res);
+
+                // Add initial article with FULL details
+                $event = $this->getEvent($eventId);
+                $body = "Full Incident Details:\n";
+                $body .= "ID: " . $event['id'] . "\n";
+                $body .= "Description: " . $event['description'] . "\n";
+                $body .= "Type: " . ($event['type_name'] ?: 'N/A') . "\n";
+                $body .= "Status: " . ($event['state_name'] ?: 'N/A') . "\n";
+                $body .= "Department: " . ($event['department_name'] ?: 'N/A') . "\n";
+                $body .= "Customers Affected: " . $event['customers_affected'] . "\n";
+                $body .= "Impact Score: " . $event['impactScore'] . "\n";
+
+                if (!empty($event['areas'])) $body .= "Areas: " . implode(', ', array_column($event['areas'], 'name')) . "\n";
+                if (!empty($event['services'])) $body .= "Services: " . implode(', ', array_column($event['services'], 'name')) . "\n";
+                if (!empty($event['tags'])) $body .= "Tags: " . implode(', ', array_column($event['tags'], 'name')) . "\n";
+
+                $this->addOTRSArticle($eventId, "Initial Incident Details", $body);
             } else {
                 $this->lastError = "OTRS integration error: Failed to create ticket.";
                 $this->logOTRS("Ticket creation failed for Event #$eventId");
@@ -791,12 +857,17 @@ class EventManager {
         $event = $this->db->query("SELECT ticket_id FROM wb_events WHERE id = ?", [$eventId])->fetch();
         if (!$event || !$event['ticket_id'] || $event['ticket_id'] === '0') return;
 
+        $otrsUserId = $this->getOTRSUserId();
+
         try {
-            $res = $this->otrs->createArticle([
+            $params = [
                 'Ticketid' => (int)$event['ticket_id'],
                 'subject' => $subject,
                 'body' => $body
-            ]);
+            ];
+            if ($otrsUserId) $params['userID'] = $otrsUserId;
+
+            $res = $this->otrs->createArticle($params);
             if ($res) {
                 $this->logAudit('wb_events', $eventId, 'OTRS_ARTICLE_CREATED', null, ['article_id' => 'API-Article']);
             } else {
