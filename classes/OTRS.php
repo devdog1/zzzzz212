@@ -92,13 +92,21 @@ class OTRSClient
             return false;
         }
 
+        $contentType = $data['ContentType'] ?? 'text/html; charset=utf-8';
+        $body = $data['body'];
+        if (strpos($contentType, 'html') !== false && strpos($body, '<html') === false) {
+            $body = "<html><body>" . $body . "</body></html>";
+        }
+
         $post = [
             'user'     => $this->userID,
             'function' => 'createArticle',
             'ticketID' => $this->ticketid,
             'subject'  => $data['subject'],
-            'body'     => $data['body'],
-            'ContentType' => $data['ContentType'] ?? 'text/html; charset=utf-8',
+            'body'     => $body,
+            'ContentType' => $contentType,
+            'MimeType'    => (strpos($contentType, 'html') !== false) ? 'text/html' : 'text/plain',
+            'Charset'     => 'utf-8',
             'type'     => $this->ArticleType,
             'comment'  => 'created by Whiteboard',
             'from'     => 'Whiteboard',

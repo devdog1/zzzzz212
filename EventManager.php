@@ -505,12 +505,12 @@ class EventManager {
         $this->postToTeamsChat($eventId, "**NEW UPDATE:** " . $updateText);
 
         // Add OTRS Article
-        $body = "<div style='font-family:sans-serif; border:1px solid #198754; border-radius:5px; padding:15px;'>";
-        $body .= "<h3 style='color:#198754; margin-top:0; border-bottom:2px solid #198754; padding-bottom:5px;'>Incident Update</h3>";
-        $body .= "<div style='padding:10px; background:#f9fff9; border:1px solid #e0eee0; white-space:pre-wrap;'>" . htmlspecialchars($updateText) . "</div>";
-        $body .= "<p style='font-size:0.8rem; color:#666; margin-top:15px;'>";
-        $body .= "Posted by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>";
-        $body .= "Timestamp: " . date('Y-m-d H:i:s');
+        $body = "<div style='font-family:sans-serif; border:1px solid #198754; border-radius:5px; padding:15px;'>\r\n";
+        $body .= "<h3 style='color:#198754; margin-top:0; border-bottom:2px solid #198754; padding-bottom:5px;'>Incident Update</h3>\r\n";
+        $body .= "<div style='padding:10px; background:#f9fff9; border:1px solid #e0eee0; white-space:pre-wrap;'>" . nl2br(htmlspecialchars($updateText)) . "</div>\r\n";
+        $body .= "<p style='font-size:0.8rem; color:#666; margin-top:15px;'>\r\n";
+        $body .= "Posted by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>\r\n";
+        $body .= "Timestamp: " . date('Y-m-d H:i:s') . "\r\n";
         $body .= "</p></div>";
 
         $this->addOTRSArticle($eventId, "Incident Update", $body);
@@ -793,14 +793,14 @@ class EventManager {
         }
 
         if (!empty($changes)) {
-            $body = "<div style='font-family:sans-serif; border:1px solid #0d6efd; border-radius:5px; padding:15px;'>";
-            $body .= "<h3 style='color:#0d6efd; margin-top:0; border-bottom:2px solid #0d6efd; padding-bottom:5px;'>Incident Metadata Updated</h3>";
-            $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='5'>";
-            $body .= implode("\n", $changes);
-            $body .= "</table>";
-            $body .= "<p style='font-size:0.8rem; color:#666; margin-top:20px; border-top:1px solid #ddd; padding-top:10px;'>";
-            $body .= "Action by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>";
-            $body .= "Timestamp: " . date('Y-m-d H:i:s');
+            $body = "<div style='font-family:sans-serif; border:1px solid #0d6efd; border-radius:5px; padding:15px;'>\r\n";
+            $body .= "<h3 style='color:#0d6efd; margin-top:0; border-bottom:2px solid #0d6efd; padding-bottom:5px;'>Incident Metadata Updated</h3>\r\n";
+            $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='5'>\r\n";
+            $body .= implode("\r\n", $changes);
+            $body .= "</table>\r\n";
+            $body .= "<p style='font-size:0.8rem; color:#666; margin-top:20px; border-top:1px solid #ddd; padding-top:10px;'>\r\n";
+            $body .= "Action by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>\r\n";
+            $body .= "Timestamp: " . date('Y-m-d H:i:s') . "\r\n";
             $body .= "</p></div>";
 
             $this->addOTRSArticle($new['id'], "Incident Metadata Updated", $body);
@@ -844,10 +844,10 @@ class EventManager {
 
                 // Add initial article with FULL details
                 $event = $this->getEvent($eventId);
-                $body = "<div style='font-family:sans-serif; border:2px solid #dc3545; border-radius:8px; padding:20px;'>";
-                $body .= "<h2 style='color:#dc3545; margin-top:0; border-bottom:3px solid #dc3545; padding-bottom:10px;'>New Incident Reported</h2>";
+                $body = "<div style='font-family:sans-serif; border:2px solid #dc3545; border-radius:8px; padding:20px;'>\r\n";
+                $body .= "<h2 style='color:#dc3545; margin-top:0; border-bottom:3px solid #dc3545; padding-bottom:10px;'>New Incident Reported</h2>\r\n";
 
-                $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='8'>";
+                $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='8'>\r\n";
                 $rows = [
                     "Incident ID" => $event['id'],
                     "Type" => ($event['type_name'] ?: 'N/A'),
@@ -861,16 +861,16 @@ class EventManager {
                 if (!empty($event['tags']))     $rows["Incident Tags"] = implode(', ', array_column($event['tags'], 'name'));
 
                 foreach ($rows as $label => $val) {
-                    $body .= "<tr><th style='text-align:left; width:180px; border-bottom:1px solid #eee; background:#f9f9f9;'>$label</th><td style='border-bottom:1px solid #eee;'><b>" . htmlspecialchars($val) . "</b></td></tr>";
+                    $body .= "<tr><th style='text-align:left; width:180px; border-bottom:1px solid #eee; background:#f9f9f9;'>$label</th><td style='border-bottom:1px solid #eee;'><b>" . htmlspecialchars($val) . "</b></td></tr>\r\n";
                 }
-                $body .= "</table>";
+                $body .= "</table>\r\n";
 
-                $body .= "<h4 style='margin-bottom:5px; color:#333;'>Description</h4>";
-                $body .= "<div style='background:#fcfcfc; border-left:4px solid #ddd; padding:10px; font-style:italic; white-space:pre-wrap;'>" . htmlspecialchars($event['description']) . "</div>";
+                $body .= "<h4 style='margin-bottom:5px; color:#333;'>Description</h4>\r\n";
+                $body .= "<div style='background:#fcfcfc; border-left:4px solid #ddd; padding:10px; font-style:italic; white-space:pre-wrap;'>" . nl2br(htmlspecialchars($event['description'])) . "</div>\r\n";
 
-                $body .= "<p style='font-size:0.85rem; color:#555; margin-top:25px; border-top:1px solid #ccc; padding-top:15px;'>";
-                $body .= "Reported by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>";
-                $body .= "Timestamp:   " . date('Y-m-d H:i:s');
+                $body .= "<p style='font-size:0.85rem; color:#555; margin-top:25px; border-top:1px solid #ccc; padding-top:15px;'>\r\n";
+                $body .= "Reported by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>\r\n";
+                $body .= "Timestamp:   " . date('Y-m-d H:i:s') . "\r\n";
                 $body .= "</p></div>";
 
                 $this->addOTRSArticle($eventId, "Initial Incident Details", $body);
