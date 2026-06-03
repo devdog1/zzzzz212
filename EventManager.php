@@ -505,7 +505,15 @@ class EventManager {
         $this->postToTeamsChat($eventId, "**NEW UPDATE:** " . $updateText);
 
         // Add OTRS Article
-        $this->addOTRSArticle($eventId, "Incident Update", $updateText);
+        $body = "==========================================================\n";
+        $body .= "   INCIDENT UPDATE POSTED (Whiteboard System)\n";
+        $body .= "==========================================================\n\n";
+        $body .= $updateText . "\n\n";
+        $body .= "----------------------------------------------------------\n";
+        $body .= "Posted by: " . $this->currentUser . "\n";
+        $body .= "Timestamp: " . date('Y-m-d H:i:s') . "\n";
+
+        $this->addOTRSArticle($eventId, "Incident Update", $body);
 
         return $updateId;
     }
@@ -768,7 +776,7 @@ class EventManager {
 
         foreach ($fields as $key => $label) {
             if ($old[$key] != $new[$key]) {
-                $changes[] = "$label: " . $old[$key] . " -> " . $new[$key];
+                $changes[] = sprintf("%-20s : %s -> %s", $label, $old[$key], $new[$key]);
             }
         }
 
@@ -780,12 +788,19 @@ class EventManager {
             sort($newNames);
             if ($oldNames !== $newNames) {
                 $label = ucfirst($key);
-                $changes[] = "$label: " . implode(', ', $oldNames) . " -> " . implode(', ', $newNames);
+                $changes[] = sprintf("%-20s : %s -> %s", $label, implode(', ', $oldNames), implode(', ', $newNames));
             }
         }
 
         if (!empty($changes)) {
-            $body = "Incident Metadata Updated:\n" . implode("\n", $changes);
+            $body = "==========================================================\n";
+            $body .= "   INCIDENT METADATA UPDATED (Whiteboard System)\n";
+            $body .= "==========================================================\n\n";
+            $body .= implode("\n", $changes) . "\n\n";
+            $body .= "----------------------------------------------------------\n";
+            $body .= "Action by: " . $this->currentUser . "\n";
+            $body .= "Timestamp: " . date('Y-m-d H:i:s') . "\n";
+
             $this->addOTRSArticle($new['id'], "Incident Metadata Updated", $body);
         }
     }
@@ -827,18 +842,27 @@ class EventManager {
 
                 // Add initial article with FULL details
                 $event = $this->getEvent($eventId);
-                $body = "Full Incident Details:\n";
-                $body .= "ID: " . $event['id'] . "\n";
-                $body .= "Description: " . $event['description'] . "\n";
-                $body .= "Type: " . ($event['type_name'] ?: 'N/A') . "\n";
-                $body .= "Status: " . ($event['state_name'] ?: 'N/A') . "\n";
-                $body .= "Department: " . ($event['department_name'] ?: 'N/A') . "\n";
-                $body .= "Customers Affected: " . $event['customers_affected'] . "\n";
-                $body .= "Impact Score: " . $event['impactScore'] . "\n";
+                $body = "==========================================================\n";
+                $body .= "   NEW INCIDENT REPORTED (Whiteboard System)\n";
+                $body .= "==========================================================\n\n";
+                $body .= sprintf("%-20s : %s\n", "Incident ID", $event['id']);
+                $body .= sprintf("%-20s : %s\n", "Type", ($event['type_name'] ?: 'N/A'));
+                $body .= sprintf("%-20s : %s\n", "Current Status", ($event['state_name'] ?: 'N/A'));
+                $body .= sprintf("%-20s : %s\n", "Department", ($event['department_name'] ?: 'N/A'));
+                $body .= sprintf("%-20s : %s\n", "Customers Affected", $event['customers_affected']);
+                $body .= sprintf("%-20s : %s\n", "Impact Score", $event['impactScore']);
 
-                if (!empty($event['areas'])) $body .= "Areas: " . implode(', ', array_column($event['areas'], 'name')) . "\n";
-                if (!empty($event['services'])) $body .= "Services: " . implode(', ', array_column($event['services'], 'name')) . "\n";
-                if (!empty($event['tags'])) $body .= "Tags: " . implode(', ', array_column($event['tags'], 'name')) . "\n";
+                if (!empty($event['areas']))    $body .= sprintf("%-20s : %s\n", "Affected Areas", implode(', ', array_column($event['areas'], 'name')));
+                if (!empty($event['services'])) $body .= sprintf("%-20s : %s\n", "Impacted Services", implode(', ', array_column($event['services'], 'name')));
+                if (!empty($event['tags']))     $body .= sprintf("%-20s : %s\n", "Incident Tags", implode(', ', array_column($event['tags'], 'name')));
+
+                $body .= "\nDESCRIPTION:\n";
+                $body .= "----------------------------------------------------------\n";
+                $body .= $event['description'] . "\n";
+                $body .= "----------------------------------------------------------\n\n";
+
+                $body .= "Reported by: " . $this->currentUser . "\n";
+                $body .= "Timestamp:   " . date('Y-m-d H:i:s') . "\n";
 
                 $this->addOTRSArticle($eventId, "Initial Incident Details", $body);
             } else {
