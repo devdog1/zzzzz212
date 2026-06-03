@@ -15,7 +15,7 @@ if ($useSqlite) {
 }
 
 // Autoloading/Manual Includes
-require_once $docRoot . '/Database.php';
+require_once 'Database.php';
 require_once $docRoot . '/EventManager.php';
 require_once $docRoot . '/classes/AzureADSSO.php';
 require_once $docRoot . '/classes/Auth.php';
