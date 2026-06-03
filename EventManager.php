@@ -505,13 +505,13 @@ class EventManager {
         $this->postToTeamsChat($eventId, "**NEW UPDATE:** " . $updateText);
 
         // Add OTRS Article
-        $body = "==========================================================\n";
-        $body .= "   INCIDENT UPDATE POSTED (Whiteboard System)\n";
-        $body .= "==========================================================\n\n";
-        $body .= $updateText . "\n\n";
-        $body .= "----------------------------------------------------------\n";
-        $body .= "Posted by: " . $this->currentUser . "\n";
-        $body .= "Timestamp: " . date('Y-m-d H:i:s') . "\n";
+        $body = "<div style='font-family:sans-serif; border:1px solid #198754; border-radius:5px; padding:15px;'>";
+        $body .= "<h3 style='color:#198754; margin-top:0; border-bottom:2px solid #198754; padding-bottom:5px;'>Incident Update</h3>";
+        $body .= "<div style='padding:10px; background:#f9fff9; border:1px solid #e0eee0; white-space:pre-wrap;'>" . htmlspecialchars($updateText) . "</div>";
+        $body .= "<p style='font-size:0.8rem; color:#666; margin-top:15px;'>";
+        $body .= "Posted by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>";
+        $body .= "Timestamp: " . date('Y-m-d H:i:s');
+        $body .= "</p></div>";
 
         $this->addOTRSArticle($eventId, "Incident Update", $body);
 
@@ -776,7 +776,7 @@ class EventManager {
 
         foreach ($fields as $key => $label) {
             if ($old[$key] != $new[$key]) {
-                $changes[] = sprintf("%-20s : %s -> %s", $label, $old[$key], $new[$key]);
+                $changes[] = "<tr><th style='text-align:left; border-bottom:1px solid #eee;'>$label</th><td style='border-bottom:1px solid #eee;'><strike style='color:#999;'>" . htmlspecialchars($old[$key]) . "</strike> &rarr; <b>" . htmlspecialchars($new[$key]) . "</b></td></tr>";
             }
         }
 
@@ -788,18 +788,20 @@ class EventManager {
             sort($newNames);
             if ($oldNames !== $newNames) {
                 $label = ucfirst($key);
-                $changes[] = sprintf("%-20s : %s -> %s", $label, implode(', ', $oldNames), implode(', ', $newNames));
+                $changes[] = "<tr><th style='text-align:left; border-bottom:1px solid #eee;'>$label</th><td style='border-bottom:1px solid #eee;'><strike style='color:#999;'>" . htmlspecialchars(implode(', ', $oldNames)) . "</strike> &rarr; <b>" . htmlspecialchars(implode(', ', $newNames)) . "</b></td></tr>";
             }
         }
 
         if (!empty($changes)) {
-            $body = "==========================================================\n";
-            $body .= "   INCIDENT METADATA UPDATED (Whiteboard System)\n";
-            $body .= "==========================================================\n\n";
-            $body .= implode("\n", $changes) . "\n\n";
-            $body .= "----------------------------------------------------------\n";
-            $body .= "Action by: " . $this->currentUser . "\n";
-            $body .= "Timestamp: " . date('Y-m-d H:i:s') . "\n";
+            $body = "<div style='font-family:sans-serif; border:1px solid #0d6efd; border-radius:5px; padding:15px;'>";
+            $body .= "<h3 style='color:#0d6efd; margin-top:0; border-bottom:2px solid #0d6efd; padding-bottom:5px;'>Incident Metadata Updated</h3>";
+            $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='5'>";
+            $body .= implode("\n", $changes);
+            $body .= "</table>";
+            $body .= "<p style='font-size:0.8rem; color:#666; margin-top:20px; border-top:1px solid #ddd; padding-top:10px;'>";
+            $body .= "Action by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>";
+            $body .= "Timestamp: " . date('Y-m-d H:i:s');
+            $body .= "</p></div>";
 
             $this->addOTRSArticle($new['id'], "Incident Metadata Updated", $body);
         }
@@ -842,27 +844,34 @@ class EventManager {
 
                 // Add initial article with FULL details
                 $event = $this->getEvent($eventId);
-                $body = "==========================================================\n";
-                $body .= "   NEW INCIDENT REPORTED (Whiteboard System)\n";
-                $body .= "==========================================================\n\n";
-                $body .= sprintf("%-20s : %s\n", "Incident ID", $event['id']);
-                $body .= sprintf("%-20s : %s\n", "Type", ($event['type_name'] ?: 'N/A'));
-                $body .= sprintf("%-20s : %s\n", "Current Status", ($event['state_name'] ?: 'N/A'));
-                $body .= sprintf("%-20s : %s\n", "Department", ($event['department_name'] ?: 'N/A'));
-                $body .= sprintf("%-20s : %s\n", "Customers Affected", $event['customers_affected']);
-                $body .= sprintf("%-20s : %s\n", "Impact Score", $event['impactScore']);
+                $body = "<div style='font-family:sans-serif; border:2px solid #dc3545; border-radius:8px; padding:20px;'>";
+                $body .= "<h2 style='color:#dc3545; margin-top:0; border-bottom:3px solid #dc3545; padding-bottom:10px;'>New Incident Reported</h2>";
 
-                if (!empty($event['areas']))    $body .= sprintf("%-20s : %s\n", "Affected Areas", implode(', ', array_column($event['areas'], 'name')));
-                if (!empty($event['services'])) $body .= sprintf("%-20s : %s\n", "Impacted Services", implode(', ', array_column($event['services'], 'name')));
-                if (!empty($event['tags']))     $body .= sprintf("%-20s : %s\n", "Incident Tags", implode(', ', array_column($event['tags'], 'name')));
+                $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='8'>";
+                $rows = [
+                    "Incident ID" => $event['id'],
+                    "Type" => ($event['type_name'] ?: 'N/A'),
+                    "Current Status" => ($event['state_name'] ?: 'N/A'),
+                    "Department" => ($event['department_name'] ?: 'N/A'),
+                    "Customers Affected" => number_format($event['customers_affected']),
+                    "Impact Score" => number_format($event['impactScore'])
+                ];
+                if (!empty($event['areas']))    $rows["Affected Areas"] = implode(', ', array_column($event['areas'], 'name'));
+                if (!empty($event['services'])) $rows["Impacted Services"] = implode(', ', array_column($event['services'], 'name'));
+                if (!empty($event['tags']))     $rows["Incident Tags"] = implode(', ', array_column($event['tags'], 'name'));
 
-                $body .= "\nDESCRIPTION:\n";
-                $body .= "----------------------------------------------------------\n";
-                $body .= $event['description'] . "\n";
-                $body .= "----------------------------------------------------------\n\n";
+                foreach ($rows as $label => $val) {
+                    $body .= "<tr><th style='text-align:left; width:180px; border-bottom:1px solid #eee; background:#f9f9f9;'>$label</th><td style='border-bottom:1px solid #eee;'><b>" . htmlspecialchars($val) . "</b></td></tr>";
+                }
+                $body .= "</table>";
 
-                $body .= "Reported by: " . $this->currentUser . "\n";
-                $body .= "Timestamp:   " . date('Y-m-d H:i:s') . "\n";
+                $body .= "<h4 style='margin-bottom:5px; color:#333;'>Description</h4>";
+                $body .= "<div style='background:#fcfcfc; border-left:4px solid #ddd; padding:10px; font-style:italic; white-space:pre-wrap;'>" . htmlspecialchars($event['description']) . "</div>";
+
+                $body .= "<p style='font-size:0.85rem; color:#555; margin-top:25px; border-top:1px solid #ccc; padding-top:15px;'>";
+                $body .= "Reported by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>";
+                $body .= "Timestamp:   " . date('Y-m-d H:i:s');
+                $body .= "</p></div>";
 
                 $this->addOTRSArticle($eventId, "Initial Incident Details", $body);
             } else {

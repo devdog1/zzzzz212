@@ -98,6 +98,7 @@ class OTRSClient
             'ticketID' => $this->ticketid,
             'subject'  => $data['subject'],
             'body'     => $data['body'],
+            'ContentType' => $data['ContentType'] ?? 'text/html; charset=utf-8',
             'type'     => $this->ArticleType,
             'comment'  => 'created by Whiteboard',
             'from'     => 'Whiteboard',
