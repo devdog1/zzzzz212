@@ -69,6 +69,11 @@ if ($useSqlite) {
 $auth_obj = null;
 if (!$useSqlite) {
     $auth_obj = new Auth($config);
+    if (!$auth_obj->hasPermission('events.manage')) {
+        http_response_code(401);
+        echo "Error 401 Unauthorized: You need authorization (events.manage) to access this page.";
+        exit();
+    }
 }
 $em = new EventManager($currentUser, $auth_obj);
 $emError = null;

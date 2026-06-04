@@ -40,6 +40,11 @@ if ($useSqlite) {
 $auth_obj = null;
 if (!$useSqlite) {
     $auth_obj = new Auth($config);
+    if (!$auth_obj->hasPermission('admin.panel')) {
+        http_response_code(401);
+        echo "Error 401 Unauthorized: You need authorization (admin.panel) to access this page.";
+        exit();
+    }
 }
 $em = new EventManager($currentUser, $auth_obj);
 $emError = null;
