@@ -214,10 +214,17 @@ class EventManager {
         }
 
         if (!empty($changes)) {
-            $card = $this->getAdaptiveCardBase("Incident Metadata Updated (#" . $new['id'] . ")");
+            $card = $this->getAdaptiveCardBase("Incident Metadata Updated (#" . $new['id'] . ")", 'accent');
             $card['body'][] = [
                 'type' => 'FactSet',
                 'facts' => $changes
+            ];
+            $card['body'][] = [
+                'type' => 'TextBlock',
+                'text' => "Updated by " . $this->currentUser . " at " . date('H:i:s'),
+                'size' => 'Small',
+                'isSubtle' => true,
+                'horizontalAlignment' => 'Right'
             ];
             $this->postCardToTeamsChat($new['id'], $card);
         }
@@ -502,7 +509,26 @@ class EventManager {
         $this->logAudit('event_updates', $updateId, 'CREATE', null, $data);
 
         // Post to Teams Chat
-        $this->postToTeamsChat($eventId, "**NEW UPDATE:** " . $updateText);
+        $card = $this->getAdaptiveCardBase("Incident Update Posted", 'good');
+        $card['body'][] = [
+            'type' => 'Container',
+            'style' => 'emphasis',
+            'items' => [
+                [
+                    'type' => 'TextBlock',
+                    'text' => $updateText,
+                    'wrap' => true
+                ]
+            ]
+        ];
+        $card['body'][] = [
+            'type' => 'TextBlock',
+            'text' => "Posted by " . $this->currentUser . " at " . date('H:i:s'),
+            'size' => 'Small',
+            'isSubtle' => true,
+            'horizontalAlignment' => 'Right'
+        ];
+        $this->postCardToTeamsChat($eventId, $card);
 
         // Add OTRS Article
         $body = "<div style='font-family:sans-serif; border:1px solid #198754; border-radius:5px; padding:15px;'>\r\n";
@@ -540,16 +566,33 @@ class EventManager {
 
     // --- Teams Integration ---
 
-    private function getAdaptiveCardBase($title) {
+    private function getAdaptiveCardBase($title, $style = 'default') {
+        $colorMap = [
+            'attention' => 'attention', // Red
+            'accent'    => 'accent',    // Blue
+            'good'      => 'good',      // Green
+            'warning'   => 'warning',   // Yellow
+            'default'   => 'default'
+        ];
+        $color = $colorMap[$style] ?? 'default';
+
         return [
             'type' => 'AdaptiveCard',
             'version' => '1.2',
             'body' => [
                 [
-                    'type' => 'TextBlock',
-                    'text' => $title,
-                    'weight' => 'Bolder',
-                    'size' => 'Medium'
+                    'type' => 'Container',
+                    'style' => $color,
+                    'bleed' => true,
+                    'items' => [
+                        [
+                            'type' => 'TextBlock',
+                            'text' => $title,
+                            'weight' => 'Bolder',
+                            'size' => 'Large',
+                            'color' => ($color === 'default') ? 'default' : 'default'
+                        ]
+                    ]
                 ]
             ],
             '$schema' => 'http://adaptivecards.io/schemas/adaptive-card.json'
@@ -560,33 +603,54 @@ class EventManager {
         $event = $this->getEvent($eventId);
         if (!$event) return null;
 
-        $card = $this->getAdaptiveCardBase("Incident Details for #" . $event['id']);
+        $card = $this->getAdaptiveCardBase("New Incident Reported (#" . $event['id'] . ")", 'attention');
 
         $facts = [
-            ['title' => 'Description', 'value' => $event['description']],
-            ['title' => 'Status', 'value' => $event['state_name']],
             ['title' => 'Type', 'value' => $event['type_name']],
-            ['title' => 'Department', 'value' => $event['department_name']]
+            ['title' => 'Status', 'value' => $event['state_name']],
+            ['title' => 'Department', 'value' => $event['department_name']],
+            ['title' => 'Customers', 'value' => number_format($event['customers_affected'])],
+            ['title' => 'Impact Score', 'value' => number_format($event['impactScore'])]
         ];
 
-        if (!empty($event['areas'])) {
-            $facts[] = ['title' => 'Affected Areas', 'value' => implode(', ', array_column($event['areas'], 'name'))];
-        }
-        if (!empty($event['services'])) {
-            $facts[] = ['title' => 'Impacted Services', 'value' => implode(', ', array_column($event['services'], 'name'))];
-        }
-        if (!empty($event['tags'])) {
-            $facts[] = ['title' => 'Tags', 'value' => implode(', ', array_column($event['tags'], 'name'))];
-        }
+        if (!empty($event['areas']))    $facts[] = ['title' => 'Areas', 'value' => implode(', ', array_column($event['areas'], 'name'))];
+        if (!empty($event['services'])) $facts[] = ['title' => 'Services', 'value' => implode(', ', array_column($event['services'], 'name'))];
+        if (!empty($event['tags']))     $facts[] = ['title' => 'Tags', 'value' => implode(', ', array_column($event['tags'], 'name'))];
         if ($event['ticket_nr'] && $event['ticket_nr'] !== '0') {
-            $facts[] = ['title' => 'Ticket #', 'value' => $event['ticket_nr']];
+            $facts[] = ['title' => 'OTRS Ticket', 'value' => $event['ticket_nr']];
         }
-
-        $facts[] = ['title' => 'Impact Score', 'value' => number_format($event['impactScore']) . " (" . $event['customers_affected'] . " customers)"];
 
         $card['body'][] = [
             'type' => 'FactSet',
             'facts' => $facts
+        ];
+
+        $card['body'][] = [
+            'type' => 'TextBlock',
+            'text' => 'Description',
+            'weight' => 'Bolder',
+            'spacing' => 'Medium'
+        ];
+
+        $card['body'][] = [
+            'type' => 'Container',
+            'style' => 'emphasis',
+            'items' => [
+                [
+                    'type' => 'TextBlock',
+                    'text' => $event['description'],
+                    'wrap' => true,
+                    'fontType' => 'Monospace'
+                ]
+            ]
+        ];
+
+        $card['body'][] = [
+            'type' => 'TextBlock',
+            'text' => "Reported by " . $this->currentUser . " at " . date('H:i:s'),
+            'size' => 'Small',
+            'isSubtle' => true,
+            'horizontalAlignment' => 'Right'
         ];
 
         return $card;
