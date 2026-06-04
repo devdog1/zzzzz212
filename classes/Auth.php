@@ -64,10 +64,14 @@ class Auth
     /* =========================================================
      * LOGIN
      * ========================================================= */
-    public function login(): void
+    public function login(?string $returnUrl = null): void
     {
         $state = bin2hex(random_bytes(16));
         $_SESSION['oauth2_state'] = $state;
+
+        if ($returnUrl) {
+            $_SESSION['auth_return_url'] = $returnUrl;
+        }
 
         header("Location: " . $this->sso()->getAuthUrl($state));
         exit;
@@ -84,6 +88,8 @@ class Auth
         ) {
             return false;
         }
+
+        unset($_SESSION['oauth2_state']);
 
         $tokens = $this->sso()->getAccessToken($_GET['code']);
         if (!$tokens) return false;
@@ -312,11 +318,29 @@ class Auth
                     $_SESSION['user']['access_token'] = $tokens['access_token'];
                     $_SESSION['user']['refresh_token'] = $tokens['refresh_token'] ?? $_SESSION['user']['refresh_token'];
                     $_SESSION['user']['expires_at'] = time() + ($tokens['expires_in'] ?? 3600);
+                } else {
+                    // Refresh failed, clear tokens
+                    unset($_SESSION['user']['access_token']);
+                    unset($_SESSION['user']['refresh_token']);
+                    return null;
                 }
+            } else {
+                return null; // Expired and no refresh token
             }
         }
 
         return $_SESSION['user']['access_token'];
+    }
+
+    /**
+     * Enforce a valid token, redirect to login if necessary.
+     */
+    public function requireValidToken(): void
+    {
+        if ($this->getAccessToken() === null) {
+            $returnUrl = $_SERVER['REQUEST_URI'];
+            $this->login($returnUrl);
+        }
     }
 
     public function getSSO(): AzureADSSO

@@ -414,6 +414,7 @@ class EventManager {
     public function listDepartments($fetchMembers = false) {
         $depts = $this->listRef('department');
         if ($fetchMembers && $this->auth) {
+            $this->auth->requireValidToken();
             $accessToken = $this->auth->getAccessToken();
             if ($accessToken) {
                 $sso = $this->auth->getSSO();
@@ -793,6 +794,7 @@ class EventManager {
             $this->logTeams("Skipping Teams chat: No auth object provided.");
             return;
         }
+        $this->auth->requireValidToken();
         $accessToken = $this->auth->getAccessToken();
         if (!$accessToken) {
             $this->lastError = "Teams integration error: Failed to get access token.";
@@ -858,6 +860,7 @@ class EventManager {
             $this->logTeams("Skipping member sync: No auth object.");
             return;
         }
+        $this->auth->requireValidToken();
         $accessToken = $this->auth->getAccessToken();
         if (!$accessToken) {
             $this->logTeams("Skipping member sync: No access token.");
@@ -909,6 +912,7 @@ class EventManager {
 
     private function postToTeamsChat($eventId, $message) {
         if (!$this->auth) return;
+        $this->auth->requireValidToken();
         $accessToken = $this->auth->getAccessToken();
         if (!$accessToken) return;
 
@@ -924,6 +928,7 @@ class EventManager {
 
     private function postCardToTeamsChat($eventId, $card) {
         if (!$this->auth) return;
+        $this->auth->requireValidToken();
         $accessToken = $this->auth->getAccessToken();
         if (!$accessToken) return;
 
