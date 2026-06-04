@@ -181,6 +181,10 @@ class EventManager {
         $this->notifyTeamsOfMetadataChange($oldEvent, $newEvent);
         $this->notifyOTRSOfMetadataChange($oldEvent, $newEvent);
 
+        if (strtolower($newEvent['state_name']) === 'closed' && strtolower($oldEvent['state_name']) !== 'closed') {
+            $this->sendClosureSummary($eventId);
+        }
+
         return true;
     }
 
@@ -558,6 +562,123 @@ class EventManager {
             $stmt = $this->db->query("SELECT * FROM audit_log WHERE table_name = ? ORDER BY timestamp DESC", [$tableName]);
         }
         return $stmt->fetchAll();
+    }
+
+    private function sendClosureSummary($eventId) {
+        $event = $this->getEvent($eventId);
+        if (!$event) return;
+
+        $history = $this->getStateHistory($eventId);
+        $updates = $this->getEventUpdates($eventId);
+        $audit   = $this->getAuditTrail('wb_events', $eventId);
+
+        // --- Build Timeline ---
+        $timeline = [];
+
+        // Status Transitions
+        foreach ($history as $h) {
+            $enter = strtotime($h['enter_time']);
+            $exit  = $h['exit_time'] ? strtotime($h['exit_time']) : time();
+            $duration = $exit - $enter;
+
+            $text = "Status: " . $h['state_name'];
+            if (strtolower($h['state_name']) !== 'closed') {
+                $text .= " (Duration: " . $this->formatDuration($duration) . ")";
+            }
+
+            $timeline[$h['enter_time'] . "_status"] = [
+                'time' => $h['enter_time'],
+                'user' => $h['user'],
+                'text' => $text,
+                'type' => 'status'
+            ];
+        }
+
+        // Timeline Updates
+        foreach ($updates as $u) {
+            $timeline[$u['create_time'] . "_update"] = [
+                'time' => $u['create_time'],
+                'user' => $u['create_user'],
+                'text' => "Update: " . $u['update_text'],
+                'type' => 'update'
+            ];
+        }
+
+        // Metadata Changes from Audit
+        foreach ($audit as $a) {
+            if ($a['action'] !== 'UPDATE') continue;
+            $newVals = json_decode($a['new_values'] ?: '{}', true);
+            $oldVals = json_decode($a['old_values'] ?: '{}', true);
+
+            $changes = [];
+            foreach ($newVals as $k => $v) {
+                if (in_array($k, ['update_time', 'update_user', 'state_id'])) continue; // state handled by history
+                if (!isset($oldVals[$k]) || $oldVals[$k] != $v) {
+                    $changes[] = "$k changed to $v";
+                }
+            }
+            if (!empty($changes)) {
+                $timeline[$a['timestamp'] . "_audit"] = [
+                    'time' => $a['timestamp'],
+                    'user' => $a['user'],
+                    'text' => "Metadata: " . implode(', ', $changes),
+                    'type' => 'audit'
+                ];
+            }
+        }
+
+        ksort($timeline);
+
+        // --- MS Teams Card ---
+        $card = $this->getAdaptiveCardBase("Incident Closed - Final Summary (#$eventId)", 'good');
+
+        $facts = [
+            ['title' => 'Total Impact Score', 'value' => number_format($event['impactScore'])],
+            ['title' => 'Final Status', 'value' => $event['state_name']],
+            ['title' => 'Duration', 'value' => $this->formatDuration(time() - strtotime($event['create_time']))]
+        ];
+        $card['body'][] = ['type' => 'FactSet', 'facts' => $facts];
+
+        $card['body'][] = ['type' => 'TextBlock', 'text' => 'Timeline Summary', 'weight' => 'Bolder', 'spacing' => 'Medium'];
+
+        $timelineFacts = [];
+        foreach ($timeline as $item) {
+            $timelineFacts[] = [
+                'title' => date('H:i', strtotime($item['time'])),
+                'value' => $item['text'] . " (by " . $item['user'] . ")"
+            ];
+        }
+        $card['body'][] = ['type' => 'FactSet', 'facts' => array_slice($timelineFacts, -15)]; // Last 15 events
+
+        $this->postCardToTeamsChat($eventId, $card);
+
+        // --- OTRS Article ---
+        $body = "<div style='font-family:sans-serif; border:2px solid #198754; border-radius:8px; padding:20px;'>\r\n";
+        $body .= "<h2 style='color:#198754; margin-top:0; border-bottom:3px solid #198754; padding-bottom:10px;'>Incident Closure Summary</h2>\r\n";
+
+        $body .= "<p><b>Final Impact Score:</b> " . number_format($event['impactScore']) . "</p>\r\n";
+
+        $body .= "<h3 style='color:#333; border-bottom:1px solid #ddd;'>Full Incident Timeline</h3>\r\n";
+        $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='5'>\r\n";
+        $body .= "<tr style='background:#f4f4f4;'><th style='text-align:left;'>Time</th><th style='text-align:left;'>User</th><th style='text-align:left;'>Event</th></tr>\r\n";
+
+        foreach ($timeline as $item) {
+            $body .= "<tr>";
+            $body .= "<td style='border-bottom:1px solid #eee; font-size:0.9rem;'>" . $item['time'] . "</td>";
+            $body .= "<td style='border-bottom:1px solid #eee; font-size:0.9rem;'>" . htmlspecialchars($item['user']) . "</td>";
+            $body .= "<td style='border-bottom:1px solid #eee; font-size:0.9rem;'>" . htmlspecialchars($item['text']) . "</td>";
+            $body .= "</tr>\r\n";
+        }
+        $body .= "</table>\r\n";
+        $body .= "</div>";
+
+        $this->addOTRSArticle($eventId, "Closure Summary & Timeline", $body);
+    }
+
+    private function formatDuration($seconds) {
+        if ($seconds < 60) return $seconds . "s";
+        if ($seconds < 3600) return floor($seconds / 60) . "m";
+        return floor($seconds / 3600) . "h " . floor(($seconds % 3600) / 60) . "m";
     }
 
     public function getLastError() {
