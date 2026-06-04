@@ -207,13 +207,19 @@ class EventManager {
         // Check Services, Tags, Areas (Arrays)
         $arrayFields = ['services', 'tags', 'areas'];
         foreach ($arrayFields as $key) {
-            $oldNames = array_column($old[$key], 'name');
-            $newNames = array_column($new[$key], 'name');
+            $oldNames = array_column($old[$key] ?? [], 'name');
+            $newNames = array_column($new[$key] ?? [], 'name');
             sort($oldNames);
             sort($newNames);
             if ($oldNames !== $newNames) {
+                $added = array_diff($newNames, $oldNames);
+                $removed = array_diff($oldNames, $newNames);
+                $delta = [];
+                if (!empty($added)) $delta[] = "Added: " . implode(', ', $added);
+                if (!empty($removed)) $delta[] = "Removed: " . implode(', ', $removed);
+
                 $label = ucfirst($key);
-                $changes[] = ['title' => $label, 'value' => implode(', ', $oldNames) . " -> " . implode(', ', $newNames)];
+                $changes[] = ['title' => $label, 'value' => implode('; ', $delta)];
             }
         }
 
@@ -573,6 +579,10 @@ class EventManager {
         $updates = $this->getEventUpdates($eventId);
         $audit   = $this->getAuditTrail('wb_events', $eventId);
 
+        // Fetch translation maps for human-readable labels
+        $deptMap = array_column($this->listRef('department'), 'name', 'id');
+        $typeMap = array_column($this->listRef('type'), 'name', 'id');
+
         // --- Build Timeline ---
         $timeline = [];
 
@@ -611,11 +621,45 @@ class EventManager {
             $newVals = json_decode($a['new_values'] ?: '{}', true);
             $oldVals = json_decode($a['old_values'] ?: '{}', true);
 
+            if (!is_array($newVals)) $newVals = [];
+            if (!is_array($oldVals)) $oldVals = [];
+
             $changes = [];
             foreach ($newVals as $k => $v) {
                 if (in_array($k, ['update_time', 'update_user', 'state_id'])) continue; // state handled by history
-                if (!isset($oldVals[$k]) || $oldVals[$k] != $v) {
-                    $changes[] = "$k changed to $v";
+
+                $oldV = $oldVals[$k] ?? null;
+                if ($oldV === $v) continue;
+
+                $label = $k;
+                $v_old = $oldV;
+                $v_new = $v;
+
+                // Handle Arrays (services, tags, areas)
+                if (is_array($v)) {
+                    $namesOld = array_column($oldV ?: [], 'name');
+                    $namesNew = array_column($v ?: [], 'name');
+                    sort($namesOld); sort($namesNew);
+                    if ($namesOld === $namesNew) continue;
+
+                    $added = array_diff($namesNew, $namesOld);
+                    $removed = array_diff($namesOld, $namesNew);
+                    $delta = [];
+                    if (!empty($added)) $delta[] = "+" . implode(', ', $added);
+                    if (!empty($removed)) $delta[] = "-" . implode(', ', $removed);
+
+                    $v_new = implode('; ', $delta);
+                    $v_old = "";
+                }
+
+                // Handle IDs
+                if ($k === 'department_id') { $label = 'Dept'; $v_old = $deptMap[$oldV] ?? $oldV; $v_new = $deptMap[$v] ?? $v; }
+                if ($k === 'type_id')       { $label = 'Type'; $v_old = $typeMap[$oldV] ?? $oldV; $v_new = $typeMap[$v] ?? $v; }
+
+                if ($v_old === "") {
+                    $changes[] = "$label: $v_new";
+                } else {
+                    $changes[] = "$label: " . (is_array($v_old) ? json_encode($v_old) : $v_old) . " → " . (is_array($v_new) ? json_encode($v_new) : $v_new);
                 }
             }
             if (!empty($changes)) {
@@ -972,13 +1016,19 @@ class EventManager {
 
         $arrayFields = ['services', 'tags', 'areas'];
         foreach ($arrayFields as $key) {
-            $oldNames = array_column($old[$key], 'name');
-            $newNames = array_column($new[$key], 'name');
+            $oldNames = array_column($old[$key] ?? [], 'name');
+            $newNames = array_column($new[$key] ?? [], 'name');
             sort($oldNames);
             sort($newNames);
             if ($oldNames !== $newNames) {
+                $added = array_diff($newNames, $oldNames);
+                $removed = array_diff($oldNames, $newNames);
+                $delta = [];
+                if (!empty($added)) $delta[] = "<b style='color:#198754;'>+</b> " . htmlspecialchars(implode(', ', $added));
+                if (!empty($removed)) $delta[] = "<b style='color:#dc3545;'>-</b> " . htmlspecialchars(implode(', ', $removed));
+
                 $label = ucfirst($key);
-                $changes[] = "<tr><th style='text-align:left; border-bottom:1px solid #eee;'>$label</th><td style='border-bottom:1px solid #eee;'><strike style='color:#999;'>" . htmlspecialchars(implode(', ', $oldNames)) . "</strike> &rarr; <b>" . htmlspecialchars(implode(', ', $newNames)) . "</b></td></tr>";
+                $changes[] = "<tr><th style='text-align:left; border-bottom:1px solid #eee;'>$label</th><td style='border-bottom:1px solid #eee;'>" . implode('; ', $delta) . "</td></tr>";
             }
         }
 
