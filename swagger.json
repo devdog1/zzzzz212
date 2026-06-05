@@ -1,0 +1,107 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Incident Management API",
+    "description": "REST API for managing operational incidents, departments, and reference data.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Local v1 server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-KEY"
+      }
+    },
+    "schemas": {
+      "Event": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "description": { "type": "string" },
+          "type_id": { "type": "integer" },
+          "department_id": { "type": "integer" },
+          "state_id": { "type": "integer" },
+          "customers_affected": { "type": "integer" },
+          "service_ids": { "type": "array", "items": { "type": "integer" } },
+          "tags": { "type": "string", "description": "Comma separated tags" },
+          "areas": { "type": "string", "description": "Comma separated areas" }
+        }
+      },
+      "Reference": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [
+    { "ApiKeyAuth": [] }
+  ],
+  "paths": {
+    "/events": {
+      "get": {
+        "summary": "List active incidents",
+        "parameters": [
+          { "name": "all", "in": "query", "description": "Include closed incidents", "schema": { "type": "boolean" } }
+        ],
+        "responses": {
+          "200": { "description": "Success", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Event" } } } } }
+        }
+      },
+      "post": {
+        "summary": "Report a new incident",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Event" } } }
+        },
+        "responses": {
+          "201": { "description": "Created" }
+        }
+      }
+    },
+    "/events/{id}": {
+      "get": {
+        "summary": "Get incident details",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Success" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "patch": {
+        "summary": "Update incident metadata",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Event" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated" }
+        }
+      }
+    },
+    "/departments": {
+      "get": { "summary": "List departments", "responses": { "200": { "description": "Success" } } },
+      "post": {
+        "summary": "Create department",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" }, "azure_group_id": { "type": "string" } } } } } },
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/types": { "get": { "summary": "List incident types", "responses": { "200": { "description": "Success" } } } },
+    "/states": { "get": { "summary": "List incident states", "responses": { "200": { "description": "Success" } } } },
+    "/services": { "get": { "summary": "List impacted services", "responses": { "200": { "description": "Success" } } } }
+  }
+}

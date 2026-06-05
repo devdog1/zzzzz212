@@ -823,14 +823,7 @@ class EventManager {
     }
 
     private function logTeams($message, $data = null) {
-        $logFile = __DIR__ . '/teams_integration.log';
-        $timestamp = date('Y-m-d H:i:s');
-        $entry = "[$timestamp] [EventManager] $message";
-        if ($data) {
-            $entry .= " | Data: " . json_encode($data);
-        }
-        file_put_contents($logFile, $entry . PHP_EOL, FILE_APPEND);
-        error_log($entry);
+        $this->log("Teams: $message", $data);
     }
 
     private function initTeamsChat($eventId, $departmentId, $description) {
@@ -1048,7 +1041,11 @@ class EventManager {
     }
 
     private function logOTRS($message, $data = null) {
-        $logFile = __DIR__ . '/otrs_integration.log';
+        $this->log("OTRS: $message", $data);
+    }
+
+    private function log($message, $data = null) {
+        $logFile = __DIR__ . '/event_manager.log';
         $timestamp = date('Y-m-d H:i:s');
         $entry = "[$timestamp] [EventManager] $message";
         if ($data) {

@@ -1,31 +1,39 @@
-[Wed Jun  3 13:45:33 2026] PHP 8.3.6 Development Server (http://0.0.0.0:8000) started
-[Wed Jun  3 13:49:50 2026] 127.0.0.1:49322 Accepted
-[Wed Jun  3 13:49:50 2026] 127.0.0.1:49322 [200]: HEAD /index.php
-[Wed Jun  3 13:49:50 2026] 127.0.0.1:49322 Closing
-[Wed Jun  3 13:50:00 2026] 127.0.0.1:42554 Accepted
-[Wed Jun  3 13:50:00 2026] 127.0.0.1:42554 [200]: GET /index.php
-[Wed Jun  3 13:50:00 2026] 127.0.0.1:42554 Closing
-[Wed Jun  3 13:51:28 2026] 127.0.0.1:51212 Accepted
-[Wed Jun  3 13:51:28 2026] 127.0.0.1:51212 [200]: GET /index.php
-[Wed Jun  3 13:51:28 2026] 127.0.0.1:51212 Closing
-[Wed Jun  3 14:05:58 2026] 127.0.0.1:33450 Accepted
-[Wed Jun  3 14:05:58 2026] 127.0.0.1:33450 [200]: GET /index.php
-[Wed Jun  3 14:05:58 2026] 127.0.0.1:33450 Closing
-[Wed Jun  3 14:05:58 2026] 127.0.0.1:33456 Accepted
-[Wed Jun  3 14:05:58 2026] 127.0.0.1:33456 [200]: GET /departments.php
-[Wed Jun  3 14:05:58 2026] 127.0.0.1:33456 Closing
-[Wed Jun  3 14:07:51 2026] 127.0.0.1:56384 Accepted
-[Wed Jun  3 14:07:51 2026] 127.0.0.1:56384 [200]: GET /departments.php
-[Wed Jun  3 14:07:51 2026] 127.0.0.1:56384 Closing
-[Wed Jun  3 14:09:36 2026] 127.0.0.1:57842 Accepted
-[Wed Jun  3 14:09:36 2026] 127.0.0.1:57842 [200]: GET /settings.php
-[Wed Jun  3 14:09:36 2026] 127.0.0.1:57842 Closing
-[Wed Jun  3 14:14:11 2026] 127.0.0.1:58062 Accepted
-[Wed Jun  3 14:14:11 2026] 127.0.0.1:58062 [200]: GET /index.php
-[Wed Jun  3 14:14:11 2026] 127.0.0.1:58062 Closing
-[Wed Jun  3 14:14:11 2026] 127.0.0.1:58078 Accepted
-[Wed Jun  3 14:14:11 2026] 127.0.0.1:58078 [200]: GET /departments.php
-[Wed Jun  3 14:14:11 2026] 127.0.0.1:58078 Closing
-[Wed Jun  3 14:14:11 2026] 127.0.0.1:58090 Accepted
-[Wed Jun  3 14:14:11 2026] 127.0.0.1:58090 [200]: GET /settings.php
-[Wed Jun  3 14:14:11 2026] 127.0.0.1:58090 Closing
+[Fri Jun  5 01:16:10 2026] PHP 8.3.6 Development Server (http://0.0.0.0:8000) started
+[Fri Jun  5 01:19:00 2026] 127.0.0.1:41810 Accepted
+[Fri Jun  5 01:19:00 2026] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [2002] Connection refused in /app/classes/Auth.php:53
+Stack trace:
+#0 /app/classes/Auth.php(53): PDO->__construct()
+#1 /app/classes/Auth.php(17): Auth->initDb()
+#2 /app/api/v1/index.php(17): Auth->__construct()
+#3 {main}
+  thrown in /app/classes/Auth.php on line 53
+[Fri Jun  5 01:19:00 2026] 127.0.0.1:41810 [500]: GET /api/v1/types - Uncaught PDOException: SQLSTATE[HY000] [2002] Connection refused in /app/classes/Auth.php:53
+Stack trace:
+#0 /app/classes/Auth.php(53): PDO->__construct()
+#1 /app/classes/Auth.php(17): Auth->initDb()
+#2 /app/api/v1/index.php(17): Auth->__construct()
+#3 {main}
+  thrown in /app/classes/Auth.php on line 53
+[Fri Jun  5 01:19:00 2026] 127.0.0.1:41810 Closing
+[Fri Jun  5 01:19:00 2026] 127.0.0.1:41822 Accepted
+[Fri Jun  5 01:19:00 2026] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [2002] Connection refused in /app/classes/Auth.php:53
+Stack trace:
+#0 /app/classes/Auth.php(53): PDO->__construct()
+#1 /app/classes/Auth.php(17): Auth->initDb()
+#2 /app/api/v1/index.php(17): Auth->__construct()
+#3 {main}
+  thrown in /app/classes/Auth.php on line 53
+[Fri Jun  5 01:19:00 2026] 127.0.0.1:41822 [500]: GET /api/v1/events - Uncaught PDOException: SQLSTATE[HY000] [2002] Connection refused in /app/classes/Auth.php:53
+Stack trace:
+#0 /app/classes/Auth.php(53): PDO->__construct()
+#1 /app/classes/Auth.php(17): Auth->initDb()
+#2 /app/api/v1/index.php(17): Auth->__construct()
+#3 {main}
+  thrown in /app/classes/Auth.php on line 53
+[Fri Jun  5 01:19:00 2026] 127.0.0.1:41822 Closing
+[Fri Jun  5 01:24:16 2026] 127.0.0.1:53892 Accepted
+[Fri Jun  5 01:24:16 2026] 127.0.0.1:53892 [200]: GET /api/v1/types
+[Fri Jun  5 01:24:16 2026] 127.0.0.1:53892 Closing
+[Fri Jun  5 01:24:16 2026] 127.0.0.1:53900 Accepted
+[Fri Jun  5 01:24:16 2026] 127.0.0.1:53900 [200]: GET /api/v1/events
+[Fri Jun  5 01:24:16 2026] 127.0.0.1:53900 Closing

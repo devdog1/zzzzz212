@@ -186,9 +186,9 @@ class AzureADSSO
     }
 
     private function log($message, $data = null) {
-        $logFile = __DIR__ . '/../teams_integration.log';
+        $logFile = __DIR__ . '/../event_manager.log';
         $timestamp = date('Y-m-d H:i:s');
-        $entry = "[$timestamp] $message";
+        $entry = "[$timestamp] [AzureADSSO] $message";
         if ($data) {
             $entry .= " | Data: " . json_encode($data);
         }

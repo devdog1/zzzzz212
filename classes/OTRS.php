@@ -150,7 +150,7 @@ class OTRSClient
     }
 
     private function log($message, $data = null) {
-        $logFile = __DIR__ . '/../otrs_integration.log';
+        $logFile = __DIR__ . '/../event_manager.log';
         $timestamp = date('Y-m-d H:i:s');
         $entry = "[$timestamp] [OTRSClient] $message";
         if ($data) {
