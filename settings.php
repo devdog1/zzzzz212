@@ -87,8 +87,11 @@ if (!$useSqlite && $auth_obj) {
         <a class="navbar-brand h1 mb-0" href="index.php">Incident Manager</a>
         <div class="collapse navbar-collapse">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link" href="index.php">Active Incidents</a></li>
-                <li class="nav-item"><a class="nav-link" href="closed.php">Closed Archive</a></li>
+                <li class="nav-item"><a class="nav-link" href="index.php">Active</a></li>
+                <li class="nav-item"><a class="nav-link" href="closed.php">Archive</a></li>
+                <li class="nav-item"><a class="nav-link" href="search.php">Search</a></li>
+                <li class="nav-item"><a class="nav-link" href="statistics.php">Statistics</a></li>
+                <li class="nav-item"><a class="nav-link" href="reports.php">Reports</a></li>
                 <li class="nav-item"><a class="nav-link" href="departments.php">Departments</a></li>
                 <li class="nav-item"><a class="nav-link active" href="settings.php">Settings</a></li>
             </ul>
@@ -121,7 +124,9 @@ if (!$useSqlite && $auth_obj) {
                                         <select name="settings[<?= $d['setting_key'] ?>]" class="form-select">
                                             <option value="">-- None --</option>
                                             <?php foreach ($azureGroups as $g): ?>
-                                                <option value="<?= htmlspecialchars($g['id']) ?>" <?= $d['setting_value'] == $g['id'] ? 'selected' : '' ?>><?= htmlspecialchars($g['displayName']) ?></option>
+                                                <option value="<?= htmlspecialchars($g['id']) ?>" <?= $d['setting_value'] == $g['id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($g['id']) ?> (<?= htmlspecialchars($g['displayName']) ?>)
+                                                </option>
                                             <?php endforeach; ?>
                                         </select>
                                     <?php else: ?>

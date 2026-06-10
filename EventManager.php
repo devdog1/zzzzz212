@@ -571,6 +571,104 @@ class EventManager {
         return $stmt->fetchAll();
     }
 
+    public function searchEvents($criteria, $operator = 'AND') {
+        $sql = "SELECT e.*, t.name as type_name, d.name as department_name, s.name as state_name
+                FROM wb_events e
+                LEFT JOIN type t ON e.type_id = t.id
+                LEFT JOIN department d ON e.department_id = d.id
+                LEFT JOIN state s ON e.state_id = s.id";
+
+        $where = [];
+        $params = [];
+        $operator = (strtoupper($operator) === 'OR') ? ' OR ' : ' AND ';
+
+        foreach ($criteria as $field => $value) {
+            if ($value === '' || $value === null) continue;
+
+            if ($field === 'date_from') {
+                $where[] = "e.create_time >= ?";
+                $params[] = $value . " 00:00:00";
+            } elseif ($field === 'date_to') {
+                $where[] = "e.create_time <= ?";
+                $params[] = $value . " 23:59:59";
+            } elseif (in_array($field, ['description', 'ticket_nr'])) {
+                $where[] = "e.$field LIKE ?";
+                $params[] = "%$value%";
+            } elseif (in_array($field, ['type_id', 'department_id', 'state_id', 'id'])) {
+                $where[] = "e.$field = ?";
+                $params[] = $value;
+            }
+        }
+
+        if (!empty($where)) {
+            $sql .= " WHERE " . implode($operator, $where);
+        }
+
+        $sql .= " ORDER BY e.create_time DESC";
+
+        $events = $this->db->query($sql, $params)->fetchAll();
+        foreach ($events as &$e) {
+            $e['services'] = $this->getEventServices($e['id']);
+            $e['tags'] = $this->getEventTags($e['id']);
+            $e['areas'] = $this->getEventAreas($e['id']);
+        }
+        return $events;
+    }
+
+    public function getStatistics() {
+        $stats = [];
+
+        // Basic Totals
+        $stats['counts'] = $this->db->query("
+            SELECT s.name, COUNT(e.id) as count
+            FROM state s LEFT JOIN wb_events e ON s.id = e.state_id
+            GROUP BY s.id
+        ")->fetchAll();
+
+        $stats['total_impact'] = $this->db->query("SELECT SUM(impactScore) as total FROM wb_events")->fetch()['total'] ?? 0;
+
+        // Avg Resolution Time (State: Closed)
+        $sql = "SELECT AVG(STRFTIME('%s', exit_time) - STRFTIME('%s', enter_time)) as avg_seconds
+                FROM event_state_history h
+                JOIN state s ON h.state_id = s.id
+                WHERE s.name != 'Closed' AND h.exit_time IS NOT NULL";
+
+        if (getenv('USE_SQLITE') !== 'true') {
+            $sql = "SELECT AVG(TIMESTAMPDIFF(SECOND, enter_time, exit_time)) as avg_seconds
+                    FROM event_state_history h
+                    JOIN state s ON h.state_id = s.id
+                    WHERE s.name != 'Closed' AND h.exit_time IS NOT NULL";
+        }
+        $stats['avg_active_time'] = $this->db->query($sql)->fetch()['avg_seconds'] ?? 0;
+
+        return $stats;
+    }
+
+    public function getReportData($reportType) {
+        switch ($reportType) {
+            case 'dept_impact':
+                return $this->db->query("
+                    SELECT d.name as label, SUM(e.impactScore) as value
+                    FROM department d JOIN wb_events e ON d.id = e.department_id
+                    GROUP BY d.id ORDER BY value DESC
+                ")->fetchAll();
+            case 'type_freq':
+                return $this->db->query("
+                    SELECT t.name as label, COUNT(e.id) as value
+                    FROM type t JOIN wb_events e ON t.id = e.type_id
+                    GROUP BY t.id ORDER BY value DESC
+                ")->fetchAll();
+            case 'service_impact':
+                return $this->db->query("
+                    SELECT s.name as label, SUM(e.impactScore) as value
+                    FROM service s JOIN event_services es ON s.id = es.service_id
+                    JOIN wb_events e ON es.event_id = e.id
+                    GROUP BY s.id ORDER BY value DESC
+                ")->fetchAll();
+            default: return [];
+        }
+    }
+
     private function sendClosureSummary($eventId) {
         $event = $this->getEvent($eventId);
         if (!$event) return;

@@ -143,8 +143,11 @@ function formatDuration($seconds) {
         <a class="navbar-brand h1 mb-0" href="index.php">Incident Manager</a>
         <div class="collapse navbar-collapse">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link active" href="index.php">Active Incidents</a></li>
-                <li class="nav-item"><a class="nav-link" href="closed.php">Closed Archive</a></li>
+                <li class="nav-item"><a class="nav-link active" href="index.php">Active</a></li>
+                <li class="nav-item"><a class="nav-link" href="closed.php">Archive</a></li>
+                <li class="nav-item"><a class="nav-link" href="search.php">Search</a></li>
+                <li class="nav-item"><a class="nav-link" href="statistics.php">Statistics</a></li>
+                <li class="nav-item"><a class="nav-link" href="reports.php">Reports</a></li>
                 <li class="nav-item"><a class="nav-link" href="departments.php">Departments</a></li>
                 <li class="nav-item"><a class="nav-link" href="settings.php">Settings</a></li>
             </ul>

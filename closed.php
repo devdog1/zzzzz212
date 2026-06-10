@@ -83,8 +83,11 @@ function formatDuration($seconds) {
         <a class="navbar-brand h1 mb-0" href="index.php">Incident Manager</a>
         <div class="collapse navbar-collapse">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link" href="index.php">Active Incidents</a></li>
-                <li class="nav-item"><a class="nav-link active" href="closed.php">Closed Archive</a></li>
+                <li class="nav-item"><a class="nav-link" href="index.php">Active</a></li>
+                <li class="nav-item"><a class="nav-link active" href="closed.php">Archive</a></li>
+                <li class="nav-item"><a class="nav-link" href="search.php">Search</a></li>
+                <li class="nav-item"><a class="nav-link" href="statistics.php">Statistics</a></li>
+                <li class="nav-item"><a class="nav-link" href="reports.php">Reports</a></li>
                 <li class="nav-item"><a class="nav-link" href="departments.php">Departments</a></li>
                 <li class="nav-item"><a class="nav-link" href="settings.php">Settings</a></li>
             </ul>
@@ -109,6 +112,7 @@ function formatDuration($seconds) {
                         <th>Resolution Time</th>
                         <th>Type</th>
                         <th>Dept</th>
+                        <th>Tags</th>
                         <th>Impact Score</th>
                         <th>Action</th>
                     </tr>
@@ -123,6 +127,11 @@ function formatDuration($seconds) {
                             <td><small><?= $lastState['enter_time'] ?? $e['update_time'] ?></small></td>
                             <td><span class="badge bg-info text-dark"><?= htmlspecialchars($e['type_name']) ?></span></td>
                             <td><?= htmlspecialchars($e['department_name']) ?></td>
+                            <td>
+                                <?php foreach ($e['tags'] as $tag): ?>
+                                    <span class="badge rounded-pill bg-light text-dark border small">#<?= htmlspecialchars($tag['name']) ?></span>
+                                <?php endforeach; ?>
+                            </td>
                             <td><span class="badge bg-danger"><?= (int)$e['impactScore'] ?></span></td>
                             <td>
                                 <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-<?= $e['id'] ?>">View Details</button>
