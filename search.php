@@ -12,12 +12,14 @@ require_once 'Database.php';
 require_once $docRoot . '/EventManager.php';
 require_once $docRoot . '/classes/AzureADSSO.php';
 require_once $docRoot . '/classes/Auth.php';
+require_once $docRoot . '/classes/OTRS.php';
 
 $auth = new Auth($config);
 $auth->requireLogin();
-if (!$auth->hasPermission('events.manage')) {
+if (!$auth->hasPermission('events.manage') && !$auth->hasPermission('admin.panel')) {
     http_response_code(401);
-    exit("Unauthorized");
+    echo "Error 401 Unauthorized: You need authorization (events.manage) to access this page.";
+    exit();
 }
 
 $em = new EventManager($auth->user()['name'], $auth);
