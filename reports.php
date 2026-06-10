@@ -24,12 +24,17 @@ if (!$auth->hasPermission('events.manage') && !$auth->hasPermission('admin.panel
 
 $em = new EventManager($auth->user()['name'], $auth);
 $reportType = $_GET['type'] ?? 'dept_impact';
-$reportData = $em->getReportData($reportType);
+$dateFrom   = $_GET['date_from'] ?? null;
+$dateTo     = $_GET['date_to'] ?? null;
+
+$reportData = $em->getReportData($reportType, $dateFrom, $dateTo);
 
 $reportNames = [
     'dept_impact'    => 'Impact Score by Department',
     'type_freq'      => 'Incident Frequency by Type',
-    'service_impact' => 'Impact Score by Affected Service'
+    'service_impact' => 'Impact Score by Affected Service',
+    'location'       => 'Incidents by Location (Area)',
+    'tag_usage'      => 'Tag Popularity'
 ];
 
 ?>
@@ -59,6 +64,25 @@ $reportNames = [
 </nav>
 
 <div class="container">
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <input type="hidden" name="type" value="<?= htmlspecialchars($reportType) ?>">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">Date From</label>
+                    <input type="date" name="date_from" class="form-control form-control-sm" value="<?= htmlspecialchars($dateFrom ?? '') ?>">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">Date To</label>
+                    <input type="date" name="date_to" class="form-control form-control-sm" value="<?= htmlspecialchars($dateTo ?? '') ?>">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-dark btn-sm w-100">Filter Report</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-md-3">
             <div class="list-group shadow-sm border-0">

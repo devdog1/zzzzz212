@@ -639,32 +639,65 @@ class EventManager {
                     JOIN state s ON h.state_id = s.id
                     WHERE s.name != 'Closed' AND h.exit_time IS NOT NULL";
         }
-        $stats['avg_active_time'] = $this->db->query($sql)->fetch()['avg_seconds'] ?? 0;
+        $val = $this->db->query($sql)->fetch()['avg_seconds'];
+        $stats['avg_active_time'] = ($val === null) ? 0 : (float)$val;
+
+        // Tag Cloud Data
+        $stats['tag_cloud'] = $this->db->query("
+            SELECT t.name as text, COUNT(et.event_id) as size
+            FROM tag t JOIN event_tags et ON t.id = et.tag_id
+            GROUP BY t.id ORDER BY size DESC LIMIT 50
+        ")->fetchAll();
 
         return $stats;
     }
 
-    public function getReportData($reportType) {
+    public function getReportData($reportType, $dateFrom = null, $dateTo = null) {
+        $where = [];
+        $params = [];
+        if ($dateFrom) { $where[] = "e.create_time >= ?"; $params[] = $dateFrom . " 00:00:00"; }
+        if ($dateTo)   { $where[] = "e.create_time <= ?"; $params[] = $dateTo . " 23:59:59"; }
+        $whereStr = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
+
         switch ($reportType) {
             case 'dept_impact':
                 return $this->db->query("
                     SELECT d.name as label, SUM(e.impactScore) as value
                     FROM department d JOIN wb_events e ON d.id = e.department_id
+                    $whereStr
                     GROUP BY d.id ORDER BY value DESC
-                ")->fetchAll();
+                ", $params)->fetchAll();
             case 'type_freq':
                 return $this->db->query("
                     SELECT t.name as label, COUNT(e.id) as value
                     FROM type t JOIN wb_events e ON t.id = e.type_id
+                    $whereStr
                     GROUP BY t.id ORDER BY value DESC
-                ")->fetchAll();
+                ", $params)->fetchAll();
             case 'service_impact':
                 return $this->db->query("
                     SELECT s.name as label, SUM(e.impactScore) as value
                     FROM service s JOIN event_services es ON s.id = es.service_id
                     JOIN wb_events e ON es.event_id = e.id
+                    $whereStr
                     GROUP BY s.id ORDER BY value DESC
-                ")->fetchAll();
+                ", $params)->fetchAll();
+            case 'location':
+                return $this->db->query("
+                    SELECT a.name as label, COUNT(ea.event_id) as value
+                    FROM area a JOIN event_areas ea ON a.id = ea.area_id
+                    JOIN wb_events e ON ea.event_id = e.id
+                    $whereStr
+                    GROUP BY a.id ORDER BY value DESC
+                ", $params)->fetchAll();
+            case 'tag_usage':
+                return $this->db->query("
+                    SELECT t.name as label, COUNT(et.event_id) as value
+                    FROM tag t JOIN event_tags et ON t.id = et.tag_id
+                    JOIN wb_events e ON et.event_id = e.id
+                    $whereStr
+                    GROUP BY t.id ORDER BY value DESC
+                ", $params)->fetchAll();
             default: return [];
         }
     }
