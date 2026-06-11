@@ -139,6 +139,7 @@ INSERT IGNORE INTO `navigation` (`label`, `url`, `permission`, `parent_id`, `ali
 ('Overview', 'overview.php', 'events.manage', NULL, 'left', 5, 0),
 ('Calendar', 'calendar.php', 'events.manage', NULL, 'left', 8, 0),
 ('Active', 'index.php', 'events.manage', NULL, 'left', 10, 0),
+('Video URLs', 'videoUrls.php', 'videoLinks.view', NULL, 'left', 15, 0),
 ('Archive', 'closed.php', 'events.manage', NULL, 'left', 20, 0),
 ('Search', 'search.php', 'events.manage', NULL, 'left', 30, 0),
 ('Analytics', '#', 'events.manage', NULL, 'left', 40, 0);

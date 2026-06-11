@@ -139,6 +139,7 @@ INSERT OR IGNORE INTO `navigation` (`id`, `label`, `url`, `permission`, `parent_
 (12, 'Overview', 'overview.php', 'events.manage', NULL, 'left', 5, 0),
 (13, 'Calendar', 'calendar.php', 'events.manage', NULL, 'left', 8, 0),
 (1, 'Active', 'index.php', 'events.manage', NULL, 'left', 10, 0),
+(14, 'Video URLs', 'videoUrls.php', 'videoLinks.view', NULL, 'left', 15, 0),
 (2, 'Archive', 'closed.php', 'events.manage', NULL, 'left', 20, 0),
 (3, 'Search', 'search.php', 'events.manage', NULL, 'left', 30, 0),
 (4, 'Analytics', '#', 'events.manage', NULL, 'left', 40, 0),
