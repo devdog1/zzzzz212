@@ -1,37 +1,7 @@
-[Thu Jun 11 03:21:13 2026] PHP 8.3.6 Development Server (http://0.0.0.0:8000) started
-[Thu Jun 11 03:21:16 2026] 127.0.0.1:40914 Accepted
-[Thu Jun 11 03:21:17 2026] 127.0.0.1:40914 [200]: GET /index.php
-[Thu Jun 11 03:21:17 2026] 127.0.0.1:40914 Closing
-[Thu Jun 11 03:21:19 2026] 127.0.0.1:40926 Accepted
-[Thu Jun 11 03:21:19 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/navigation-manage.php on line 3
-[Thu Jun 11 03:21:19 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/navigation-manage.php:3
-Stack trace:
-#0 {main}
-  thrown in /app/navigation-manage.php on line 3
-[Thu Jun 11 03:21:19 2026] 127.0.0.1:40926 [500]: GET /navigation-manage.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/navigation-manage.php:3
-Stack trace:
-#0 {main}
-  thrown in /app/navigation-manage.php on line 3
-[Thu Jun 11 03:21:19 2026] 127.0.0.1:40926 Closing
-[Thu Jun 11 03:21:20 2026] 127.0.0.1:40934 Accepted
-[Thu Jun 11 03:21:20 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/statistics.php on line 3
-[Thu Jun 11 03:21:20 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/statistics.php:3
-Stack trace:
-#0 {main}
-  thrown in /app/statistics.php on line 3
-[Thu Jun 11 03:21:20 2026] 127.0.0.1:40934 [500]: GET /statistics.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/statistics.php:3
-Stack trace:
-#0 {main}
-  thrown in /app/statistics.php on line 3
-[Thu Jun 11 03:21:20 2026] 127.0.0.1:40934 Closing
-[Thu Jun 11 03:21:22 2026] 127.0.0.1:40938 Accepted
-[Thu Jun 11 03:21:22 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/reports.php on line 3
-[Thu Jun 11 03:21:22 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/reports.php:3
-Stack trace:
-#0 {main}
-  thrown in /app/reports.php on line 3
-[Thu Jun 11 03:21:22 2026] 127.0.0.1:40938 [500]: GET /reports.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/reports.php:3
-Stack trace:
-#0 {main}
-  thrown in /app/reports.php on line 3
-[Thu Jun 11 03:21:22 2026] 127.0.0.1:40938 Closing
+[Thu Jun 11 14:33:38 2026] PHP 8.3.6 Development Server (http://0.0.0.0:8000) started
+[Thu Jun 11 14:33:43 2026] 127.0.0.1:43468 Accepted
+[Thu Jun 11 14:33:43 2026] 127.0.0.1:43468 [302]: GET /overview.php
+[Thu Jun 11 14:33:43 2026] 127.0.0.1:43468 Closing
+[Thu Jun 11 14:33:43 2026] 127.0.0.1:43476 Accepted
+[Thu Jun 11 14:33:43 2026] 127.0.0.1:43476 [302]: GET /login.php
+[Thu Jun 11 14:33:43 2026] 127.0.0.1:43476 Closing

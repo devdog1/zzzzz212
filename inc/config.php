@@ -13,7 +13,17 @@ $config = [
             'dbname' => 'event_mgmt',
             'dbuser' => 'root',
             'dbpass' => '',
+        ],
+        'otrs' => [
+            'dbhost' => '127.0.0.1',
+            'dbname' => 'otrs',
+            'dbuser' => 'root',
+            'dbpass' => '',
         ]
+    ],
+    'otrs' => [
+        'ticket_link' => 'https://otrs.example.com/otrs/index.pl?Action=AgentTicketZoom;TicketID=',
+        'change_link' => 'https://otrs.example.com/otrs/index.pl?Action=AgentITSMChangeZoom;ChangeID=',
     ],
     'azure' => [
         'clientId'     => 'YOUR_CLIENT_ID',

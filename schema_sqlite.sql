@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS `navigation` (
 );
 
 INSERT OR IGNORE INTO `navigation` (`id`, `label`, `url`, `permission`, `parent_id`, `alignment`, `weight`, `is_external`) VALUES
+(12, 'Overview', 'overview.php', 'events.manage', NULL, 'left', 5, 0),
 (1, 'Active', 'index.php', 'events.manage', NULL, 'left', 10, 0),
 (2, 'Archive', 'closed.php', 'events.manage', NULL, 'left', 20, 0),
 (3, 'Search', 'search.php', 'events.manage', NULL, 'left', 30, 0),
