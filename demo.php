@@ -1,6 +1,7 @@
 <?php
 
 require_once 'EventManager.php';
+require_once 'classes/OTRS.php';
 
 echo "Demonstration of EventManager Class\n";
 echo "===================================\n";

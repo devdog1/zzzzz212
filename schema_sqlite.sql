@@ -122,3 +122,27 @@ VALUES ('otrs_enabled', '0', 'Enable OTRS ticket integration (0 or 1)');
 
 INSERT OR IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
 VALUES ('otrs_customer_user', 'customer@example.com', 'Default customer user for OTRS tickets');
+
+CREATE TABLE IF NOT EXISTS `navigation` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `label` TEXT NOT NULL,
+    `url` TEXT NOT NULL,
+    `permission` TEXT NULL,
+    `parent_id` INTEGER NULL,
+    `alignment` TEXT DEFAULT 'left',
+    `weight` INTEGER DEFAULT 0,
+    `is_external` INTEGER DEFAULT 0,
+    FOREIGN KEY (`parent_id`) REFERENCES `navigation`(`id`) ON DELETE CASCADE
+);
+
+INSERT OR IGNORE INTO `navigation` (`id`, `label`, `url`, `permission`, `parent_id`, `alignment`, `weight`, `is_external`) VALUES
+(1, 'Active', 'index.php', 'events.manage', NULL, 'left', 10, 0),
+(2, 'Archive', 'closed.php', 'events.manage', NULL, 'left', 20, 0),
+(3, 'Search', 'search.php', 'events.manage', NULL, 'left', 30, 0),
+(4, 'Analytics', '#', 'events.manage', NULL, 'left', 40, 0),
+(5, 'Statistics', 'statistics.php', 'events.manage', 4, 'left', 10, 0),
+(6, 'Reports', 'reports.php', 'events.manage', 4, 'left', 20, 0),
+(7, 'Admin', '#', 'admin.panel', NULL, 'right', 100, 0),
+(8, 'Departments', 'departments.php', 'admin.panel', 7, 'right', 10, 0),
+(9, 'Settings', 'settings.php', 'admin.panel', 7, 'right', 20, 0),
+(10, 'API Docs', 'api-docs.php', 'admin.panel', 7, 'right', 30, 0);

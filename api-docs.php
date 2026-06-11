@@ -1,8 +1,10 @@
 <?php
 $docRoot = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__, '/\\');
 require_once $docRoot . '/inc/config.php';
+require_once 'Database.php';
 require_once $docRoot . '/classes/AzureADSSO.php';
 require_once $docRoot . '/classes/Auth.php';
+require_once $docRoot . '/classes/NavigationBuilder.php';
 
 $auth = new Auth($config);
 $auth->requireLogin();
@@ -22,14 +24,11 @@ if (!$auth->hasPermission('admin.panel')) {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-<nav class="navbar navbar-dark bg-dark mb-0">
-    <div class="container">
-        <a class="navbar-brand" href="index.php">Incident Manager &rarr; API Docs</a>
-        <div class="navbar-text text-white small">
-            Dev Key: <code><?= htmlspecialchars($config['api']['key'] ?? 'DEV-KEY-12345') ?></code>
-        </div>
-    </div>
-</nav>
+<?php
+$db = new Database(); // docs page might not have em yet
+$nav = new NavigationBuilder($db, $auth);
+echo $nav->render();
+?>
 
 <div id="swagger-ui"></div>
 

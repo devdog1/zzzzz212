@@ -122,3 +122,38 @@ VALUES ('otrs_enabled', '0', 'Enable OTRS ticket integration (0 or 1)');
 
 INSERT IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
 VALUES ('otrs_customer_user', 'customer@example.com', 'Default customer user for OTRS tickets');
+
+CREATE TABLE IF NOT EXISTS `navigation` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `label` VARCHAR(255) NOT NULL,
+    `url` VARCHAR(255) NOT NULL,
+    `permission` VARCHAR(255) NULL,
+    `parent_id` INT NULL,
+    `alignment` ENUM('left', 'right') DEFAULT 'left',
+    `weight` INT DEFAULT 0,
+    `is_external` TINYINT(1) DEFAULT 0,
+    FOREIGN KEY (`parent_id`) REFERENCES `navigation`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO `navigation` (`label`, `url`, `permission`, `parent_id`, `alignment`, `weight`, `is_external`) VALUES
+('Active', 'index.php', 'events.manage', NULL, 'left', 10, 0),
+('Archive', 'closed.php', 'events.manage', NULL, 'left', 20, 0),
+('Search', 'search.php', 'events.manage', NULL, 'left', 30, 0),
+('Analytics', '#', 'events.manage', NULL, 'left', 40, 0);
+
+-- Get IDs for nested items (MySQL specific, but illustrative)
+SET @analytics_id = (SELECT id FROM navigation WHERE label = 'Analytics' LIMIT 1);
+
+INSERT IGNORE INTO `navigation` (`label`, `url`, `permission`, `parent_id`, `alignment`, `weight`, `is_external`) VALUES
+('Statistics', 'statistics.php', 'events.manage', @analytics_id, 'left', 10, 0),
+('Reports', 'reports.php', 'events.manage', @analytics_id, 'left', 20, 0);
+
+INSERT IGNORE INTO `navigation` (`label`, `url`, `permission`, `parent_id`, `alignment`, `weight`, `is_external`) VALUES
+('Admin', '#', 'admin.panel', NULL, 'right', 100, 0);
+
+SET @admin_id = (SELECT id FROM navigation WHERE label = 'Admin' LIMIT 1);
+
+INSERT IGNORE INTO `navigation` (`label`, `url`, `permission`, `parent_id`, `alignment`, `weight`, `is_external`) VALUES
+('Departments', 'departments.php', 'admin.panel', @admin_id, 'right', 10, 0),
+('Settings', 'settings.php', 'admin.panel', @admin_id, 'right', 20, 0),
+('API Docs', 'api-docs.php', 'admin.panel', @admin_id, 'right', 30, 0);

@@ -20,6 +20,7 @@ require_once $docRoot . '/EventManager.php';
 require_once $docRoot . '/classes/AzureADSSO.php';
 require_once $docRoot . '/classes/Auth.php';
 require_once $docRoot . '/classes/OTRS.php';
+require_once $docRoot . '/classes/NavigationBuilder.php';
 
 // Force SQLite setup if needed
 if ($useSqlite) {
@@ -138,25 +139,10 @@ function formatDuration($seconds) {
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container">
-        <a class="navbar-brand h1 mb-0" href="index.php">Incident Manager</a>
-        <div class="collapse navbar-collapse">
-            <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link active" href="index.php">Active</a></li>
-                <li class="nav-item"><a class="nav-link" href="closed.php">Archive</a></li>
-                <li class="nav-item"><a class="nav-link" href="search.php">Search</a></li>
-                <li class="nav-item"><a class="nav-link" href="statistics.php">Statistics</a></li>
-                <li class="nav-item"><a class="nav-link" href="reports.php">Reports</a></li>
-                <li class="nav-item"><a class="nav-link" href="departments.php">Departments</a></li>
-                <li class="nav-item"><a class="nav-link" href="settings.php">Settings</a></li>
-            </ul>
-        </div>
-        <div class="navbar-text text-white text-end">
-            Logged in as: <strong><?= htmlspecialchars($currentUser) ?></strong>
-        </div>
-    </div>
-</nav>
+<?php
+$nav = new NavigationBuilder($em->db, $auth_obj);
+echo $nav->render();
+?>
 
 <div class="container">
     <?php if ($emError): ?>

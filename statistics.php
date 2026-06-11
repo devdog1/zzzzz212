@@ -13,6 +13,7 @@ require_once $docRoot . '/EventManager.php';
 require_once $docRoot . '/classes/AzureADSSO.php';
 require_once $docRoot . '/classes/Auth.php';
 require_once $docRoot . '/classes/OTRS.php';
+require_once $docRoot . '/classes/NavigationBuilder.php';
 
 $auth = new Auth($config);
 $auth->requireLogin();
@@ -46,20 +47,10 @@ function formatTime($seconds) {
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container">
-        <a class="navbar-brand h1 mb-0" href="index.php">Incident Manager</a>
-        <div class="collapse navbar-collapse">
-            <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link" href="index.php">Active</a></li>
-                <li class="nav-item"><a class="nav-link" href="closed.php">Archive</a></li>
-                <li class="nav-item"><a class="nav-link" href="search.php">Search</a></li>
-                <li class="nav-item"><a class="nav-link active" href="statistics.php">Statistics</a></li>
-                <li class="nav-item"><a class="nav-link" href="reports.php">Reports</a></li>
-            </ul>
-        </div>
-    </div>
-</nav>
+<?php
+$nav = new NavigationBuilder($em->db, $auth);
+echo $nav->render();
+?>
 
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
