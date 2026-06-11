@@ -1,11 +1,7 @@
 <?php
+require_once __DIR__ . "/autoload.php";
 $docRoot = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__, '/\\');
 require_once $docRoot . '/inc/config.php';
-require_once 'Database.php';
-require_once $docRoot . '/classes/AzureADSSO.php';
-require_once $docRoot . '/classes/Auth.php';
-require_once $docRoot . '/classes/NavigationBuilder.php';
-
 $auth = new Auth($config);
 $auth->requireLogin();
 

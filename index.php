@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . "/autoload.php";
 $docRoot = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__, '/\\');
 
 $configPath = $docRoot . '/inc/config.php';
@@ -15,13 +16,6 @@ if ($useSqlite) {
 }
 
 // Autoloading/Manual Includes
-require_once 'Database.php';
-require_once $docRoot . '/EventManager.php';
-require_once $docRoot . '/classes/AzureADSSO.php';
-require_once $docRoot . '/classes/Auth.php';
-require_once $docRoot . '/classes/OTRS.php';
-require_once $docRoot . '/classes/NavigationBuilder.php';
-
 // Force SQLite setup if needed
 if ($useSqlite) {
     $dbFile = $docRoot . '/event_mgmt.sqlite';

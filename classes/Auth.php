@@ -156,23 +156,24 @@ class Auth
         $stmt->execute([$azureOid]);
         $user = $stmt->fetch();
 
+        $now = date('Y-m-d H:i:s');
         if ($user) {
             $stmt = $this->db->prepare("
                 UPDATE users
-                SET email = ?, display_name = ?, last_login = NOW()
+                SET email = ?, display_name = ?, last_login = ?
                 WHERE id = ?
             ");
-            $stmt->execute([$email, $name, $user['id']]);
+            $stmt->execute([$email, $name, $now, $user['id']]);
 
             return (int)$user['id'];
         }
 
         $stmt = $this->db->prepare("
             INSERT INTO users (azure_oid, username, email, display_name, auto_provisioned, last_login)
-            VALUES (?, ?, ?, ?, 1, NOW())
+            VALUES (?, ?, ?, ?, 1, ?)
         ");
 
-        $stmt->execute([$azureOid, $email, $email, $name]);
+        $stmt->execute([$azureOid, $email, $email, $name, $now]);
 
         $userId = (int)$this->db->lastInsertId();
         $this->assignDefaultRoles($userId);

@@ -1,6 +1,5 @@
 <?php
 
-require_once 'Database.php';
 
 class EventManager {
     public $db;
@@ -1233,7 +1232,7 @@ class EventManager {
     }
 
     private function log($message, $data = null) {
-        $logFile = __DIR__ . '/event_manager.log';
+        $logFile = __DIR__ . '/../event_manager.log';
         $timestamp = date('Y-m-d H:i:s');
         $entry = "[$timestamp] [EventManager] $message";
         if ($data) {

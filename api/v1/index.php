@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . "/../../autoload.php";
 /**
  * REST API for Event Management System
  */
@@ -7,12 +8,6 @@ header("Content-Type: application/json");
 $docRoot = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__ . '/../..', '/\\');
 
 require_once $docRoot . '/inc/config.php';
-require_once $docRoot . '/Database.php';
-require_once $docRoot . '/EventManager.php';
-require_once $docRoot . '/classes/AzureADSSO.php';
-require_once $docRoot . '/classes/Auth.php';
-require_once $docRoot . '/classes/OTRS.php';
-
 // Logic to force SQLite ONLY if MySQL config is missing or invalid
 $useSqlite = !isset($config['db']['events']['dbhost']) || empty($config['db']['events']['dbhost']);
 if ($useSqlite) {

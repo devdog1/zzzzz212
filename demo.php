@@ -1,8 +1,5 @@
 <?php
-
-require_once 'EventManager.php';
-require_once 'classes/OTRS.php';
-
+require_once __DIR__ . "/autoload.php";
 echo "Demonstration of EventManager Class\n";
 echo "===================================\n";
 

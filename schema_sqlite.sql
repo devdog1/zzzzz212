@@ -150,3 +150,80 @@ INSERT OR IGNORE INTO `navigation` (`id`, `label`, `url`, `permission`, `parent_
 (9, 'Settings', 'settings.php', 'admin.panel', 7, 'right', 20, 0),
 (11, 'Navigation', 'navigation-manage.php', 'admin.panel', 7, 'right', 25, 0),
 (10, 'API Docs', 'api-docs.php', 'admin.panel', 7, 'right', 30, 0);
+
+-- Authentication and RBAC Tables
+CREATE TABLE IF NOT EXISTS `users` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `azure_oid` TEXT UNIQUE,
+    `username` TEXT UNIQUE,
+    `email` TEXT,
+    `display_name` TEXT,
+    `auto_provisioned` INTEGER DEFAULT 0,
+    `last_login` DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS `roles` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `role_name` TEXT UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS `permissions` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `permission_name` TEXT UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS `role_permissions` (
+    `role_id` INTEGER,
+    `permission_id` INTEGER,
+    PRIMARY KEY (`role_id`, `permission_id`),
+    FOREIGN KEY (`role_id`) REFERENCES `roles`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`permission_id`) REFERENCES `permissions`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `user_roles` (
+    `user_id` INTEGER,
+    `role_id` INTEGER,
+    PRIMARY KEY (`user_id`, `role_id`),
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`role_id`) REFERENCES `roles`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `user_permissions` (
+    `user_id` INTEGER,
+    `permission_id` INTEGER,
+    PRIMARY KEY (`user_id`, `permission_id`),
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`permission_id`) REFERENCES `permissions`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `denied_permissions` (
+    `user_id` INTEGER,
+    `permission_id` INTEGER,
+    PRIMARY KEY (`user_id`, `permission_id`),
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`permission_id`) REFERENCES `permissions`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `azure_group_roles` (
+    `azure_group_name` TEXT,
+    `role_id` INTEGER,
+    PRIMARY KEY (`azure_group_name`, `role_id`),
+    FOREIGN KEY (`role_id`) REFERENCES `roles`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `default_roles` (
+    `role_id` INTEGER PRIMARY KEY,
+    FOREIGN KEY (`role_id`) REFERENCES `roles`(`id`) ON DELETE CASCADE
+);
+
+-- Seed Initial Auth Data
+INSERT OR IGNORE INTO roles (role_name) VALUES ('admin'), ('manager');
+INSERT OR IGNORE INTO permissions (permission_name) VALUES ('admin.panel'), ('events.manage'), ('videoLinks.view'), ('videoLinks.edit');
+
+INSERT OR IGNORE INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r, permissions p WHERE r.role_name = 'admin';
+
+INSERT OR IGNORE INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r, permissions p WHERE r.role_name = 'manager' AND p.permission_name IN ('events.manage', 'videoLinks.view');
+
+INSERT OR IGNORE INTO default_roles (role_id) SELECT id FROM roles WHERE role_name = 'manager';

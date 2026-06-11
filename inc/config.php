@@ -30,5 +30,19 @@ $config = [
         'clientSecret' => 'YOUR_CLIENT_SECRET',
         'redirectUri'  => 'http://localhost:8080/callback.php',
         'tenantId'     => 'common'
+    ],
+    'api' => [
+        'key' => 'DEV-KEY-12345',
+        'otrs' => [
+            'url' => 'https://otrs.example.com/otrs/nph-genericinterface.pl/Webservice/GenericTicketConnectorREST',
+            'key' => 'OTRS_API_KEY',
+            'default' => [
+                'type' => 'Unclassified',
+                'queue' => 'Misc',
+                'priority' => '3 normal',
+                'state' => 'new',
+                'userID' => 1
+            ]
+        ]
     ]
 ];
