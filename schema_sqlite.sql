@@ -145,4 +145,5 @@ INSERT OR IGNORE INTO `navigation` (`id`, `label`, `url`, `permission`, `parent_
 (7, 'Admin', '#', 'admin.panel', NULL, 'right', 100, 0),
 (8, 'Departments', 'departments.php', 'admin.panel', 7, 'right', 10, 0),
 (9, 'Settings', 'settings.php', 'admin.panel', 7, 'right', 20, 0),
+(11, 'Navigation', 'navigation-manage.php', 'admin.panel', 7, 'right', 25, 0),
 (10, 'API Docs', 'api-docs.php', 'admin.panel', 7, 'right', 30, 0);

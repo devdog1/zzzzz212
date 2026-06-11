@@ -156,4 +156,5 @@ SET @admin_id = (SELECT id FROM navigation WHERE label = 'Admin' LIMIT 1);
 INSERT IGNORE INTO `navigation` (`label`, `url`, `permission`, `parent_id`, `alignment`, `weight`, `is_external`) VALUES
 ('Departments', 'departments.php', 'admin.panel', @admin_id, 'right', 10, 0),
 ('Settings', 'settings.php', 'admin.panel', @admin_id, 'right', 20, 0),
+('Navigation', 'navigation-manage.php', 'admin.panel', @admin_id, 'right', 25, 0),
 ('API Docs', 'api-docs.php', 'admin.panel', @admin_id, 'right', 30, 0);

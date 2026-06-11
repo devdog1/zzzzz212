@@ -44,6 +44,15 @@ class Auth
 
     private function initDb(array $config): PDO
     {
+        if (getenv('USE_SQLITE') === 'true') {
+            $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? __DIR__;
+            $dbFile = rtrim($docRoot, '/\\') . '/event_mgmt.sqlite';
+            return new PDO("sqlite:$dbFile", null, null, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+        }
+
         $dsn = sprintf(
             "mysql:host=%s;dbname=%s;charset=utf8mb4",
             $config['db']['local']['dbhost'],

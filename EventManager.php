@@ -481,6 +481,63 @@ class EventManager {
     public function listAllTags() { return $this->listRef('tag'); }
     public function listAllAreas() { return $this->listRef('area'); }
 
+    // --- Navigation Management ---
+
+    public function listNavigation($parentId = null) {
+        $where = $parentId === null ? "WHERE parent_id IS NULL" : "WHERE parent_id = ?";
+        $sql = "SELECT * FROM navigation $where ORDER BY weight ASC, label ASC";
+        $params = $parentId === null ? [] : [$parentId];
+        return $this->db->query($sql, $params)->fetchAll();
+    }
+
+    public function listAllNavigation() {
+        return $this->db->query("SELECT * FROM navigation ORDER BY parent_id ASC, weight ASC")->fetchAll();
+    }
+
+    public function createNavigation($data) {
+        $fields = ['label', 'url', 'permission', 'parent_id', 'alignment', 'weight', 'is_external'];
+        $filtered = array_intersect_key($data, array_flip($fields));
+
+        $cols = implode(', ', array_keys($filtered));
+        $placeholders = implode(', ', array_fill(0, count($filtered), '?'));
+
+        $sql = "INSERT INTO navigation ($cols) VALUES ($placeholders)";
+        $this->db->query($sql, array_values($filtered));
+        $id = $this->db->lastInsertId();
+        $this->logAudit('navigation', $id, 'CREATE', null, $filtered);
+        return $id;
+    }
+
+    public function updateNavigation($id, $data) {
+        $old = $this->db->query("SELECT * FROM navigation WHERE id = ?", [$id])->fetch();
+        if (!$old) return false;
+
+        $fields = ['label', 'url', 'permission', 'parent_id', 'alignment', 'weight', 'is_external'];
+        $filtered = array_intersect_key($data, array_flip($fields));
+
+        $set = [];
+        $values = [];
+        foreach ($filtered as $k => $v) {
+            $set[] = "$k = ?";
+            $values[] = $v;
+        }
+        $values[] = $id;
+
+        $sql = "UPDATE navigation SET " . implode(', ', $set) . " WHERE id = ?";
+        $this->db->query($sql, $values);
+        $this->logAudit('navigation', $id, 'UPDATE', $old, $filtered);
+        return true;
+    }
+
+    public function deleteNavigation($id) {
+        $old = $this->db->query("SELECT * FROM navigation WHERE id = ?", [$id])->fetch();
+        if (!$old) return false;
+
+        $this->db->query("DELETE FROM navigation WHERE id = ?", [$id]);
+        $this->logAudit('navigation', $id, 'DELETE', $old, null);
+        return true;
+    }
+
     // --- System Defaults ---
 
     public function getDefaults() {
