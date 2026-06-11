@@ -136,6 +136,8 @@ CREATE TABLE IF NOT EXISTS `navigation` (
 ) ENGINE=InnoDB;
 
 INSERT IGNORE INTO `navigation` (`label`, `url`, `permission`, `parent_id`, `alignment`, `weight`, `is_external`) VALUES
+('Overview', 'overview.php', 'events.manage', NULL, 'left', 5, 0),
+('Calendar', 'calendar.php', 'events.manage', NULL, 'left', 8, 0),
 ('Active', 'index.php', 'events.manage', NULL, 'left', 10, 0),
 ('Archive', 'closed.php', 'events.manage', NULL, 'left', 20, 0),
 ('Search', 'search.php', 'events.manage', NULL, 'left', 30, 0),
