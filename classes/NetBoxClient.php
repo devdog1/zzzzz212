@@ -40,19 +40,7 @@ class NetBoxClient
         $response = $this->urlGet($this->url . $endpoint);
 
         if ($response) {
-            $tenant = json_decode($response, true);
-
-            // In NetBox, contacts might be associated via a different endpoint in newer versions,
-            // but often there's a custom field or a direct email if simplified.
-            // Let's assume we want to find contacts for this tenant.
-            $contactsEndpoint = "/api/tenancy/contacts/?tenant_id=" . intval($id);
-            $contactsResponse = $this->urlGet($this->url . $contactsEndpoint);
-            if ($contactsResponse) {
-                $contactsData = json_decode($contactsResponse, true);
-                $tenant['contacts'] = $contactsData['results'] ?? [];
-            }
-
-            return $tenant;
+            return json_decode($response, true);
         }
         return null;
     }

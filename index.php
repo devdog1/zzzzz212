@@ -417,8 +417,8 @@ echo $nav->render();
                                             <form method="POST" class="row g-2 mb-3">
                                                 <input type="hidden" name="action" value="add_update">
                                                 <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
-                                                <div class="col">
-                                                    <input type="text" name="update_text" class="form-control form-control-sm" placeholder="Post new update..." required>
+                                                <div class="col-12">
+                                                    <textarea name="update_text" class="form-control form-control-sm" placeholder="Post new update..." rows="3" required></textarea>
                                                 </div>
                                                 <?php if($em->getDefault('netbox_enabled') === '1'): ?>
                                                 <div class="col-auto d-flex align-items-center">
@@ -534,11 +534,12 @@ async function searchCircuits() {
         data.forEach(c => {
             const btn = document.createElement('button');
             btn.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+            const tenantName = c.tenant ? c.tenant.name : 'No Tenant';
             btn.innerHTML = `
-                <span><strong>${c.cid}</strong> <small class="text-muted">(${c.provider.name})</small></span>
+                <span><strong>${c.cid}</strong> <small class="text-muted">(${tenantName})</small></span>
                 <span class="badge bg-primary">Add</span>
             `;
-            btn.onclick = () => addCircuit(c.id, c.cid, c.provider.name);
+            btn.onclick = () => addCircuit(c.id, c.cid, tenantName);
             results.appendChild(btn);
         });
     } catch (e) {

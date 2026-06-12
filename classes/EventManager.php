@@ -1370,15 +1370,24 @@ class EventManager {
             $tenant = $this->netbox->getTenantDetails($tenantId);
             if (!$tenant) continue;
 
+            $emailString = $tenant['custom_fields']['Contact Email'] ?? '';
+            if (empty($emailString)) {
+                $this->log("No contact email found in custom fields for tenant " . $tenant['name']);
+                continue;
+            }
+
+            // Split by comma, semicolon, or colon
+            $rawRecipients = preg_split('/[,;:]/', $emailString);
             $recipients = [];
-            foreach ($tenant['contacts'] ?? [] as $contact) {
-                if (!empty($contact['contact']['email'])) {
-                    $recipients[] = $contact['contact']['email'];
+            foreach ($rawRecipients as $email) {
+                $email = trim($email);
+                if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $recipients[] = $email;
                 }
             }
 
             if (empty($recipients)) {
-                $this->log("No contact email found for tenant " . $tenant['name']);
+                $this->log("No valid contact email found in custom fields for tenant " . $tenant['name']);
                 continue;
             }
 
