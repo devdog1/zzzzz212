@@ -1,7 +1,12 @@
 <?php
 require_once __DIR__ . "/autoload.php";
 $configPath = __DIR__ . '/inc/config.php';
-$config = file_exists($configPath) ? require $configPath : [];
+if (file_exists($configPath)) {
+    require $configPath; // Assuming it defines $config
+}
+if (!isset($config)) {
+    $config = [];
+}
 
 // Demo/SQLite logic
 $useSqlite = !isset($config['db']['events']['dbhost']) || empty($config['db']['events']['dbhost']);

@@ -111,3 +111,70 @@
 [Fri Jun 12 15:21:27 2026] [::1]:35648 Accepted
 [Fri Jun 12 15:21:27 2026] [::1]:35648 [200]: GET /index.php
 [Fri Jun 12 15:21:27 2026] [::1]:35648 Closing
+[Fri Jun 12 19:06:56 2026] [::1]:38014 Accepted
+[Fri Jun 12 19:06:56 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Fri Jun 12 19:06:56 2026] [::1]:38014 [200]: HEAD /index.php
+[Fri Jun 12 19:06:56 2026] [::1]:38014 Closing
+[Fri Jun 12 19:15:03 2026] [::1]:34232 Accepted
+[Fri Jun 12 19:15:03 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Fri Jun 12 19:15:03 2026] [::1]:34232 [200]: GET /index.php
+[Fri Jun 12 19:15:03 2026] [::1]:34232 Closing
+[Fri Jun 12 19:15:04 2026] [::1]:34242 Accepted
+[Fri Jun 12 19:15:04 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/overview.php on line 4
+[Fri Jun 12 19:15:04 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/overview.php:4
+Stack trace:
+#0 {main}
+  thrown in /app/overview.php on line 4
+[Fri Jun 12 19:15:04 2026] [::1]:34242 [500]: GET /overview.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/overview.php:4
+Stack trace:
+#0 {main}
+  thrown in /app/overview.php on line 4
+[Fri Jun 12 19:15:04 2026] [::1]:34242 Closing
+[Fri Jun 12 19:15:04 2026] [::1]:34246 Accepted
+[Fri Jun 12 19:15:04 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/videoUrls.php on line 4
+[Fri Jun 12 19:15:04 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/videoUrls.php:4
+Stack trace:
+#0 {main}
+  thrown in /app/videoUrls.php on line 4
+[Fri Jun 12 19:15:04 2026] [::1]:34246 [500]: GET /videoUrls.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/videoUrls.php:4
+Stack trace:
+#0 {main}
+  thrown in /app/videoUrls.php on line 4
+[Fri Jun 12 19:15:04 2026] [::1]:34246 Closing
+[Fri Jun 12 19:27:51 2026] [::1]:43266 Accepted
+[Fri Jun 12 19:27:51 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Fri Jun 12 19:27:51 2026] [::1]:43266 [200]: GET /index.php
+[Fri Jun 12 19:27:51 2026] [::1]:43266 Closing
+[Fri Jun 12 19:27:51 2026] [::1]:43270 Accepted
+[Fri Jun 12 19:27:51 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/overview.php on line 4
+[Fri Jun 12 19:27:51 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/overview.php:4
+Stack trace:
+#0 {main}
+  thrown in /app/overview.php on line 4
+[Fri Jun 12 19:27:51 2026] [::1]:43270 [500]: GET /overview.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/overview.php:4
+Stack trace:
+#0 {main}
+  thrown in /app/overview.php on line 4
+[Fri Jun 12 19:27:51 2026] [::1]:43270 Closing
+[Fri Jun 12 19:27:51 2026] [::1]:43286 Accepted
+[Fri Jun 12 19:27:51 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/videoUrls.php on line 4
+[Fri Jun 12 19:27:51 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/videoUrls.php:4
+Stack trace:
+#0 {main}
+  thrown in /app/videoUrls.php on line 4
+[Fri Jun 12 19:27:51 2026] [::1]:43286 [500]: GET /videoUrls.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/videoUrls.php:4
+Stack trace:
+#0 {main}
+  thrown in /app/videoUrls.php on line 4
+[Fri Jun 12 19:27:51 2026] [::1]:43286 Closing
+[Fri Jun 12 19:33:50 2026] [::1]:48822 Accepted
+[Fri Jun 12 19:33:50 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/test_overview.php on line 4
+[Fri Jun 12 19:33:50 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/test_overview.php:4
+Stack trace:
+#0 {main}
+  thrown in /app/test_overview.php on line 4
+[Fri Jun 12 19:33:50 2026] [::1]:48822 [500]: GET /test_overview.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/test_overview.php:4
+Stack trace:
+#0 {main}
+  thrown in /app/test_overview.php on line 4
+[Fri Jun 12 19:33:50 2026] [::1]:48822 Closing

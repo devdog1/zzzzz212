@@ -6,8 +6,9 @@ class Database {
     public function __construct() {
         // Environment check for SQLite fallback (useful for testing/demo)
         if (getenv('USE_SQLITE') === 'true') {
-            $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? __DIR__;
-            $dbFile = rtrim($docRoot, '/\\') . '/event_mgmt.sqlite';
+            $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? __DIR__ . '/..';
+            $dbFile = realpath($docRoot) . '/event_mgmt.sqlite';
+            error_log("Attempting to open SQLite DB at: " . $dbFile);
             $this->pdo = new PDO("sqlite:$dbFile");
             $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
