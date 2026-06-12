@@ -123,6 +123,37 @@ VALUES ('otrs_enabled', '0', 'Enable OTRS ticket integration (0 or 1)');
 INSERT IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
 VALUES ('otrs_customer_user', 'customer@example.com', 'Default customer user for OTRS tickets');
 
+INSERT IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('netbox_enabled', '0', 'Enable NetBox circuit integration (0 or 1)');
+
+INSERT IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('netbox_url', '', 'NetBox API URL');
+
+INSERT IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('netbox_token', '', 'NetBox API Token');
+
+INSERT IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('external_email_template', 'Hello,\n\nAn incident has been reported that may affect your circuit {circuit_cid}.\n\nIncident Description: {description}\nLatest Update: {update_text}\n\nWe will keep you informed.', 'Template for external circuit owner emails');
+
+CREATE TABLE IF NOT EXISTS `event_circuits` (
+    `event_id` INT,
+    `circuit_id` INT,
+    `circuit_cid` VARCHAR(255),
+    `provider` VARCHAR(255),
+    PRIMARY KEY (`event_id`, `circuit_id`),
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `external_message_log` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `event_id` INT NOT NULL,
+    `recipient` VARCHAR(255),
+    `subject` VARCHAR(255),
+    `message` TEXT,
+    `sent_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS `navigation` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `label` VARCHAR(255) NOT NULL,

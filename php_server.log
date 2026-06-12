@@ -1,0 +1,83 @@
+[Fri Jun 12 04:40:24 2026] PHP 8.3.6 Development Server (http://localhost:8000) started
+[Fri Jun 12 04:40:27 2026] [::1]:54176 Accepted
+[Fri Jun 12 04:40:27 2026] [::1]:54176 [200]: GET /index.php
+[Fri Jun 12 04:40:27 2026] [::1]:54176 Closing
+[Fri Jun 12 04:51:24 2026] [::1]:35446 Accepted
+[Fri Jun 12 04:51:24 2026] [::1]:35446 [200]: GET /index.php
+[Fri Jun 12 04:51:24 2026] [::1]:35446 Closing
+[Fri Jun 12 04:51:25 2026] [::1]:35458 Accepted
+[Fri Jun 12 04:51:25 2026] [2026-06-12 04:51:25] [EventManager] Teams: Skipping Teams chat: No auth object provided.
+[Fri Jun 12 04:51:25 2026] [::1]:35458 [200]: POST /index.php
+[Fri Jun 12 04:51:25 2026] [::1]:35458 Closing
+[Fri Jun 12 04:54:30 2026] [::1]:53694 Accepted
+[Fri Jun 12 04:54:30 2026] [::1]:53694 [200]: GET /index.php
+[Fri Jun 12 04:54:30 2026] [::1]:53694 Closing
+[Fri Jun 12 04:54:31 2026] [::1]:53702 Accepted
+[Fri Jun 12 04:54:31 2026] [2026-06-12 04:54:31] [EventManager] Teams: Skipping Teams chat: No auth object provided.
+[Fri Jun 12 04:54:31 2026] [::1]:53702 [200]: POST /index.php
+[Fri Jun 12 04:54:31 2026] [::1]:53702 Closing
+[Fri Jun 12 04:54:31 2026] [::1]:53704 Accepted
+[Fri Jun 12 04:54:31 2026] [::1]:53704 [200]: GET /settings.php
+[Fri Jun 12 04:54:31 2026] [::1]:53704 Closing
+[Fri Jun 12 04:54:31 2026] [::1]:53718 Accepted
+[Fri Jun 12 04:54:31 2026] [::1]:53718 [200]: POST /settings.php
+[Fri Jun 12 04:54:31 2026] [::1]:53718 Closing
+[Fri Jun 12 04:54:31 2026] [::1]:53722 Accepted
+[Fri Jun 12 04:54:31 2026] [::1]:53722 [200]: GET /index.php
+[Fri Jun 12 04:54:31 2026] [::1]:53722 Closing
+[Fri Jun 12 04:58:07 2026] [::1]:49844 Accepted
+[Fri Jun 12 04:58:07 2026] [::1]:49844 [200]: GET /index.php
+[Fri Jun 12 04:58:07 2026] [::1]:49844 Closing
+[Fri Jun 12 04:58:08 2026] [::1]:49848 Accepted
+[Fri Jun 12 04:58:08 2026] [2026-06-12 04:58:08] [EventManager] Teams: Skipping Teams chat: No auth object provided.
+[Fri Jun 12 04:58:08 2026] [::1]:49848 [200]: POST /index.php
+[Fri Jun 12 04:58:08 2026] [::1]:49848 Closing
+[Fri Jun 12 04:58:08 2026] [::1]:49860 Accepted
+[Fri Jun 12 04:58:08 2026] [::1]:49860 [200]: GET /settings.php
+[Fri Jun 12 04:58:08 2026] [::1]:49860 Closing
+[Fri Jun 12 04:58:08 2026] [::1]:49862 Accepted
+[Fri Jun 12 04:58:08 2026] [::1]:49862 [200]: POST /settings.php
+[Fri Jun 12 04:58:08 2026] [::1]:49862 Closing
+[Fri Jun 12 04:58:08 2026] [::1]:49872 Accepted
+[Fri Jun 12 04:58:08 2026] [::1]:49872 [200]: GET /index.php
+[Fri Jun 12 04:58:08 2026] [::1]:49872 Closing
+[Fri Jun 12 05:01:43 2026] [::1]:43368 Accepted
+[Fri Jun 12 05:01:43 2026] [::1]:43368 [200]: GET /index.php
+[Fri Jun 12 05:01:43 2026] [::1]:43368 Closing
+[Fri Jun 12 05:01:43 2026] [::1]:43382 Accepted
+[Fri Jun 12 05:01:43 2026] [2026-06-12 05:01:43] [EventManager] Teams: Skipping Teams chat: No auth object provided.
+[Fri Jun 12 05:01:43 2026] [::1]:43382 [200]: POST /index.php
+[Fri Jun 12 05:01:43 2026] [::1]:43382 Closing
+[Fri Jun 12 05:01:43 2026] [::1]:43390 Accepted
+[Fri Jun 12 05:01:43 2026] [::1]:43390 [200]: GET /settings.php
+[Fri Jun 12 05:01:43 2026] [::1]:43390 Closing
+[Fri Jun 12 05:01:43 2026] [::1]:43394 Accepted
+[Fri Jun 12 05:01:43 2026] [::1]:43394 [200]: POST /settings.php
+[Fri Jun 12 05:01:43 2026] [::1]:43394 Closing
+[Fri Jun 12 05:01:43 2026] [::1]:43402 Accepted
+[Fri Jun 12 05:01:43 2026] [::1]:43402 [200]: GET /index.php
+[Fri Jun 12 05:01:43 2026] [::1]:43402 Closing
+[Fri Jun 12 05:07:29 2026] [::1]:40564 Accepted
+[Fri Jun 12 05:07:29 2026] [::1]:40564 [200]: GET /index.php
+[Fri Jun 12 05:07:29 2026] [::1]:40564 Closing
+[Fri Jun 12 05:07:30 2026] [::1]:40570 Accepted
+[Fri Jun 12 05:07:30 2026] [::1]:40570 [200]: GET /settings.php
+[Fri Jun 12 05:07:30 2026] [::1]:40570 Closing
+[Fri Jun 12 05:07:30 2026] [::1]:40580 Accepted
+[Fri Jun 12 05:07:30 2026] [::1]:40580 [200]: POST /settings.php
+[Fri Jun 12 05:07:30 2026] [::1]:40580 Closing
+[Fri Jun 12 05:07:30 2026] [::1]:40584 Accepted
+[Fri Jun 12 05:07:30 2026] [::1]:40584 [200]: GET /index.php
+[Fri Jun 12 05:07:30 2026] [::1]:40584 Closing
+[Fri Jun 12 05:10:04 2026] [::1]:51548 Accepted
+[Fri Jun 12 05:10:04 2026] [::1]:51548 [200]: GET /index.php
+[Fri Jun 12 05:10:04 2026] [::1]:51548 Closing
+[Fri Jun 12 05:10:04 2026] [::1]:51558 Accepted
+[Fri Jun 12 05:10:04 2026] [::1]:51558 [200]: GET /settings.php
+[Fri Jun 12 05:10:04 2026] [::1]:51558 Closing
+[Fri Jun 12 05:10:04 2026] [::1]:51566 Accepted
+[Fri Jun 12 05:10:04 2026] [::1]:51566 [200]: POST /settings.php
+[Fri Jun 12 05:10:04 2026] [::1]:51566 Closing
+[Fri Jun 12 05:10:04 2026] [::1]:51574 Accepted
+[Fri Jun 12 05:10:04 2026] [::1]:51574 [200]: GET /index.php
+[Fri Jun 12 05:10:04 2026] [::1]:51574 Closing

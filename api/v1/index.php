@@ -60,6 +60,9 @@ switch ($resource) {
     case 'services':
         handleRef($em, 'Service', $method, $id);
         break;
+    case 'netbox':
+        handleNetBox($em, $method, $path);
+        break;
     default:
         http_response_code(404);
         echo json_encode(["error" => "Resource not found"]);
@@ -92,6 +95,31 @@ function handleEvents($em, $method, $id) {
             break;
         default:
             http_response_code(405);
+    }
+}
+
+function handleNetBox($em, $method, $path) {
+    $action = $path[1] ?? null;
+    $id = $path[2] ?? null;
+
+    $configPath = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__ . '/../..', '/\\') . '/inc/config.php';
+    include $configPath;
+    $netbox = new NetBoxClient($config);
+
+    if ($action === 'search') {
+        $q = $_GET['q'] ?? '';
+        echo json_encode($netbox->searchCircuits($q));
+    } elseif ($action === 'circuits') {
+        $eventId = $_GET['event_id'] ?? null;
+        if ($method === 'POST') {
+            $data = json_decode(file_get_contents('php://input'), true);
+            $em->addCircuit($data['event_id'], $data['circuit_id'], $data['circuit_cid'], $data['provider']);
+            echo json_encode(["message" => "Circuit added"]);
+        } elseif ($method === 'DELETE') {
+            $circuitId = $_GET['circuit_id'];
+            $em->removeCircuit($eventId, $circuitId);
+            echo json_encode(["message" => "Circuit removed"]);
+        }
     }
 }
 

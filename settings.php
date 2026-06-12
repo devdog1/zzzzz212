@@ -115,11 +115,13 @@ echo $nav->render();
                                     <?php else: ?>
                                         <input type="text" name="settings[<?= $d['setting_key'] ?>]" class="form-control" value="<?= htmlspecialchars($d['setting_value'] ?? '') ?>" placeholder="Enter GUID">
                                     <?php endif; ?>
-                                <?php elseif ($d['setting_key'] === 'otrs_enabled'): ?>
+                                <?php elseif (in_array($d['setting_key'], ['otrs_enabled', 'netbox_enabled'])): ?>
                                     <select name="settings[<?= $d['setting_key'] ?>]" class="form-select">
                                         <option value="0" <?= $d['setting_value'] === '0' ? 'selected' : '' ?>>Disabled</option>
                                         <option value="1" <?= $d['setting_value'] === '1' ? 'selected' : '' ?>>Enabled</option>
                                     </select>
+                                <?php elseif ($d['setting_key'] === 'external_email_template'): ?>
+                                    <textarea name="settings[<?= $d['setting_key'] ?>]" class="form-control" rows="4"><?= htmlspecialchars($d['setting_value'] ?? '') ?></textarea>
                                 <?php else: ?>
                                     <input type="text" name="settings[<?= $d['setting_key'] ?>]" class="form-control" value="<?= htmlspecialchars($d['setting_value'] ?? '') ?>">
                                 <?php endif; ?>

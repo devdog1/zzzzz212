@@ -123,6 +123,37 @@ VALUES ('otrs_enabled', '0', 'Enable OTRS ticket integration (0 or 1)');
 INSERT OR IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
 VALUES ('otrs_customer_user', 'customer@example.com', 'Default customer user for OTRS tickets');
 
+INSERT OR IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('netbox_enabled', '0', 'Enable NetBox circuit integration (0 or 1)');
+
+INSERT OR IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('netbox_url', '', 'NetBox API URL');
+
+INSERT OR IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('netbox_token', '', 'NetBox API Token');
+
+INSERT OR IGNORE INTO `defaults` (`setting_key`, `setting_value`, `description`)
+VALUES ('external_email_template', 'Hello,\n\nAn incident has been reported that may affect your circuit {circuit_cid}.\n\nIncident Description: {description}\nLatest Update: {update_text}\n\nWe will keep you informed.', 'Template for external circuit owner emails');
+
+CREATE TABLE IF NOT EXISTS `event_circuits` (
+    `event_id` INTEGER,
+    `circuit_id` INTEGER,
+    `circuit_cid` TEXT,
+    `provider` TEXT,
+    PRIMARY KEY (`event_id`, `circuit_id`),
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `external_message_log` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `event_id` INTEGER NOT NULL,
+    `recipient` TEXT,
+    `subject` TEXT,
+    `message` TEXT,
+    `sent_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`event_id`) REFERENCES `wb_events`(`id`) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS `navigation` (
     `id` INTEGER PRIMARY KEY AUTOINCREMENT,
     `label` TEXT NOT NULL,

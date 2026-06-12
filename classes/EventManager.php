@@ -6,6 +6,7 @@ class EventManager {
     private $currentUser;
     private $auth;
     private $otrs = null;
+    private $netbox = null;
     private $lastError = null;
 
     private $allowedEventFields = [
@@ -27,6 +28,9 @@ class EventManager {
             include $configPath;
             if (isset($config['api']['otrs'])) {
                 $this->otrs = new OTRSClient($config);
+            }
+            if (isset($config['api']['netbox'])) {
+                $this->netbox = new NetBoxClient($config);
             }
         }
     }
@@ -269,6 +273,7 @@ class EventManager {
             $event['tags'] = $this->getEventTags($eventId);
             $event['areas'] = $this->getEventAreas($eventId);
             $event['state_history'] = $this->getStateHistory($eventId);
+            $event['circuits'] = $this->getEventCircuits($eventId);
         }
         return $event;
     }
@@ -288,6 +293,7 @@ class EventManager {
             $e['services'] = $this->getEventServices($e['id']);
             $e['tags'] = $this->getEventTags($e['id']);
             $e['areas'] = $this->getEventAreas($e['id']);
+            $e['circuits'] = $this->getEventCircuits($e['id']);
         }
         return $events;
     }
@@ -350,6 +356,26 @@ class EventManager {
         return $this->db->query("SELECT t.* FROM tag t
                                  JOIN event_tags et ON t.id = et.tag_id
                                  WHERE et.event_id = ?", [$eventId])->fetchAll();
+    }
+
+    // --- Circuits (NetBox) ---
+
+    public function addCircuit($eventId, $circuitId, $cid, $provider) {
+        $sql = "INSERT INTO event_circuits (event_id, circuit_id, circuit_cid, provider) VALUES (?, ?, ?, ?)";
+        $this->db->query($sql, [$eventId, $circuitId, $cid, $provider]);
+        $this->logAudit('event_circuits', $eventId, 'ADD_CIRCUIT', null, ['circuit_id' => $circuitId, 'cid' => $cid]);
+        return true;
+    }
+
+    public function removeCircuit($eventId, $circuitId) {
+        $sql = "DELETE FROM event_circuits WHERE event_id = ? AND circuit_id = ?";
+        $this->db->query($sql, [$eventId, $circuitId]);
+        $this->logAudit('event_circuits', $eventId, 'REMOVE_CIRCUIT', ['circuit_id' => $circuitId], null);
+        return true;
+    }
+
+    public function getEventCircuits($eventId) {
+        return $this->db->query("SELECT * FROM event_circuits WHERE event_id = ?", [$eventId])->fetchAll();
     }
 
     // --- Areas ---
@@ -558,7 +584,7 @@ class EventManager {
 
     // --- Event Updates ---
 
-    public function addEventUpdate($eventId, $updateText) {
+    public function addEventUpdate($eventId, $updateText, $messageExternal = false) {
         if ($this->isEventClosed($eventId)) {
             return false;
         }
@@ -566,7 +592,8 @@ class EventManager {
         $data = [
             'event_id' => $eventId,
             'update_text' => $updateText,
-            'create_user' => $this->currentUser
+            'create_user' => $this->currentUser,
+            'message_external' => $messageExternal
         ];
 
         $sql = "INSERT INTO event_updates (event_id, update_text, create_user) VALUES (?, ?, ?)";
@@ -574,6 +601,10 @@ class EventManager {
 
         $updateId = $this->db->lastInsertId();
         $this->logAudit('event_updates', $updateId, 'CREATE', null, $data);
+
+        if ($messageExternal) {
+            $this->sendExternalMessages($eventId, $updateText);
+        }
 
         // Post to Teams Chat
         $card = $this->getAdaptiveCardBase("Incident Update Posted", 'good');
@@ -667,6 +698,7 @@ class EventManager {
             $e['services'] = $this->getEventServices($e['id']);
             $e['tags'] = $this->getEventTags($e['id']);
             $e['areas'] = $this->getEventAreas($e['id']);
+            $e['circuits'] = $this->getEventCircuits($e['id']);
         }
         return $events;
     }
@@ -1305,6 +1337,57 @@ class EventManager {
         } catch (Exception $e) {
             $this->lastError = "OTRS integration exception: " . $e->getMessage();
             $this->logOTRS("Exception during OTRS ticket creation", ['error' => $e->getMessage()]);
+        }
+    }
+
+    private function sendExternalMessages($eventId, $updateText) {
+        if (!$this->netbox || $this->getDefault('netbox_enabled') !== '1') return;
+
+        $event = $this->getEvent($eventId);
+        $circuits = $event['circuits'] ?? [];
+        if (empty($circuits)) return;
+
+        $template = $this->getDefault('external_email_template');
+        $subject = "Update regarding incident #" . $eventId;
+
+        foreach ($circuits as $circuit) {
+            $details = $this->netbox->getCircuitDetails($circuit['circuit_id']);
+            if (!$details || empty($details['tenant'])) continue;
+
+            $tenantId = $details['tenant']['id'];
+            $tenant = $this->netbox->getTenantDetails($tenantId);
+            if (!$tenant) continue;
+
+            $recipients = [];
+            foreach ($tenant['contacts'] ?? [] as $contact) {
+                if (!empty($contact['contact']['email'])) {
+                    $recipients[] = $contact['contact']['email'];
+                }
+            }
+
+            if (empty($recipients)) {
+                $this->log("No contact email found for tenant " . $tenant['name']);
+                continue;
+            }
+
+            $message = str_replace(
+                ['{circuit_cid}', '{description}', '{update_text}'],
+                [$circuit['circuit_cid'], $event['description'], $updateText],
+                $template
+            );
+
+            foreach (array_unique($recipients) as $to) {
+                // In a real environment, we would use mail() or a mail library
+                $sent = @mail($to, $subject, $message, "From: noreply@example.com");
+
+                // Log the attempt
+                $this->db->query(
+                    "INSERT INTO external_message_log (event_id, recipient, subject, message) VALUES (?, ?, ?, ?)",
+                    [$eventId, $to, $subject, $message]
+                );
+
+                $this->log("External message " . ($sent ? "sent" : "failed") . " to $to for circuit " . $circuit['circuit_cid']);
+            }
         }
     }
 

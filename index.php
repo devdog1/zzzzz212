@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($_POST['action'] === 'create_event') {
             $em->createEvent($_POST);
         } elseif ($_POST['action'] === 'add_update') {
-            $em->addEventUpdate($_POST['event_id'], $_POST['update_text']);
+            $em->addEventUpdate($_POST['event_id'], $_POST['update_text'], isset($_POST['message_external']));
         } elseif ($_POST['action'] === 'update_metadata') {
             $em->updateEvent($_POST['event_id'], $_POST);
         }
@@ -280,6 +280,24 @@ echo $nav->render();
                                                 <?php endforeach; ?>
                                             </div>
 
+                                            <div class="mb-3">
+                                                <div class="small text-muted mb-1">Associated Circuits (NetBox):</div>
+                                                <div id="circuit-list-<?= $e['id'] ?>">
+                                                    <?php if (empty($e['circuits'])): ?>
+                                                        <span class="text-muted small">None</span>
+                                                    <?php endif; ?>
+                                                    <?php foreach ($e['circuits'] as $c): ?>
+                                                        <div class="badge bg-secondary me-1 mb-1">
+                                                            <?= htmlspecialchars($c['circuit_cid']) ?> (<?= htmlspecialchars($c['provider']) ?>)
+                                                            <span class="ms-1 cursor-pointer text-warning" onclick="removeCircuit(<?= $e['id'] ?>, <?= $c['circuit_id'] ?>)">&times;</span>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                                <?php if($em->getDefault('netbox_enabled') === '1'): ?>
+                                                    <button class="btn btn-xs btn-outline-secondary mt-1" style="font-size: 0.7rem;" onclick="showCircuitSearch(<?= $e['id'] ?>)">+ Add Circuit</button>
+                                                <?php endif; ?>
+                                            </div>
+
                                             <?php if($e['teams_chat_id']): ?>
                                                 <div class="mb-3">
                                                     <a href="https://teams.microsoft.com/l/chat/0/0?users=8:orgid:<?= $e['teams_chat_id'] ?>" target="_blank" class="btn btn-sm btn-outline-primary">
@@ -402,6 +420,14 @@ echo $nav->render();
                                                 <div class="col">
                                                     <input type="text" name="update_text" class="form-control form-control-sm" placeholder="Post new update..." required>
                                                 </div>
+                                                <?php if($em->getDefault('netbox_enabled') === '1'): ?>
+                                                <div class="col-auto d-flex align-items-center">
+                                                    <div class="form-check form-check-inline mb-0">
+                                                        <input class="form-check-input" type="checkbox" name="message_external" id="msgExt-<?= $e['id'] ?>">
+                                                        <label class="form-check-label small" for="msgExt-<?= $e['id'] ?>">Msg External</label>
+                                                    </div>
+                                                </div>
+                                                <?php endif; ?>
                                                 <div class="col-auto">
                                                     <button type="submit" class="btn btn-outline-primary btn-sm">Post</button>
                                                 </div>
@@ -456,8 +482,98 @@ echo $nav->render();
     </div>
 </div>
 
+<!-- Circuit Search Modal -->
+<div class="modal fade" id="circuitModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Search NetBox Circuits</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="activeEventId">
+                <div class="input-group mb-3">
+                    <input type="text" id="circuitQuery" class="form-control" placeholder="Circuit ID / CID...">
+                    <button class="btn btn-primary" onclick="searchCircuits()">Search</button>
+                </div>
+                <div id="circuitResults" class="list-group">
+                    <!-- Results will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+let circuitModal;
+document.addEventListener('DOMContentLoaded', () => {
+    circuitModal = new bootstrap.Modal(document.getElementById('circuitModal'));
+});
+
+function showCircuitSearch(eventId) {
+    document.getElementById('activeEventId').value = eventId;
+    document.getElementById('circuitResults').innerHTML = '';
+    document.getElementById('circuitQuery').value = '';
+    circuitModal.show();
+}
+
+async function searchCircuits() {
+    const q = document.getElementById('circuitQuery').value;
+    const results = document.getElementById('circuitResults');
+    results.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm"></div></div>';
+
+    try {
+        const response = await fetch(`api/v1/index.php/netbox/search?q=${encodeURIComponent(q)}`);
+        const data = await response.json();
+        results.innerHTML = '';
+        if (data.length === 0) {
+            results.innerHTML = '<div class="list-group-item text-muted">No circuits found</div>';
+            return;
+        }
+        data.forEach(c => {
+            const btn = document.createElement('button');
+            btn.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+            btn.innerHTML = `
+                <span><strong>${c.cid}</strong> <small class="text-muted">(${c.provider.name})</small></span>
+                <span class="badge bg-primary">Add</span>
+            `;
+            btn.onclick = () => addCircuit(c.id, c.cid, c.provider.name);
+            results.appendChild(btn);
+        });
+    } catch (e) {
+        results.innerHTML = '<div class="list-group-item text-danger">Search failed</div>';
+    }
+}
+
+async function addCircuit(circuitId, cid, provider) {
+    const eventId = document.getElementById('activeEventId').value;
+    try {
+        const response = await fetch('api/v1/index.php/netbox/circuits', {
+            method: 'POST',
+            body: JSON.stringify({ event_id: eventId, circuit_id: circuitId, circuit_cid: cid, provider: provider })
+        });
+        if (response.ok) {
+            location.reload();
+        }
+    } catch (e) {
+        alert('Failed to add circuit');
+    }
+}
+
+async function removeCircuit(eventId, circuitId) {
+    if (!confirm('Remove this circuit association?')) return;
+    try {
+        const response = await fetch(`api/v1/index.php/netbox/circuits?event_id=${eventId}&circuit_id=${circuitId}`, {
+            method: 'DELETE'
+        });
+        if (response.ok) {
+            location.reload();
+        }
+    } catch (e) {
+        alert('Failed to remove circuit');
+    }
+}
 function initPillInput(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
