@@ -298,14 +298,6 @@ echo $nav->render();
                                                 <?php endif; ?>
                                             </div>
 
-                                            <?php if($e['teams_chat_id']): ?>
-                                                <div class="mb-3">
-                                                    <a href="https://teams.microsoft.com/l/chat/0/0?users=8:orgid:<?= $e['teams_chat_id'] ?>" target="_blank" class="btn btn-sm btn-outline-primary">
-                                                        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c9/Microsoft_Office_Teams_%282018%E2%80%93present%29.svg" width="16" class="me-1">
-                                                        Open Teams Chat
-                                                    </a>
-                                                </div>
-                                            <?php endif; ?>
                                         </div>
                                         <div class="col-md-4 border-start text-end">
                                             <div class="p-3 bg-light rounded">
@@ -345,6 +337,10 @@ echo $nav->render();
                                     <form method="POST" class="bg-light p-3 rounded border mb-4">
                                         <input type="hidden" name="action" value="update_metadata">
                                         <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
+                                        <div class="mb-3">
+                                            <label class="small fw-bold">Incident Description</label>
+                                            <textarea name="description" class="form-control form-control-sm" rows="3"><?= htmlspecialchars($e['description']) ?></textarea>
+                                        </div>
                                         <div class="row g-2 mb-2">
                                             <div class="col-md-4">
                                                 <label class="small fw-bold">Change State</label>
