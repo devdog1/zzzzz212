@@ -29,8 +29,20 @@ class EventManager {
             if (isset($config['api']['otrs'])) {
                 $this->otrs = new OTRSClient($config);
             }
-            if (isset($config['api']['netbox'])) {
-                $this->netbox = new NetBoxClient($config);
+
+            // Try config file first, then fall back to DB defaults for NetBox
+            $nbUrl = $config['api']['netbox']['url'] ?? $this->getDefault('netbox_url');
+            $nbToken = $config['api']['netbox']['token'] ?? $this->getDefault('netbox_token');
+
+            if (!empty($nbUrl) && !empty($nbToken)) {
+                $this->netbox = new NetBoxClient([
+                    'api' => [
+                        'netbox' => [
+                            'url' => $nbUrl,
+                            'token' => $nbToken
+                        ]
+                    ]
+                ]);
             }
         }
     }

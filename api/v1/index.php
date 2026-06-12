@@ -103,8 +103,30 @@ function handleNetBox($em, $method, $path) {
     $id = $path[2] ?? null;
 
     $configPath = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__ . '/../..', '/\\') . '/inc/config.php';
-    include $configPath;
-    $netbox = new NetBoxClient($config);
+    $nbUrl = ''; $nbToken = '';
+    if (file_exists($configPath)) {
+        include $configPath;
+        $nbUrl = $config['api']['netbox']['url'] ?? '';
+        $nbToken = $config['api']['netbox']['token'] ?? '';
+    }
+
+    if (empty($nbUrl)) $nbUrl = $em->getDefault('netbox_url');
+    if (empty($nbToken)) $nbToken = $em->getDefault('netbox_token');
+
+    if (empty($nbUrl) || empty($nbToken)) {
+        http_response_code(503);
+        echo json_encode(["error" => "NetBox integration not configured"]);
+        return;
+    }
+
+    $netbox = new NetBoxClient([
+        'api' => [
+            'netbox' => [
+                'url' => $nbUrl,
+                'token' => $nbToken
+            ]
+        ]
+    ]);
 
     if ($action === 'search') {
         $q = $_GET['q'] ?? '';

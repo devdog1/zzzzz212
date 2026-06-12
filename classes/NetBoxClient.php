@@ -7,8 +7,8 @@ class NetBoxClient
 
     public function __construct(array $config)
     {
-        $this->url = rtrim($config['api']['netbox']['url'], '/');
-        $this->token = $config['api']['netbox']['token'];
+        $this->url = rtrim($config['api']['netbox']['url'] ?? '', '/');
+        $this->token = $config['api']['netbox']['token'] ?? '';
     }
 
     public function searchCircuits($query)
@@ -67,7 +67,9 @@ class NetBoxClient
                 'Accept: application/json'
             ],
             CURLOPT_TIMEOUT        => 10,
-            CURLOPT_FOLLOWLOCATION => true
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_SSL_VERIFYPEER => false
         ]);
 
         $response = curl_exec($ch);
