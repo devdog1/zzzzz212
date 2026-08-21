@@ -9,63 +9,56 @@ if (!has_permission('incident_management_view_events') && !has_permission('event
 $currentUser = $_SESSION['user']['name'] ?? ($_SESSION['user']['display_name'] ?? 'User');
 $em = new EventManager($currentUser);
 
-$OTRSChangeLink = '#';
+$OTRSChangeLink = $em->getDefault('otrs_change_link') ?: '#';
 $events = [];
 $otrsError = null;
 
 try {
-    $config = [];
-    $configPath = __DIR__ . '/../../../config.php';
-    if (file_exists($configPath)) {
-        $config = require $configPath;
-    }
-    $OTRSChangeLink = $config['otrs']['change_link'] ?? '#';
+    $otrsDB = $em->getOTRSDB();
+    if ($otrsDB && $otrsDB->isConnected()) {
+        $results = $otrsDB->getChangeQuery();
 
-    if (isset($config['db']['otrs'])) {
-        $otrsDB = new OTRSDB($config);
-        if ($otrsDB->isConnected()) {
-            $results = $otrsDB->getChangeQuery();
-
-            foreach ($results as $event) {
-                if (in_array(strtolower($event['changeStatus']), ['rejected', 'retracted'])) {
-                    continue;
-                }
-
-                $status = strtolower($event['changeStatus']);
-                $backgroundColor = '#0dcaf0';
-                $borderColor     = '#0dcaf0';
-
-                switch ($status) {
-                    case 'approved':
-                        $backgroundColor = '#0d6efd';
-                        $borderColor     = '#0d6efd';
-                        break;
-                    case 'successful':
-                        $backgroundColor = '#198754';
-                        $borderColor     = '#198754';
-                        break;
-                    case 'failed':
-                        $backgroundColor = '#dc3545';
-                        $borderColor     = '#dc3545';
-                        break;
-                }
-
-                $events[] = [
-                    'id'              => $event['changeId'],
-                    'title'           => html_entity_decode($event['changeTitle']),
-                    'start'           => $event['plannedStartTime'],
-                    'end'             => $event['plannedEndTime'],
-                    'url'             => $OTRSChangeLink . $event['changeId'],
-                    'backgroundColor' => $backgroundColor,
-                    'borderColor'     => $borderColor,
-                    'textColor'       => '#ffffff',
-                    'extendedProps'   => [
-                        'status'       => ucfirst($status),
-                        'changeNumber' => $event['changeNumber']
-                    ]
-                ];
+        foreach ($results as $event) {
+            if (in_array(strtolower($event['changeStatus']), ['rejected', 'retracted'])) {
+                continue;
             }
+
+            $status = strtolower($event['changeStatus']);
+            $backgroundColor = '#0dcaf0';
+            $borderColor     = '#0dcaf0';
+
+            switch ($status) {
+                case 'approved':
+                    $backgroundColor = '#0d6efd';
+                    $borderColor     = '#0d6efd';
+                    break;
+                case 'successful':
+                    $backgroundColor = '#198754';
+                    $borderColor     = '#198754';
+                    break;
+                case 'failed':
+                    $backgroundColor = '#dc3545';
+                    $borderColor     = '#dc3545';
+                    break;
+            }
+
+            $events[] = [
+                'id'              => $event['changeId'],
+                'title'           => html_entity_decode($event['changeTitle']),
+                'start'           => $event['plannedStartTime'],
+                'end'             => $event['plannedEndTime'],
+                'url'             => $OTRSChangeLink . $event['changeId'],
+                'backgroundColor' => $backgroundColor,
+                'borderColor'     => $borderColor,
+                'textColor'       => '#ffffff',
+                'extendedProps'   => [
+                    'status'       => ucfirst($status),
+                    'changeNumber' => $event['changeNumber']
+                ]
+            ];
         }
+    } else {
+        $otrsError = "OTRS Database connection not configured or unreachable. Check OTRS DB host/credentials in Incident Settings.";
     }
 } catch (Exception $e) {
     $otrsError = $e->getMessage();
@@ -83,7 +76,7 @@ try {
 <div class="row mb-4 text-start">
     <div class="col-md-12">
         <h1 class="h2"><i class="fa-solid fa-calendar-days text-primary me-2"></i>Change Calendar</h1>
-        <p class="text-muted">Interactive schedule of planned system changes and maintenance windows from OTRS.</p>
+        <p class="text-muted">Interactive schedule of planned system changes and maintenance windows from OTRS DB.</p>
     </div>
 </div>
 

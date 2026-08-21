@@ -33,7 +33,7 @@ if (method_exists(get_auth(), 'getAccessToken')) {
 <div class="row mb-4 text-start">
     <div class="col-md-12">
         <h1 class="h2"><i class="fa-solid fa-sliders text-primary me-2"></i>Incident System Settings</h1>
-        <p class="text-muted">Configure OTRS ticketing integration, NetBox circuit management, MS Teams defaults, and external notifications.</p>
+        <p class="text-muted">Configure OTRS ticketing and database integration, NetBox circuit management, MS Teams defaults, and external notifications.</p>
     </div>
 </div>
 
@@ -78,6 +78,8 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                                     <option value="0" <?= $d['setting_value'] === '0' ? 'selected' : '' ?>>Disabled</option>
                                     <option value="1" <?= $d['setting_value'] === '1' ? 'selected' : '' ?>>Enabled</option>
                                 </select>
+                            <?php elseif ($d['setting_key'] === 'otrs_db_pass'): ?>
+                                <input type="password" name="settings[<?= $d['setting_key'] ?>]" class="form-control form-control-sm" value="<?= htmlspecialchars($d['setting_value'] ?? '') ?>" placeholder="Password">
                             <?php elseif ($d['setting_key'] === 'external_email_template'): ?>
                                 <textarea name="settings[<?= $d['setting_key'] ?>]" class="form-control form-control-sm" rows="4"><?= htmlspecialchars($d['setting_value'] ?? '') ?></textarea>
                             <?php else: ?>
@@ -107,7 +109,7 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     ?>
                         <div class="mb-2 p-2 bg-light border rounded small" style="font-size: 0.75rem;">
                             <div class="text-muted" style="font-size:0.65rem;"><?= $audit['timestamp'] ?> by <?= htmlspecialchars($audit['user']) ?></div>
-                            <div>Updated <strong><?= htmlspecialchars($new['setting_key'] ?? 'N/A') ?></strong> to <code><?= htmlspecialchars($new['setting_value'] ?? 'NULL') ?></code></div>
+                            <div>Updated <strong><?= htmlspecialchars($new['setting_key'] ?? 'N/A') ?></strong> to <code><?= htmlspecialchars(($new['setting_key'] ?? '') === 'otrs_db_pass' ? '******' : ($new['setting_value'] ?? 'NULL')) ?></code></div>
                         </div>
                     <?php endforeach; ?>
                 </div>

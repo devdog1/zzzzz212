@@ -6,15 +6,14 @@ class OTRSDB
 
     public function __construct(array $config)
     {
-        $otrsDb = $config['db']['otrs'] ?? null;
-        if (!$otrsDb) {
+        $host   = $config['dbhost'] ?? ($config['db']['otrs']['dbhost'] ?? '');
+        $dbname = $config['dbname'] ?? ($config['db']['otrs']['dbname'] ?? '');
+        $user   = $config['dbuser'] ?? ($config['db']['otrs']['dbuser'] ?? '');
+        $pass   = $config['dbpass'] ?? ($config['db']['otrs']['dbpass'] ?? '');
+
+        if (empty($host) || empty($dbname)) {
             return;
         }
-
-        $host = $otrsDb['dbhost'] ?? '';
-        $dbname = $otrsDb['dbname'] ?? '';
-        $user = $otrsDb['dbuser'] ?? '';
-        $pass = $otrsDb['dbpass'] ?? '';
 
         $dsn = "mysql:host={$host};dbname={$dbname};charset=utf8mb4";
 

@@ -15,27 +15,21 @@ $maint = [];
 $changes = [];
 $otrsError = null;
 
-try {
-    $config = [];
-    $configPath = __DIR__ . '/../../../config.php';
-    if (file_exists($configPath)) {
-        $config = require $configPath;
-    }
+$OTRSTicketLink = $em->getDefault('otrs_ticket_link') ?: '#';
+$OTRSChangeLink = $em->getDefault('otrs_change_link') ?: '#';
 
-    if (isset($config['db']['otrs'])) {
-        $otrsDB = new OTRSDB($config);
-        if ($otrsDB->isConnected()) {
-            $problems = $otrsDB->getProblemTickets();
-            $maint = $otrsDB->getMaintTickets();
-            $changes = $otrsDB->getChangeOverview();
-        }
+try {
+    $otrsDB = $em->getOTRSDB();
+    if ($otrsDB && $otrsDB->isConnected()) {
+        $problems = $otrsDB->getProblemTickets();
+        $maint    = $otrsDB->getMaintTickets();
+        $changes  = $otrsDB->getChangeOverview();
+    } else {
+        $otrsError = "OTRS Database connection not configured or unreachable. Check OTRS DB host/credentials in Incident Settings.";
     }
 } catch (Exception $e) {
     $otrsError = $e->getMessage();
 }
-
-$OTRSTicketLink = $config['otrs']['ticket_link'] ?? '#';
-$OTRSChangeLink = $config['otrs']['change_link'] ?? '#';
 
 function badgeStatus(string $value): string
 {
@@ -51,7 +45,7 @@ function badgeStatus(string $value): string
 <div class="row mb-4 text-start">
     <div class="col-md-8">
         <h1 class="h2"><i class="fa-solid fa-network-wired text-primary me-2"></i>Network & OTRS Operational Overview</h1>
-        <p class="text-muted">Live operational status dashboard, problem tickets, and scheduled maintenance windows.</p>
+        <p class="text-muted">Live operational status dashboard, problem tickets, and scheduled maintenance windows queried from OTRS DB.</p>
     </div>
     <div class="col-md-4 text-end align-self-center">
         <small class="text-muted d-block">Last Status Refresh</small>

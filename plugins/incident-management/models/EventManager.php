@@ -29,7 +29,6 @@ class EventManager {
         $this->currentUser = $currentUser;
         $this->auth = $auth;
 
-        // Try to initialize OTRS & NetBox from system config or DB defaults
         try {
             $config = [];
             $configPath = __DIR__ . '/../../../config.php';
@@ -55,12 +54,32 @@ class EventManager {
                 ]);
             }
         } catch (Throwable $e) {
-            // Ignore config loading errors gracefully
+            // Ignore config loading errors
         }
     }
 
     public function setCurrentUser($user) {
         $this->currentUser = $user;
+    }
+
+    public function getOTRSDB() {
+        $host   = $this->getDefault('otrs_db_host');
+        $dbname = $this->getDefault('otrs_db_name');
+        $user   = $this->getDefault('otrs_db_user');
+        $pass   = $this->getDefault('otrs_db_pass');
+
+        if (!empty($host) && !empty($dbname)) {
+            $otrsDB = new OTRSDB([
+                'dbhost' => $host,
+                'dbname' => $dbname,
+                'dbuser' => $user,
+                'dbpass' => $pass
+            ]);
+            if ($otrsDB->isConnected()) {
+                return $otrsDB;
+            }
+        }
+        return null;
     }
 
     // --- Audit Logging ---
@@ -84,7 +103,6 @@ class EventManager {
         $filteredData = array_intersect_key($data, array_flip($this->allowedEventFields));
         $filteredData['create_user'] = $this->currentUser;
 
-        // Default to 'Identified' state if not provided
         if (!isset($filteredData['state_id']) || empty($filteredData['state_id'])) {
             $stmt = $this->pdb->query("SELECT id FROM plug_incident_management_state WHERE name = 'Identified'");
             $state = $stmt->fetch();
@@ -99,36 +117,30 @@ class EventManager {
 
         $eventId = $this->db->lastInsertId();
 
-        // Handle Services
         if (isset($data['service_ids']) && is_array($data['service_ids'])) {
             $this->updateEventServices($eventId, $data['service_ids']);
         }
 
-        // Handle Tags
         if (isset($data['tags']) && !empty($data['tags'])) {
             $tagsArray = is_array($data['tags']) ? $data['tags'] : explode(',', $data['tags']);
             $this->updateEventTags($eventId, $tagsArray);
         }
 
-        // Handle Areas
         if (isset($data['areas']) && !empty($data['areas'])) {
             $areasArray = is_array($data['areas']) ? $data['areas'] : explode(',', $data['areas']);
             $this->updateEventAreas($eventId, $areasArray);
         }
 
-        // Log initial state in history
         if (isset($filteredData['state_id'])) {
             $this->logStateTransition($eventId, $filteredData['state_id']);
         }
 
         $this->logAudit('plug_incident_management_wb_events', $eventId, 'CREATE', null, $filteredData);
 
-        // Handle Teams Chat Creation
         if (isset($filteredData['department_id'])) {
             $this->initTeamsChat($eventId, $filteredData['department_id'], $filteredData['description'] ?? '');
         }
 
-        // Handle OTRS Ticket Creation
         $this->initOTRSTicket($eventId, $filteredData['description'] ?? '');
 
         return $eventId;
