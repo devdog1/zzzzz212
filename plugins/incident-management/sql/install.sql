@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS `plug_incident_management_area` (
 
 CREATE TABLE IF NOT EXISTS `plug_incident_management_wb_events` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `title` VARCHAR(255) DEFAULT NULL,
     `type_id` INT,
     `ticket_id` VARCHAR(255) DEFAULT '0',
     `ticket_nr` VARCHAR(255) DEFAULT '0',

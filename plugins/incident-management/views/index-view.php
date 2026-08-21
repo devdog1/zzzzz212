@@ -61,14 +61,14 @@ function formatDurationLocal($seconds) {
 </style>
 
 <div class="row mb-4">
-    <div class="col-md-12">
+    <div class="col-md-12 text-start">
         <h1 class="h2"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Active Incident Management</h1>
         <p class="text-muted">Track active incidents, manage updates, state transitions, NetBox circuits, and external communications.</p>
     </div>
 </div>
 
 <?php if ($emError): ?>
-    <div class="alert alert-danger alert-dismissible fade show mb-4 shadow-sm" role="alert">
+    <div class="alert alert-danger alert-dismissible fade show mb-4 shadow-sm text-start" role="alert">
         <i class="fa-solid fa-circle-exclamation me-2"></i><strong>System Error:</strong> <?= htmlspecialchars($emError) ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
@@ -85,6 +85,11 @@ function formatDurationLocal($seconds) {
                 <form method="POST">
                     <?php csrf_field(); ?>
                     <input type="hidden" name="action" value="create_event">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Incident Title / Subject</label>
+                        <input type="text" name="title" class="form-control form-control-sm" placeholder="Auto-generated (Area - Service) if empty">
+                        <div class="form-text text-muted small" style="font-size: 0.7rem;">Leave empty to auto-generate from Area + Service.</div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Description</label>
                         <textarea name="description" class="form-control form-control-sm" rows="3" required></textarea>
@@ -168,6 +173,7 @@ function formatDurationLocal($seconds) {
                              data-bs-toggle="collapse" data-bs-target="#collapse-<?= $e['id'] ?>">
                             <span>
                                 <span class="badge bg-secondary me-2">ID: #<?= $e['id'] ?></span>
+                                <strong class="text-dark me-2"><?= htmlspecialchars($e['title'] ?: 'Incident #' . $e['id']) ?></strong>
                                 <span class="badge bg-info text-dark"><?= htmlspecialchars($e['type_name'] ?? 'General') ?></span>
                                 <span class="badge bg-warning text-dark ms-2"><?= htmlspecialchars($e['state_name'] ?? 'Detected') ?></span>
                                 <span class="counter-box" data-start-time="<?= $e['create_time'] ?>" title="Time since creation">
@@ -269,6 +275,10 @@ function formatDurationLocal($seconds) {
                                     <?php csrf_field(); ?>
                                     <input type="hidden" name="action" value="update_metadata">
                                     <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
+                                    <div class="mb-3">
+                                        <label class="small fw-bold">Subject / Title</label>
+                                        <input type="text" name="title" class="form-control form-control-sm" value="<?= htmlspecialchars($e['title'] ?? '') ?>">
+                                    </div>
                                     <div class="mb-3">
                                         <label class="small fw-bold">Incident Description</label>
                                         <textarea name="description" class="form-control form-control-sm" rows="3"><?= htmlspecialchars($e['description'] ?? '') ?></textarea>

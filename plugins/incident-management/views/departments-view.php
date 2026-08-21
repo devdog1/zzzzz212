@@ -83,7 +83,7 @@ if (method_exists(get_auth(), 'getAccessToken')) {
 <div class="row mb-4 text-start">
     <div class="col-md-12">
         <h1 class="h2"><i class="fa-solid fa-sitemap text-primary me-2"></i>Reference Data & Departments</h1>
-        <p class="text-muted">Manage system departments, Azure AD group assignments, incident types, states, services, tags, and areas.</p>
+        <p class="text-muted">Manage system departments, Azure AD group assignments, incident types, states, services, tags, and geographical areas.</p>
     </div>
 </div>
 
@@ -205,7 +205,7 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     <input type="text" name="name" class="form-control form-control-sm" placeholder="New type name..." required>
                     <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i></button>
                 </form>
-                <ul class="list-group list-group-flush small">
+                <ul class="list-group list-group-flush small overflow-auto" style="max-height: 200px;">
                     <?php foreach ($types as $t): ?>
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
                             <span><?= htmlspecialchars($t['name']) ?></span>
@@ -236,7 +236,7 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     <input type="text" name="name" class="form-control form-control-sm" placeholder="New state name..." required>
                     <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i></button>
                 </form>
-                <ul class="list-group list-group-flush small">
+                <ul class="list-group list-group-flush small overflow-auto" style="max-height: 200px;">
                     <?php foreach ($states as $s): ?>
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
                             <span><?= htmlspecialchars($s['name']) ?></span>
@@ -267,7 +267,7 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     <input type="text" name="name" class="form-control form-control-sm" placeholder="New service name..." required>
                     <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i></button>
                 </form>
-                <ul class="list-group list-group-flush small">
+                <ul class="list-group list-group-flush small overflow-auto" style="max-height: 200px;">
                     <?php foreach ($services as $svc): ?>
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
                             <span><?= htmlspecialchars($svc['name']) ?></span>
@@ -280,6 +280,68 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                         </li>
                     <?php endforeach; ?>
                 </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tags -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border h-100">
+            <div class="card-header bg-light fw-bold text-dark d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-tags me-1 text-primary"></i>Tags</span>
+                <span class="badge bg-secondary"><?= count($tags) ?></span>
+            </div>
+            <div class="card-body p-3">
+                <form method="POST" class="d-flex gap-2 mb-3">
+                    <?php csrf_field(); ?>
+                    <input type="hidden" name="action" value="create_tag">
+                    <input type="text" name="name" class="form-control form-control-sm" placeholder="New tag name..." required>
+                    <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i></button>
+                </form>
+                <div class="d-flex flex-wrap gap-1 overflow-auto" style="max-height: 200px;">
+                    <?php foreach ($tags as $t): ?>
+                        <span class="badge bg-light text-dark border p-2 d-inline-flex align-items-center gap-1">
+                            #<?= htmlspecialchars($t['name']) ?>
+                            <form method="POST" class="m-0 d-inline" onsubmit="return confirm('Delete tag?');">
+                                <?php csrf_field(); ?>
+                                <input type="hidden" name="action" value="delete_tag">
+                                <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                                <button type="submit" class="btn btn-xs text-danger border-0 p-0 ms-1">&times;</button>
+                            </form>
+                        </span>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Areas -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border h-100">
+            <div class="card-header bg-light fw-bold text-dark d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-location-dot me-1 text-danger"></i>Geographical Areas</span>
+                <span class="badge bg-secondary"><?= count($areas) ?></span>
+            </div>
+            <div class="card-body p-3">
+                <form method="POST" class="d-flex gap-2 mb-3">
+                    <?php csrf_field(); ?>
+                    <input type="hidden" name="action" value="create_area">
+                    <input type="text" name="name" class="form-control form-control-sm" placeholder="New area name..." required>
+                    <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i></button>
+                </form>
+                <div class="d-flex flex-wrap gap-1 overflow-auto" style="max-height: 200px;">
+                    <?php foreach ($areas as $a): ?>
+                        <span class="badge bg-light text-dark border p-2 d-inline-flex align-items-center gap-1">
+                            <?= htmlspecialchars($a['name']) ?>
+                            <form method="POST" class="m-0 d-inline" onsubmit="return confirm('Delete area?');">
+                                <?php csrf_field(); ?>
+                                <input type="hidden" name="action" value="delete_area">
+                                <input type="hidden" name="id" value="<?= $a['id'] ?>">
+                                <button type="submit" class="btn btn-xs text-danger border-0 p-0 ms-1">&times;</button>
+                            </form>
+                        </span>
+                    <?php endforeach; ?>
+                </div>
             </div>
         </div>
     </div>

@@ -17,7 +17,7 @@ class EventManager {
     private $lastError = null;
 
     private $allowedEventFields = [
-        'type_id', 'ticket_id', 'ticket_nr', 'department_id', 'customers_affected',
+        'title', 'type_id', 'ticket_id', 'ticket_nr', 'department_id', 'customers_affected',
         'description', 'state_id', 'teams_message_Id', 'impactScoreNotified', 'impactScore', 'teams_chat_id'
     ];
 
@@ -102,6 +102,38 @@ class EventManager {
     public function createEvent($data) {
         $filteredData = array_intersect_key($data, array_flip($this->allowedEventFields));
         $filteredData['create_user'] = $this->currentUser;
+
+        // Auto-generate title if not explicitly provided
+        if (empty($filteredData['title'])) {
+            $areaParts = [];
+            if (!empty($data['areas'])) {
+                $areaParts = is_array($data['areas']) ? $data['areas'] : explode(',', $data['areas']);
+            }
+            $areaParts = array_filter(array_map('trim', $areaParts));
+
+            $serviceParts = [];
+            if (!empty($data['service_ids']) && is_array($data['service_ids'])) {
+                foreach ($data['service_ids'] as $sid) {
+                    if (empty($sid)) continue;
+                    $stmt = $this->pdb->query("SELECT name FROM plug_incident_management_service WHERE id = ?", [$sid]);
+                    $row = $stmt->fetch();
+                    if ($row) $serviceParts[] = $row['name'];
+                }
+            }
+
+            $areaStr = !empty($areaParts) ? implode(', ', $areaParts) : '';
+            $serviceStr = !empty($serviceParts) ? implode(', ', $serviceParts) : '';
+
+            if ($areaStr && $serviceStr) {
+                $filteredData['title'] = "$areaStr - $serviceStr";
+            } elseif ($areaStr) {
+                $filteredData['title'] = $areaStr;
+            } elseif ($serviceStr) {
+                $filteredData['title'] = $serviceStr;
+            } else {
+                $filteredData['title'] = "Incident - " . date('Y-m-d H:i');
+            }
+        }
 
         if (!isset($filteredData['state_id']) || empty($filteredData['state_id'])) {
             $stmt = $this->pdb->query("SELECT id FROM plug_incident_management_state WHERE name = 'Identified'");
@@ -222,6 +254,7 @@ class EventManager {
     private function notifyTeamsOfMetadataChange($old, $new) {
         $changes = [];
         $fields = [
+            'title' => 'Subject/Title',
             'state_name' => 'Status',
             'type_name' => 'Type',
             'department_name' => 'Department',
@@ -649,7 +682,7 @@ class EventManager {
             } elseif ($field === 'date_to') {
                 $where[] = "e.create_time <= ?";
                 $params[] = $value . " 23:59:59";
-            } elseif (in_array($field, ['description', 'ticket_nr'])) {
+            } elseif (in_array($field, ['title', 'description', 'ticket_nr'])) {
                 $where[] = "e.$field LIKE ?";
                 $params[] = "%$value%";
             } elseif (in_array($field, ['type_id', 'department_id', 'state_id', 'id'])) {
@@ -857,6 +890,7 @@ class EventManager {
         $card = $this->getAdaptiveCardBase("Incident Closed - Final Summary (#$eventId)", 'good');
 
         $facts = [
+            ['title' => 'Subject/Title', 'value' => $event['title'] ?? 'Incident #' . $eventId],
             ['title' => 'Total Impact Score', 'value' => number_format($event['impactScore'])],
             ['title' => 'Final Status', 'value' => $event['state_name']],
             ['title' => 'Duration', 'value' => $this->formatDuration(time() - strtotime($event['create_time']))]
@@ -877,7 +911,7 @@ class EventManager {
 
         $body = "<div style='font-family:sans-serif; border:2px solid #198754; border-radius:8px; padding:20px;'>\r\n";
         $body .= "<h2 style='color:#198754; margin-top:0; border-bottom:3px solid #198754; padding-bottom:10px;'>Incident Closure Summary</h2>\r\n";
-        $body .= "<p><b>Final Impact Score:</b> " . number_format($event['impactScore']) . "</p>\r\n";
+        $body .= "<p><b>Subject/Title:</b> " . htmlspecialchars($event['title'] ?? '') . "<br><b>Final Impact Score:</b> " . number_format($event['impactScore']) . "</p>\r\n";
         $body .= "<h3 style='color:#333; border-bottom:1px solid #ddd;'>Full Incident Timeline</h3>\r\n";
         $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='5'>\r\n";
         $body .= "<tr style='background:#f4f4f4;'><th style='text-align:left;'>Time</th><th style='text-align:left;'>User</th><th style='text-align:left;'>Event</th></tr>\r\n";
@@ -947,6 +981,7 @@ class EventManager {
         $card = $this->getAdaptiveCardBase("New Incident Reported (#" . $event['id'] . ")", 'attention');
 
         $facts = [
+            ['title' => 'Subject', 'value' => $event['title'] ?? 'Incident #' . $event['id']],
             ['title' => 'Type', 'value' => $event['type_name'] ?? 'N/A'],
             ['title' => 'Status', 'value' => $event['state_name'] ?? 'N/A'],
             ['title' => 'Department', 'value' => $event['department_name'] ?? 'N/A'],
@@ -1033,7 +1068,9 @@ class EventManager {
 
         if (count($members) < 2) return;
 
-        $topic = "Incident #$eventId - " . substr($description, 0, 50);
+        $event = $this->getEvent($eventId);
+        $titleStr = !empty($event['title']) ? $event['title'] : substr($description, 0, 50);
+        $topic = "Incident #$eventId - " . $titleStr;
         $topic = str_replace([':', '"', "'"], ' ', $topic);
 
         $chat = $sso->createChat($accessToken, $topic, $members, $currentUserOid);
@@ -1105,6 +1142,7 @@ class EventManager {
     private function notifyOTRSOfMetadataChange($old, $new) {
         $changes = [];
         $fields = [
+            'title' => 'Subject/Title',
             'state_name' => 'Status',
             'type_name' => 'Type',
             'department_name' => 'Department',
@@ -1154,9 +1192,10 @@ class EventManager {
     private function initOTRSTicket($eventId, $description) {
         if (!$this->otrs || $this->getDefault('otrs_enabled') !== '1') return;
 
+        $event = $this->getEvent($eventId);
         $otrsUserId = $this->getOTRSUserId();
         $customerUser = $this->getDefault('otrs_customer_user') ?: 'customer@example.com';
-        $title = "Incident #$eventId: " . substr($description, 0, 100);
+        $title = "Incident #$eventId: " . ($event['title'] ?? substr($description, 0, 100));
 
         try {
             $params = [
@@ -1175,13 +1214,13 @@ class EventManager {
                 ]);
                 $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_CREATED', null, $res);
 
-                $event = $this->getEvent($eventId);
                 $body = "<div style='font-family:sans-serif; border:2px solid #dc3545; border-radius:8px; padding:20px;'>\r\n";
                 $body .= "<h2 style='color:#dc3545; margin-top:0; border-bottom:3px solid #dc3545; padding-bottom:10px;'>New Incident Reported</h2>\r\n";
 
                 $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='8'>\r\n";
                 $rows = [
                     "Incident ID" => $event['id'],
+                    "Subject/Title" => ($event['title'] ?: 'N/A'),
                     "Type" => ($event['type_name'] ?: 'N/A'),
                     "Current Status" => ($event['state_name'] ?: 'N/A'),
                     "Department" => ($event['department_name'] ?: 'N/A'),

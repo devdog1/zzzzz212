@@ -50,6 +50,7 @@ function formatDurationClosed($seconds) {
                             <thead class="table-light">
                                 <tr>
                                     <th>ID</th>
+                                    <th>Subject / Title</th>
                                     <th>Resolution Time</th>
                                     <th>Type</th>
                                     <th>Dept</th>
@@ -65,6 +66,7 @@ function formatDurationClosed($seconds) {
                                 ?>
                                     <tr>
                                         <td><span class="badge bg-secondary">#<?= $e['id'] ?></span></td>
+                                        <td class="fw-bold text-dark text-start"><?= htmlspecialchars($e['title'] ?: 'Incident #' . $e['id']) ?></td>
                                         <td><small><?= $lastState['enter_time'] ?? $e['update_time'] ?></small></td>
                                         <td><span class="badge bg-info text-dark"><?= htmlspecialchars($e['type_name'] ?? 'N/A') ?></span></td>
                                         <td><?= htmlspecialchars($e['department_name'] ?? 'N/A') ?></td>
@@ -86,7 +88,7 @@ function formatDurationClosed($seconds) {
                                         <div class="modal-dialog modal-lg">
                                             <div class="modal-content">
                                                 <div class="modal-header bg-dark text-white">
-                                                    <h5 class="modal-title fs-6 fw-bold"><i class="fa-solid fa-file-lines me-2"></i>Incident #<?= $e['id'] ?> Archive Details</h5>
+                                                    <h5 class="modal-title fs-6 fw-bold"><i class="fa-solid fa-file-lines me-2"></i><?= htmlspecialchars($e['title'] ?: 'Incident #' . $e['id']) ?> Details</h5>
                                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                                 </div>
                                                 <div class="modal-body">
@@ -107,6 +109,7 @@ function formatDurationClosed($seconds) {
                                                         </div>
                                                         <div class="col-md-6 ps-4">
                                                             <h6 class="fw-bold text-dark">Metadata</h6>
+                                                            <div class="small"><strong>Subject:</strong> <?= htmlspecialchars($e['title'] ?? 'N/A') ?></div>
                                                             <div class="small"><strong>Type:</strong> <?= htmlspecialchars($e['type_name'] ?? 'N/A') ?></div>
                                                             <div class="small"><strong>Dept:</strong> <?= htmlspecialchars($e['department_name'] ?? 'N/A') ?></div>
                                                             <div class="mt-2">

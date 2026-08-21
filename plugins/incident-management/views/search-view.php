@@ -40,14 +40,18 @@ $states = $em->listStates();
                 <input type="number" name="id" class="form-control form-control-sm" value="<?= htmlspecialchars($_GET['id'] ?? '') ?>">
             </div>
             <div class="col-md-5">
+                <label class="form-label small fw-bold">Subject / Title</label>
+                <input type="text" name="title" class="form-control form-control-sm" value="<?= htmlspecialchars($_GET['title'] ?? '') ?>" placeholder="Search by title...">
+            </div>
+            <div class="col-md-5">
                 <label class="form-label small fw-bold">Description Keywords</label>
                 <input type="text" name="description" class="form-control form-control-sm" value="<?= htmlspecialchars($_GET['description'] ?? '') ?>" placeholder="e.g. outage, network...">
             </div>
-            <div class="col-md-5">
+
+            <div class="col-md-3">
                 <label class="form-label small fw-bold">Ticket #</label>
                 <input type="text" name="ticket_nr" class="form-control form-control-sm" value="<?= htmlspecialchars($_GET['ticket_nr'] ?? '') ?>">
             </div>
-
             <div class="col-md-3">
                 <label class="form-label small fw-bold">Department</label>
                 <select name="department_id" class="form-select form-select-sm">
@@ -75,6 +79,7 @@ $states = $em->listStates();
                     <?php endforeach; ?>
                 </select>
             </div>
+
             <div class="col-md-3">
                 <label class="form-label small fw-bold">Logic Operator</label>
                 <select name="operator" class="form-select form-select-sm border-primary text-primary">
@@ -82,7 +87,6 @@ $states = $em->listStates();
                     <option value="OR" <?= ($_GET['operator'] ?? '') === 'OR' ? 'selected' : '' ?>>Match ANY (OR)</option>
                 </select>
             </div>
-
             <div class="col-md-3">
                 <label class="form-label small fw-bold">From Date</label>
                 <input type="date" name="date_from" class="form-control form-control-sm" value="<?= htmlspecialchars($_GET['date_from'] ?? '') ?>">
@@ -91,9 +95,9 @@ $states = $em->listStates();
                 <label class="form-label small fw-bold">To Date</label>
                 <input type="date" name="date_to" class="form-control form-control-sm" value="<?= htmlspecialchars($_GET['date_to'] ?? '') ?>">
             </div>
-            <div class="col-md-6 d-flex align-items-end gap-2">
+            <div class="col-md-3 d-flex align-items-end gap-2">
                 <button type="submit" class="btn btn-sm btn-primary flex-grow-1 fw-bold">
-                    <i class="fa-solid fa-magnifying-glass me-1"></i>Search Incidents
+                    <i class="fa-solid fa-magnifying-glass me-1"></i>Search
                 </button>
                 <a href="<?= url_for('incident_search') ?>" class="btn btn-sm btn-outline-secondary">
                     <i class="fa-solid fa-rotate-left me-1"></i>Clear
@@ -114,6 +118,7 @@ $states = $em->listStates();
                     <thead class="table-light">
                         <tr>
                             <th>ID</th>
+                            <th>Subject / Title</th>
                             <th>Created</th>
                             <th>Type</th>
                             <th>Status</th>
@@ -129,11 +134,12 @@ $states = $em->listStates();
                                         #<?= $e['id'] ?>
                                     </a>
                                 </td>
+                                <td class="fw-bold text-dark"><?= htmlspecialchars($e['title'] ?: 'Incident #' . $e['id']) ?></td>
                                 <td><small class="text-muted"><?= $e['create_time'] ?></small></td>
                                 <td><span class="badge bg-info text-dark"><?= htmlspecialchars($e['type_name'] ?? 'N/A') ?></span></td>
                                 <td><span class="badge bg-warning text-dark"><?= htmlspecialchars($e['state_name'] ?? 'N/A') ?></span></td>
                                 <td><?= htmlspecialchars($e['department_name'] ?? 'N/A') ?></td>
-                                <td class="text-truncate" style="max-width: 350px;"><?= htmlspecialchars($e['description'] ?? '') ?></td>
+                                <td class="text-truncate" style="max-width: 300px;"><?= htmlspecialchars($e['description'] ?? '') ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
