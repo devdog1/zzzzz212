@@ -366,12 +366,12 @@ class EventManager {
 
     public function updateEventTags($eventId, $tags) {
         $this->pdb->query("DELETE FROM plug_incident_management_event_tags WHERE event_id = ?", [$eventId]);
-        foreach ($tags as $tagName) {
-            $tagName = trim($tagName);
+        $uniqueTags = array_unique(array_filter(array_map('trim', (array)$tags)));
+        foreach ($uniqueTags as $tagName) {
             if (empty($tagName)) continue;
 
             $tagId = $this->ensureRefExists('plug_incident_management_tag', $tagName);
-            $this->pdb->query("INSERT IGNORE INTO plug_incident_management_event_tags (event_id, tag_id) VALUES (?, ?)", [$eventId, $tagId]);
+            $this->pdb->query("INSERT INTO plug_incident_management_event_tags (event_id, tag_id) VALUES (?, ?)", [$eventId, $tagId]);
         }
     }
 
@@ -405,12 +405,12 @@ class EventManager {
 
     public function updateEventAreas($eventId, $areas) {
         $this->pdb->query("DELETE FROM plug_incident_management_event_areas WHERE event_id = ?", [$eventId]);
-        foreach ($areas as $areaName) {
-            $areaName = trim($areaName);
+        $uniqueAreas = array_unique(array_filter(array_map('trim', (array)$areas)));
+        foreach ($uniqueAreas as $areaName) {
             if (empty($areaName)) continue;
 
             $areaId = $this->ensureRefExists('plug_incident_management_area', $areaName);
-            $this->pdb->query("INSERT IGNORE INTO plug_incident_management_event_areas (event_id, area_id) VALUES (?, ?)", [$eventId, $areaId]);
+            $this->pdb->query("INSERT INTO plug_incident_management_event_areas (event_id, area_id) VALUES (?, ?)", [$eventId, $areaId]);
         }
     }
 
