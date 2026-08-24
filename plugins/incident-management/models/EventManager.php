@@ -1174,15 +1174,26 @@ class EventManager {
     }
 
     private function initTeamsChat($eventId, $departmentId, $description) {
-        if ($this->getDefault('teams_enabled') === '0') return;
-        if (!$this->auth || !method_exists($this->auth, 'getAccessToken')) return;
+        if ($this->getDefault('teams_enabled') === '0') {
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_DISABLED', null, ['reason' => 'Teams integration is disabled in system settings']);
+            return;
+        }
+
+        if (!$this->auth || !method_exists($this->auth, 'getAccessToken')) {
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['error' => 'Auth provider or getAccessToken method is not available']);
+            return;
+        }
 
         $accessToken = $this->auth->getAccessToken();
-        if (!$accessToken) return;
+        if (!$accessToken) {
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['error' => 'No active Azure AD Graph API access token in user session']);
+            return;
+        }
 
-        $stmt = $this->pdb->query("SELECT azure_group_id FROM plug_incident_management_department WHERE id = ?", [$departmentId]);
+        $stmt = $this->pdb->query("SELECT name, azure_group_id FROM plug_incident_management_department WHERE id = ?", [$departmentId]);
         $dept = $stmt->fetch();
         $deptGroupId = $dept['azure_group_id'] ?? null;
+        $deptName = $dept['name'] ?? 'Unknown Dept';
 
         $sso = $this->auth->getSSO();
         $members = [];
@@ -1208,20 +1219,45 @@ class EventManager {
             $members[] = $currentUserOid;
         }
 
-        if (count($members) < 2) return;
+        $members = array_unique(array_filter($members));
 
         $event = $this->getEvent($eventId);
         $titleStr = !empty($event['title']) ? $event['title'] : substr($description, 0, 50);
         $topic = "Incident #$eventId - " . $titleStr;
         $topic = str_replace([':', '"', "'"], ' ', $topic);
 
-        $chat = $sso->createChat($accessToken, $topic, $members, $currentUserOid);
+        if (count($members) < 2) {
+            $errMsg = "Graph API requires at least 2 member OIDs to create a group chat. Only " . count($members) . " member OID(s) resolved.";
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, [
+                'error' => $errMsg,
+                'topic' => $topic,
+                'resolved_members_count' => count($members),
+                'department' => $deptName,
+                'dept_azure_group_id' => $deptGroupId,
+                'always_include_azure_group_id' => $alwaysIncludeGroupId,
+                'current_user_oid' => $currentUserOid
+            ]);
+            return;
+        }
+
+        $chat = $sso->createChat($accessToken, $topic, array_values($members), $currentUserOid);
 
         if ($chat && isset($chat['id'])) {
             $this->pdb->query("UPDATE plug_incident_management_wb_events SET teams_chat_id = ? WHERE id = ?", [$chat['id'], $eventId]);
             $card = $this->formatEventMetadataCard($eventId);
             $sso->sendAdaptiveCardToChat($accessToken, $chat['id'], $card);
-            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_CREATED', null, ['teams_chat_id' => $chat['id'], 'topic' => $topic]);
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_CREATED', null, [
+                'teams_chat_id' => $chat['id'],
+                'topic' => $topic,
+                'members_count' => count($members)
+            ]);
+        } else {
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, [
+                'error' => 'Microsoft Graph API createChat request failed or returned invalid response',
+                'topic' => $topic,
+                'members_count' => count($members),
+                'raw_response' => $chat
+            ]);
         }
     }
 

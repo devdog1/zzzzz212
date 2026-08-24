@@ -434,6 +434,22 @@ function formatDurationLocal($seconds) {
                                                         <div class="text-success fw-bold"><i class="fa-solid fa-file-circle-check me-1"></i>OTRS Article Created</div>
                                                         <?php if (!empty($new['url'])): ?><div>API URL: <code><?= htmlspecialchars($new['url']) ?></code></div><?php endif; ?>
 
+                                                    <?php elseif ($action === 'TEAMS_CHAT_CREATED'): ?>
+                                                        <div class="text-primary fw-bold"><i class="fa-brands fa-microsoft me-1"></i>Teams Group Chat Created</div>
+                                                        <div>Topic: <strong><?= htmlspecialchars($new['topic'] ?? 'N/A') ?></strong></div>
+                                                        <?php if (!empty($new['teams_chat_id'])): ?><div>Chat ID: <code><?= htmlspecialchars($new['teams_chat_id']) ?></code></div><?php endif; ?>
+                                                        <?php if (!empty($new['members_count'])): ?><div class="text-muted">Members Invited: <?= (int)$new['members_count'] ?></div><?php endif; ?>
+
+                                                    <?php elseif ($action === 'TEAMS_CHAT_FAILED'): ?>
+                                                        <div class="text-danger fw-bold"><i class="fa-brands fa-microsoft me-1"></i>Teams Group Chat Creation Failed</div>
+                                                        <div class="text-secondary">Error: <?= htmlspecialchars($new['error'] ?? 'Teams API Error') ?></div>
+                                                        <?php if (!empty($new['department'])): ?><div>Department: <?= htmlspecialchars($new['department']) ?></div><?php endif; ?>
+                                                        <?php if (isset($new['resolved_members_count'])): ?><div>Resolved Member OIDs: <?= (int)$new['resolved_members_count'] ?> (minimum 2 required)</div><?php endif; ?>
+
+                                                    <?php elseif ($action === 'TEAMS_MEMBERS_SYNCED'): ?>
+                                                        <div class="text-info fw-bold"><i class="fa-brands fa-microsoft me-1"></i>Teams Chat Members Synced</div>
+                                                        <div>Synced <?= (int)($new['count'] ?? 0) ?> member(s) to Teams chat</div>
+
                                                     <?php elseif ($action === 'CREATE'): ?>
                                                         <div class="text-primary fw-bold"><i class="fa-solid fa-asterisk me-1"></i>Incident Reported</div>
 
@@ -640,7 +656,7 @@ function updateCounters() {
         if (diffInSeconds < 0) text = "0s";
         else if (diffInSeconds < 60) text = diffInSeconds + "s";
         else if (diffInSeconds < 3600) text = Math.floor(diffInSeconds / 60) + "m";
-        else text = Math.floor(diffInSeconds / 3600) + "h " . Math.floor((diffInSeconds % 3600) / 60) + "m";
+        else text = Math.floor(diffInSeconds / 3600) + "h " + Math.floor((diffInSeconds % 3600) / 60) + "m";
 
         const creationSpan = box.querySelector('.creation-counter');
         const stateSpan = box.querySelector('.state-counter');

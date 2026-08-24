@@ -194,6 +194,14 @@ function formatDurationClosed($seconds) {
                                                                             <div class="text-success fw-bold"><i class="fa-solid fa-circle-check me-1"></i>OTRS Ticket Created</div>
                                                                             <div>Ticket #: <strong><?= htmlspecialchars($new['ticketnr'] ?? ($new['ticket_nr'] ?? 'N/A')) ?></strong></div>
 
+                                                                        <?php elseif ($action === 'TEAMS_CHAT_CREATED'): ?>
+                                                                            <div class="text-primary fw-bold"><i class="fa-brands fa-microsoft me-1"></i>Teams Group Chat Created</div>
+                                                                            <div>Topic: <strong><?= htmlspecialchars($new['topic'] ?? 'N/A') ?></strong></div>
+
+                                                                        <?php elseif ($action === 'TEAMS_CHAT_FAILED'): ?>
+                                                                            <div class="text-danger fw-bold"><i class="fa-brands fa-microsoft me-1"></i>Teams Group Chat Creation Failed</div>
+                                                                            <div class="text-secondary">Error: <?= htmlspecialchars($new['error'] ?? 'Teams API Error') ?></div>
+
                                                                         <?php else: ?>
                                                                             <div><strong class="badge bg-secondary"><?= htmlspecialchars($action) ?></strong> <?= htmlspecialchars(substr($audit['new_values'] ?? '', 0, 100)) ?></div>
                                                                         <?php endif; ?>
