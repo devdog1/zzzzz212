@@ -12,6 +12,7 @@ class OTRSClient
     private $ArticleType = "note-internal";
 
     private $ticketid = null;
+    private $lastDebug = [];
 
     public function __construct(array $config)
     {
@@ -34,8 +35,8 @@ class OTRSClient
             "apikey" => $this->key
         ];
         $postData = $this->urlPost($url, $post);
-        if ($postData) {
-            return $postData;
+        if ($postData && isset($postData['response'])) {
+            return trim($postData['response']);
         }
         return false;
     }
@@ -49,8 +50,15 @@ class OTRSClient
         if (isset($data['userID'])) $this->userID = $data['userID'];
 
         if (empty($data['title'])) {
-            $this->log("No title given for ticket creation");
-            return false;
+            $msg = "No title given for ticket creation";
+            $this->log($msg);
+            return ['error' => $msg];
+        }
+
+        if (empty($this->url)) {
+            $msg = "OTRS API URL is not configured in system settings";
+            $this->log($msg);
+            return ['error' => $msg];
         }
 
         $post = [
@@ -63,19 +71,27 @@ class OTRSClient
             "apikey"   => $this->key
         ];
 
+        $this->log("Initiating Ticket Creation", ['url' => $this->url, 'queue' => $this->queue, 'title' => $data['title']]);
+
         $res = $this->urlPost($this->url, $post);
-        if ($res) {
-            $ticketData = json_decode($res);
+        if ($res && isset($res['response']) && $res['http_code'] >= 200 && $res['http_code'] < 300) {
+            $ticketData = json_decode($res['response']);
             if ($ticketData && isset($ticketData->ticketID)) {
                 $data['ticketid'] = $ticketData->ticketID;
                 $this->ticketid   = $ticketData->ticketID;
                 $data['ticketnr'] = $ticketData->ticketNum;
-                $this->log("Ticket Created via API", ['ticket_id' => $data['ticketid'], 'ticket_nr' => $data['ticketnr']]);
+                $this->log("Ticket Created Successfully via OTRS API", ['ticket_id' => $data['ticketid'], 'ticket_nr' => $data['ticketnr']]);
                 return $data;
+            } else {
+                $err = "OTRS API returned response without valid ticketID";
+                $this->log($err, ['raw_response' => $res['response']]);
+                return ['error' => $err, 'raw_response' => $res['response'], 'http_code' => $res['http_code']];
             }
         }
-        $this->log("API Ticket Creation Failed", ['response' => $res]);
-        return false;
+
+        $errMsg = "OTRS Ticket Creation API Request Failed";
+        $this->log($errMsg, $res);
+        return array_merge(['error' => $errMsg], is_array($res) ? $res : []);
     }
 
     public function createArticle($data)
@@ -85,8 +101,15 @@ class OTRSClient
         if (isset($data['userID'])) $this->userID = $data['userID'];
 
         if (empty($data['subject']) || empty($data['body'])) {
-            $this->log("Subject or Body missing for article creation");
-            return false;
+            $msg = "Subject or Body missing for article creation";
+            $this->log($msg);
+            return ['error' => $msg];
+        }
+
+        if (empty($this->url)) {
+            $msg = "OTRS API URL is not configured in system settings";
+            $this->log($msg);
+            return ['error' => $msg];
         }
 
         $contentType = $data['ContentType'] ?? 'text/html; charset=utf-8';
@@ -111,40 +134,63 @@ class OTRSClient
         ];
 
         $res = $this->urlPost($this->url, $post);
-        if ($res) {
-            $this->log("Article Created via API", ['ticket_id' => $this->ticketid]);
+        if ($res && isset($res['response']) && $res['http_code'] >= 200 && $res['http_code'] < 300) {
+            $this->log("Article Created Successfully via OTRS API", ['ticket_id' => $this->ticketid]);
             $data['articleid'] = "notused";
             return $data;
         }
-        $this->log("API Article Creation Failed", ['response' => $res]);
-        return false;
+
+        $errMsg = "OTRS Article Creation API Request Failed";
+        $this->log($errMsg, $res);
+        return array_merge(['error' => $errMsg], is_array($res) ? $res : []);
+    }
+
+    public function getLastDebug() {
+        return $this->lastDebug;
     }
 
     private function urlPost($url, $data) {
-        if (empty($url)) return false;
+        if (empty($url)) {
+            return ['error' => 'URL is empty', 'http_code' => 0];
+        }
+
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => http_build_query($data),
             CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4,
-            CURLOPT_TIMEOUT        => 10
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false
         ]);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-        if (curl_errno($ch)) {
-            $this->log("CURL Error", ['error' => curl_error($ch)]);
-            curl_close($ch);
-            return false;
-        }
-
+        $curlError = curl_error($ch);
+        $curlErrno = curl_errno($ch);
         curl_close($ch);
-        if ($httpCode >= 200 && $httpCode < 300) {
-            return $response;
+
+        $debugInfo = [
+            'url' => $url,
+            'http_code' => $httpCode,
+            'curl_errno' => $curlErrno,
+            'curl_error' => $curlError,
+            'response' => $response
+        ];
+
+        $this->lastDebug = $debugInfo;
+
+        if ($curlErrno) {
+            $this->log("cURL Transport Error", $debugInfo);
+            return $debugInfo;
         }
-        return false;
+
+        if ($httpCode < 200 || $httpCode >= 300) {
+            $this->log("HTTP Status Error Code: $httpCode", $debugInfo);
+        }
+
+        return $debugInfo;
     }
 
     private function log($message, $data = null) {
@@ -152,7 +198,7 @@ class OTRSClient
         $timestamp = date('Y-m-d H:i:s');
         $entry = "[$timestamp] [OTRSClient] $message";
         if ($data) {
-            $entry .= " | Data: " . json_encode($data);
+            $entry .= " | " . json_encode($data);
         }
         @file_put_contents($logFile, $entry . PHP_EOL, FILE_APPEND);
     }

@@ -157,33 +157,46 @@ function formatDurationClosed($seconds) {
                                                                 $audits = $em->getAuditTrail('plug_incident_management_wb_events', $e['id']);
                                                                 $audits = array_reverse($audits);
                                                                 foreach ($audits as $audit):
-                                                                    if ($audit['action'] !== 'UPDATE') continue;
-                                                                    $old = json_decode($audit['old_values'] ?? '{}', true);
+                                                                    $action = $audit['action'];
                                                                     $new = json_decode($audit['new_values'] ?? '{}', true);
-                                                                    if (!$old || !$new) continue;
+                                                                    $old = json_decode($audit['old_values'] ?? '{}', true);
                                                                 ?>
                                                                     <div class="mb-2 p-2 bg-light border rounded small" style="font-size: 0.75rem;">
                                                                         <div class="text-muted" style="font-size:0.65rem;"><?= $audit['timestamp'] ?> by <?= htmlspecialchars($audit['user']) ?></div>
-                                                                        <?php foreach ($new as $key => $val):
-                                                                            if (in_array($key, ['update_time', 'update_user'])) continue;
-                                                                            $oldVal = $old[$key] ?? null;
-                                                                            if (json_encode($oldVal) === json_encode($val)) continue;
 
-                                                                            $label = $key;
-                                                                            $v_old = $oldVal;
-                                                                            $v_new = $val;
+                                                                        <?php if ($action === 'UPDATE' && is_array($new)): ?>
+                                                                            <?php foreach ($new as $key => $val):
+                                                                                if (in_array($key, ['update_time', 'update_user'])) continue;
+                                                                                $oldVal = $old[$key] ?? null;
+                                                                                if (json_encode($oldVal) === json_encode($val)) continue;
 
-                                                                            if ($key === 'state_id') { $label = 'Status'; $v_old = $stateMap[$oldVal] ?? $oldVal; $v_new = $stateMap[$val] ?? $val; }
-                                                                            if ($key === 'type_id') { $label = 'Type'; $v_old = $typeMap[$oldVal] ?? $oldVal; $v_new = $typeMap[$val] ?? $val; }
-                                                                            if ($key === 'department_id') { $label = 'Dept'; $v_old = $deptMap[$oldVal] ?? $oldVal; $v_new = $deptMap[$val] ?? $val; }
-                                                                        ?>
-                                                                            <div>
-                                                                                <strong><?= htmlspecialchars($label) ?>:</strong>
-                                                                                <span class="text-decoration-line-through text-muted"><?= htmlspecialchars(is_array($v_old) ? json_encode($v_old) : $v_old) ?></span>
-                                                                                &rarr;
-                                                                                <span><?= htmlspecialchars(is_array($v_new) ? json_encode($v_new) : $v_new) ?></span>
-                                                                            </div>
-                                                                        <?php endforeach; ?>
+                                                                                $label = $key;
+                                                                                $v_old = $oldVal;
+                                                                                $v_new = $val;
+
+                                                                                if ($key === 'state_id') { $label = 'Status'; $v_old = $stateMap[$oldVal] ?? $oldVal; $v_new = $stateMap[$val] ?? $val; }
+                                                                                if ($key === 'type_id') { $label = 'Type'; $v_old = $typeMap[$oldVal] ?? $oldVal; $v_new = $typeMap[$val] ?? $val; }
+                                                                                if ($key === 'department_id') { $label = 'Dept'; $v_old = $deptMap[$oldVal] ?? $oldVal; $v_new = $deptMap[$val] ?? $val; }
+                                                                            ?>
+                                                                                <div>
+                                                                                    <strong><?= htmlspecialchars($label) ?>:</strong>
+                                                                                    <span class="text-decoration-line-through text-muted"><?= htmlspecialchars(is_array($v_old) ? json_encode($v_old) : $v_old) ?></span>
+                                                                                    &rarr;
+                                                                                    <span><?= htmlspecialchars(is_array($v_new) ? json_encode($v_new) : $v_new) ?></span>
+                                                                                </div>
+                                                                            <?php endforeach; ?>
+
+                                                                        <?php elseif ($action === 'OTRS_TICKET_FAILED'): ?>
+                                                                            <div class="text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation me-1"></i>OTRS Ticket Creation Failed</div>
+                                                                            <div class="text-secondary">Error: <?= htmlspecialchars($new['error'] ?? 'API Error') ?></div>
+
+                                                                        <?php elseif ($action === 'OTRS_TICKET_CREATED'): ?>
+                                                                            <div class="text-success fw-bold"><i class="fa-solid fa-circle-check me-1"></i>OTRS Ticket Created</div>
+                                                                            <div>Ticket #: <strong><?= htmlspecialchars($new['ticketnr'] ?? ($new['ticket_nr'] ?? 'N/A')) ?></strong></div>
+
+                                                                        <?php else: ?>
+                                                                            <div><strong class="badge bg-secondary"><?= htmlspecialchars($action) ?></strong> <?= htmlspecialchars(substr($audit['new_values'] ?? '', 0, 100)) ?></div>
+                                                                        <?php endif; ?>
                                                                     </div>
                                                                 <?php endforeach; ?>
                                                             </div>

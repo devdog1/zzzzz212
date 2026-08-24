@@ -1388,11 +1388,14 @@ class EventManager {
 
                 $this->addOTRSArticle($eventId, "Initial Incident Details", $body);
             } else {
-                $this->lastError = "OTRS Ticket Creation Failed: Unable to create ticket via OTRS API. Check OTRS URL, API Key, and Queue settings.";
-                $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_FAILED', null, ['queue' => $queue, 'title' => $title]);
+                $errDetails = is_array($res) ? $res : ['error' => 'Unknown OTRS API Error'];
+                $this->lastError = "OTRS Ticket Creation Failed: " . ($errDetails['error'] ?? 'API Error');
+                $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_FAILED', null, $errDetails);
             }
         } catch (Exception $e) {
+            $errDetails = ['error' => $e->getMessage()];
             $this->lastError = "OTRS integration exception: " . $e->getMessage();
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_FAILED', null, $errDetails);
         }
     }
 
@@ -1463,11 +1466,14 @@ class EventManager {
             if ($otrsUserId) $params['userID'] = $otrsUserId;
 
             $res = $this->otrs->createArticle($params);
-            if ($res) {
-                $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_ARTICLE_CREATED', null, ['article_id' => 'API-Article']);
+            if ($res && isset($res['articleid'])) {
+                $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_ARTICLE_CREATED', null, ['article_id' => $res['articleid']]);
+            } else {
+                $errDetails = is_array($res) ? $res : ['error' => 'Unknown OTRS Article API Error'];
+                $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_ARTICLE_FAILED', null, $errDetails);
             }
         } catch (Exception $e) {
-            // Ignore article creation exceptions
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_ARTICLE_FAILED', null, ['error' => $e->getMessage()]);
         }
     }
 }
