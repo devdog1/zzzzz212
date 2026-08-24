@@ -38,12 +38,29 @@ class EventManager {
                 $config = require $configPath;
             }
 
-            if (isset($config['api']['otrs'])) {
-                $this->otrs = new OTRSClient($config);
+            $otrsUrl = $this->getDefault('otrs_url') ?: ($config['api']['otrs']['url'] ?? '');
+            $otrsKey = $this->getDefault('otrs_key') ?: ($config['api']['otrs']['key'] ?? '');
+
+            if (!empty($otrsUrl)) {
+                $this->otrs = new OTRSClient([
+                    'api' => [
+                        'otrs' => [
+                            'url' => $otrsUrl,
+                            'key' => $otrsKey,
+                            'default' => [
+                                'type' => $config['api']['otrs']['default']['type'] ?? '',
+                                'queue' => $this->getDefault('otrs_queue') ?: ($config['api']['otrs']['default']['queue'] ?? 'Raw'),
+                                'priority' => $config['api']['otrs']['default']['priority'] ?? '',
+                                'state' => $config['api']['otrs']['default']['state'] ?? '',
+                                'userID' => $config['api']['otrs']['default']['userID'] ?? ''
+                            ]
+                        ]
+                    ]
+                ]);
             }
 
-            $nbUrl = $config['api']['netbox']['url'] ?? $this->getDefault('netbox_url');
-            $nbToken = $config['api']['netbox']['token'] ?? $this->getDefault('netbox_token');
+            $nbUrl = $this->getDefault('netbox_url') ?: ($config['api']['netbox']['url'] ?? '');
+            $nbToken = $this->getDefault('netbox_token') ?: ($config['api']['netbox']['token'] ?? '');
 
             if (!empty($nbUrl) && !empty($nbToken)) {
                 $this->netbox = new NetBoxClient([
@@ -94,19 +111,21 @@ class EventManager {
             }
         }
 
-        try {
-            $stmt = $this->pdb->query("SELECT setting_key FROM plug_incident_management_defaults WHERE setting_key = 'otrs_queue'");
-            if (!$stmt->fetch()) {
-                $this->pdb->query("INSERT INTO plug_incident_management_defaults (setting_key, setting_value, description) VALUES ('otrs_queue', 'Raw', 'OTRS Queue Name or Queue ID for new ticket creation')");
-            }
-        } catch (Throwable $t) {}
+        $defaultSettings = [
+            'otrs_queue' => ['Raw', 'OTRS Queue Name or Queue ID for new ticket creation'],
+            'otrs_url' => ['', 'OTRS API URL'],
+            'otrs_key' => ['', 'OTRS API Key'],
+            'teams_enabled' => ['1', 'Enable Microsoft Teams integration and chat creation (0 or 1)']
+        ];
 
-        try {
-            $stmt = $this->pdb->query("SELECT setting_key FROM plug_incident_management_defaults WHERE setting_key = 'teams_enabled'");
-            if (!$stmt->fetch()) {
-                $this->pdb->query("INSERT INTO plug_incident_management_defaults (setting_key, setting_value, description) VALUES ('teams_enabled', '1', 'Enable Microsoft Teams integration and chat creation (0 or 1)')");
-            }
-        } catch (Throwable $t) {}
+        foreach ($defaultSettings as $k => $v) {
+            try {
+                $stmt = $this->pdb->query("SELECT setting_key FROM plug_incident_management_defaults WHERE setting_key = ?", [$k]);
+                if (!$stmt->fetch()) {
+                    $this->pdb->query("INSERT INTO plug_incident_management_defaults (setting_key, setting_value, description) VALUES (?, ?, ?)", [$k, $v[0], $v[1]]);
+                }
+            } catch (Throwable $t) {}
+        }
     }
 
     public function setCurrentUser($user) {
@@ -186,10 +205,31 @@ class EventManager {
             }
         }
 
-        if (!isset($filteredData['state_id']) || empty($filteredData['state_id'])) {
+        // Sanitize foreign key references (state_id, type_id, department_id)
+        if (!empty($filteredData['state_id'])) {
+            $check = $this->pdb->query("SELECT id FROM plug_incident_management_state WHERE id = ?", [$filteredData['state_id']]);
+            if (!$check->fetch()) unset($filteredData['state_id']);
+        }
+        if (empty($filteredData['state_id'])) {
             $stmt = $this->pdb->query("SELECT id FROM plug_incident_management_state WHERE name = 'Identified'");
             $state = $stmt->fetch();
-            if ($state) $filteredData['state_id'] = $state['id'];
+            if ($state) {
+                $filteredData['state_id'] = $state['id'];
+            } else {
+                $stmt = $this->pdb->query("SELECT id FROM plug_incident_management_state ORDER BY id ASC LIMIT 1");
+                $state = $stmt->fetch();
+                if ($state) $filteredData['state_id'] = $state['id'];
+            }
+        }
+
+        if (!empty($filteredData['type_id'])) {
+            $check = $this->pdb->query("SELECT id FROM plug_incident_management_type WHERE id = ?", [$filteredData['type_id']]);
+            if (!$check->fetch()) unset($filteredData['type_id']);
+        }
+
+        if (!empty($filteredData['department_id'])) {
+            $check = $this->pdb->query("SELECT id FROM plug_incident_management_department WHERE id = ?", [$filteredData['department_id']]);
+            if (!$check->fetch()) unset($filteredData['department_id']);
         }
 
         $fields = array_keys($filteredData);
@@ -198,7 +238,16 @@ class EventManager {
         $sql = "INSERT INTO plug_incident_management_wb_events (" . implode(',', $fields) . ") VALUES (" . implode(',', $placeholders) . ")";
         $this->pdb->query($sql, array_values($filteredData));
 
-        $eventId = $this->db->lastInsertId();
+        $eventId = (int)$this->db->lastInsertId();
+        if ($eventId <= 0) {
+            $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM plug_incident_management_wb_events");
+            $eventId = (int)($stmt->fetch()['max_id'] ?? 0);
+        }
+
+        if ($eventId <= 0) {
+            $this->lastError = "Failed to obtain valid event ID post insertion.";
+            return false;
+        }
 
         if (isset($data['service_ids']) && is_array($data['service_ids'])) {
             $this->updateEventServices($eventId, $data['service_ids']);
@@ -247,6 +296,21 @@ class EventManager {
 
         $filteredData = array_intersect_key($data, array_flip($this->allowedEventFields));
         $filteredData['update_user'] = $this->currentUser;
+
+        if (isset($filteredData['state_id'])) {
+            $check = $this->pdb->query("SELECT id FROM plug_incident_management_state WHERE id = ?", [$filteredData['state_id']]);
+            if (!$check->fetch()) unset($filteredData['state_id']);
+        }
+
+        if (isset($filteredData['type_id'])) {
+            $check = $this->pdb->query("SELECT id FROM plug_incident_management_type WHERE id = ?", [$filteredData['type_id']]);
+            if (!$check->fetch()) unset($filteredData['type_id']);
+        }
+
+        if (isset($filteredData['department_id'])) {
+            $check = $this->pdb->query("SELECT id FROM plug_incident_management_department WHERE id = ?", [$filteredData['department_id']]);
+            if (!$check->fetch()) unset($filteredData['department_id']);
+        }
 
         if (isset($filteredData['state_id']) && $filteredData['state_id'] != $oldEvent['state_id']) {
             $this->closeLastStateHistory($eventId);
@@ -414,6 +478,7 @@ class EventManager {
     // --- State History ---
 
     private function logStateTransition($eventId, $stateId) {
+        if (!$eventId || !$stateId) return;
         $sql = "INSERT INTO plug_incident_management_event_state_history (event_id, state_id, user) VALUES (?, ?, ?)";
         $this->pdb->query($sql, [$eventId, $stateId, $this->currentUser]);
     }

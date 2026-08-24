@@ -102,18 +102,29 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                 </div>
                 <div class="card-body">
                     <div class="row g-3 mb-3 border-bottom pb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label fw-bold small">Enable OTRS Integration</label>
                             <select name="settings[otrs_enabled]" class="form-select form-select-sm">
                                 <option value="1" <?= ($defaults['otrs_enabled'] ?? '0') === '1' ? 'selected' : '' ?>>Enabled</option>
                                 <option value="0" <?= ($defaults['otrs_enabled'] ?? '0') === '0' ? 'selected' : '' ?>>Disabled</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">OTRS API Base URL</label>
+                            <input type="text" name="settings[otrs_url]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_url'] ?? '') ?>" placeholder="https://otrs.example.com/api/v1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">OTRS API Key</label>
+                            <input type="password" name="settings[otrs_key]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_key'] ?? '') ?>" placeholder="API Key">
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label fw-bold small">OTRS Ticket Queue</label>
                             <input type="text" name="settings[otrs_queue]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_queue'] ?? 'Raw') ?>" placeholder="e.g. Raw or Queue ID">
                         </div>
-                        <div class="col-md-4">
+                    </div>
+
+                    <div class="row g-3 mb-3 border-bottom pb-3">
+                        <div class="col-md-12">
                             <label class="form-label fw-bold small">Default Customer User</label>
                             <input type="text" name="settings[otrs_customer_user]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_customer_user'] ?? 'customer@example.com') ?>">
                         </div>
@@ -213,7 +224,7 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     ?>
                         <div class="mb-2 p-2 bg-light border rounded small" style="font-size: 0.75rem;">
                             <div class="text-muted" style="font-size:0.65rem;"><?= $audit['timestamp'] ?> by <?= htmlspecialchars($audit['user']) ?></div>
-                            <div>Updated <strong><?= htmlspecialchars($new['setting_key'] ?? 'N/A') ?></strong> to <code><?= htmlspecialchars(($new['setting_key'] ?? '') === 'otrs_db_pass' ? '******' : ($new['setting_value'] ?? 'NULL')) ?></code></div>
+                            <div>Updated <strong><?= htmlspecialchars($new['setting_key'] ?? 'N/A') ?></strong> to <code><?= htmlspecialchars(in_array($new['setting_key'] ?? '', ['otrs_db_pass', 'otrs_key', 'netbox_token']) ? '******' : ($new['setting_value'] ?? 'NULL')) ?></code></div>
                         </div>
                     <?php endforeach; ?>
                 </div>
