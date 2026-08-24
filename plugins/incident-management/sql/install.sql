@@ -158,6 +158,7 @@ INSERT IGNORE INTO `plug_incident_management_type` (`id`, `name`) VALUES
 
 -- Seed Default Settings
 INSERT IGNORE INTO `plug_incident_management_defaults` (`setting_key`, `setting_value`, `description`) VALUES
+('teams_enabled', '1', 'Enable Microsoft Teams integration and chat creation (0 or 1)'),
 ('always_include_azure_group_id', NULL, 'Azure AD Group ID to always include in all incident Teams chats'),
 ('otrs_enabled', '0', 'Enable OTRS ticket integration (0 or 1)'),
 ('otrs_queue', 'Raw', 'OTRS Queue Name or Queue ID for new ticket creation'),

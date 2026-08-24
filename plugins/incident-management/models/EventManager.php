@@ -100,6 +100,13 @@ class EventManager {
                 $this->pdb->query("INSERT INTO plug_incident_management_defaults (setting_key, setting_value, description) VALUES ('otrs_queue', 'Raw', 'OTRS Queue Name or Queue ID for new ticket creation')");
             }
         } catch (Throwable $t) {}
+
+        try {
+            $stmt = $this->pdb->query("SELECT setting_key FROM plug_incident_management_defaults WHERE setting_key = 'teams_enabled'");
+            if (!$stmt->fetch()) {
+                $this->pdb->query("INSERT INTO plug_incident_management_defaults (setting_key, setting_value, description) VALUES ('teams_enabled', '1', 'Enable Microsoft Teams integration and chat creation (0 or 1)')");
+            }
+        } catch (Throwable $t) {}
     }
 
     public function setCurrentUser($user) {
@@ -296,6 +303,8 @@ class EventManager {
     }
 
     private function notifyTeamsOfMetadataChange($old, $new) {
+        if ($this->getDefault('teams_enabled') === '0') return;
+
         $changes = [];
         $fields = [
             'title' => 'Subject/Title',
@@ -1096,6 +1105,7 @@ class EventManager {
     }
 
     private function initTeamsChat($eventId, $departmentId, $description) {
+        if ($this->getDefault('teams_enabled') === '0') return;
         if (!$this->auth || !method_exists($this->auth, 'getAccessToken')) return;
 
         $accessToken = $this->auth->getAccessToken();
@@ -1147,6 +1157,7 @@ class EventManager {
     }
 
     private function syncTeamsChatMembers($eventId, $departmentId) {
+        if ($this->getDefault('teams_enabled') === '0') return;
         if (!$this->auth || !method_exists($this->auth, 'getAccessToken')) return;
 
         $accessToken = $this->auth->getAccessToken();
@@ -1179,6 +1190,7 @@ class EventManager {
     }
 
     private function postCardToTeamsChat($eventId, $card) {
+        if ($this->getDefault('teams_enabled') === '0') return;
         if (!$this->auth || !method_exists($this->auth, 'getAccessToken')) return;
         $accessToken = $this->auth->getAccessToken();
         if (!$accessToken) return;
