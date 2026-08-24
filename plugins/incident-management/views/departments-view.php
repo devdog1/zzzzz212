@@ -26,50 +26,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'azure_group_id' => $_POST['azure_group_id']
         ]);
         $message = "Department updated successfully.";
-    } elseif ($action === 'delete_dept') {
-        $em->deleteDepartment($_POST['id']);
-        $message = "Department deleted successfully.";
+    } elseif ($action === 'toggle_dept') {
+        $em->toggleDepartment($_POST['id'], (int)($_POST['is_disabled'] ?? 0));
+        $message = "Department status updated successfully.";
     } elseif ($action === 'create_type') {
         $em->createType($_POST['name']);
         $message = "Type created successfully.";
-    } elseif ($action === 'delete_type') {
-        $em->deleteType($_POST['id']);
-        $message = "Type deleted successfully.";
+    } elseif ($action === 'toggle_type') {
+        $em->toggleType($_POST['id'], (int)($_POST['is_disabled'] ?? 0));
+        $message = "Type status updated successfully.";
     } elseif ($action === 'create_state') {
         $em->createState($_POST['name']);
         $message = "State created successfully.";
-    } elseif ($action === 'delete_state') {
-        $em->deleteState($_POST['id']);
-        $message = "State deleted successfully.";
+    } elseif ($action === 'toggle_state') {
+        $em->toggleState($_POST['id'], (int)($_POST['is_disabled'] ?? 0));
+        $message = "State status updated successfully.";
     } elseif ($action === 'create_service') {
         $em->createService($_POST['name']);
         $message = "Service created successfully.";
-    } elseif ($action === 'delete_service') {
-        $em->deleteService($_POST['id']);
-        $message = "Service deleted successfully.";
+    } elseif ($action === 'toggle_service') {
+        $em->toggleService($_POST['id'], (int)($_POST['is_disabled'] ?? 0));
+        $message = "Service status updated successfully.";
     } elseif ($action === 'create_tag') {
         $em->createTag($_POST['name']);
         $message = "Tag created successfully.";
-    } elseif ($action === 'delete_tag') {
-        $em->deleteTag($_POST['id']);
-        $message = "Tag deleted successfully.";
+    } elseif ($action === 'toggle_tag') {
+        $em->toggleTag($_POST['id'], (int)($_POST['is_disabled'] ?? 0));
+        $message = "Tag status updated successfully.";
     } elseif ($action === 'create_area') {
         $em->createArea($_POST['name']);
         $message = "Area created successfully.";
-    } elseif ($action === 'delete_area') {
-        $em->deleteArea($_POST['id']);
-        $message = "Area deleted successfully.";
+    } elseif ($action === 'toggle_area') {
+        $em->toggleArea($_POST['id'], (int)($_POST['is_disabled'] ?? 0));
+        $message = "Area status updated successfully.";
     }
 
     $emError = $em->getLastError();
 }
 
-$departments = $em->listDepartments(true);
-$types = $em->listTypes();
-$states = $em->listStates();
-$services = $em->listServices();
-$tags = $em->listAllTags();
-$areas = $em->listAllAreas();
+$departments = $em->listDepartments(true, true);
+$types = $em->listTypes(true);
+$states = $em->listStates(true);
+$services = $em->listServices(true);
+$tags = $em->listAllTags(true);
+$areas = $em->listAllAreas(true);
 
 $azureGroups = [];
 if (method_exists(get_auth(), 'getAccessToken')) {
@@ -83,7 +83,7 @@ if (method_exists(get_auth(), 'getAccessToken')) {
 <div class="row mb-4 text-start">
     <div class="col-md-12">
         <h1 class="h2"><i class="fa-solid fa-sitemap text-primary me-2"></i>Reference Data & Departments</h1>
-        <p class="text-muted">Manage system departments, Azure AD group assignments, incident types, states, services, tags, and geographical areas.</p>
+        <p class="text-muted">Manage system departments, Azure AD group assignments, incident types, states, services, tags, and geographical areas. Disabled reference data will be hidden from new incident selection dropdowns while preserving historical records.</p>
     </div>
 </div>
 
@@ -147,14 +147,16 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                             <th>ID</th>
                             <th>Name</th>
                             <th>Azure Group ID</th>
+                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($departments as $d):
                             $formId = "update-dept-" . $d['id'];
+                            $isDisabled = !empty($d['is_disabled']);
                         ?>
-                            <tr>
+                            <tr class="<?= $isDisabled ? 'table-secondary text-muted' : '' ?>">
                                 <td>
                                     #<?= $d['id'] ?>
                                     <form method="POST" id="<?= $formId ?>">
@@ -170,13 +172,24 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                                     <input type="text" name="azure_group_id" form="<?= $formId ?>" class="form-control form-control-sm" value="<?= htmlspecialchars($d['azure_group_id'] ?? '') ?>">
                                 </td>
                                 <td>
+                                    <?php if ($isDisabled): ?>
+                                        <span class="badge bg-secondary">Disabled</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-success">Active</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
                                     <div class="d-flex gap-1">
                                         <button type="submit" form="<?= $formId ?>" class="btn btn-sm btn-success fw-bold"><i class="fa-solid fa-check me-1"></i>Save</button>
-                                        <form method="POST" onsubmit="return confirm('Delete this department?');">
+                                        <form method="POST">
                                             <?php csrf_field(); ?>
-                                            <input type="hidden" name="action" value="delete_dept">
+                                            <input type="hidden" name="action" value="toggle_dept">
                                             <input type="hidden" name="id" value="<?= $d['id'] ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></button>
+                                            <input type="hidden" name="is_disabled" value="<?= $isDisabled ? 0 : 1 ?>">
+                                            <button type="submit" class="btn btn-sm <?= $isDisabled ? 'btn-outline-success' : 'btn-outline-warning' ?>" title="<?= $isDisabled ? 'Enable' : 'Disable' ?>">
+                                                <i class="fa-solid <?= $isDisabled ? 'fa-toggle-off' : 'fa-toggle-on' ?>"></i>
+                                                <?= $isDisabled ? 'Enable' : 'Disable' ?>
+                                            </button>
                                         </form>
                                     </div>
                                 </td>
@@ -205,15 +218,20 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     <input type="text" name="name" class="form-control form-control-sm" placeholder="New type name..." required>
                     <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i></button>
                 </form>
-                <ul class="list-group list-group-flush small overflow-auto" style="max-height: 200px;">
-                    <?php foreach ($types as $t): ?>
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
-                            <span><?= htmlspecialchars($t['name']) ?></span>
-                            <form method="POST" class="m-0" onsubmit="return confirm('Delete type?');">
+                <ul class="list-group list-group-flush small overflow-auto" style="max-height: 220px;">
+                    <?php foreach ($types as $t):
+                        $dis = !empty($t['is_disabled']);
+                    ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1 <?= $dis ? 'text-muted' : '' ?>">
+                            <span class="<?= $dis ? 'text-decoration-line-through' : '' ?>"><?= htmlspecialchars($t['name']) ?></span>
+                            <form method="POST" class="m-0">
                                 <?php csrf_field(); ?>
-                                <input type="hidden" name="action" value="delete_type">
+                                <input type="hidden" name="action" value="toggle_type">
                                 <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                                <button type="submit" class="btn btn-xs text-danger border-0"><i class="fa-solid fa-trash-can"></i></button>
+                                <input type="hidden" name="is_disabled" value="<?= $dis ? 0 : 1 ?>">
+                                <button type="submit" class="btn btn-xs <?= $dis ? 'btn-outline-success' : 'btn-outline-warning' ?> border-0" title="<?= $dis ? 'Enable' : 'Disable' ?>">
+                                    <i class="fa-solid <?= $dis ? 'fa-toggle-off text-secondary' : 'fa-toggle-on text-warning' ?>"></i>
+                                </button>
                             </form>
                         </li>
                     <?php endforeach; ?>
@@ -236,15 +254,20 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     <input type="text" name="name" class="form-control form-control-sm" placeholder="New state name..." required>
                     <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i></button>
                 </form>
-                <ul class="list-group list-group-flush small overflow-auto" style="max-height: 200px;">
-                    <?php foreach ($states as $s): ?>
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
-                            <span><?= htmlspecialchars($s['name']) ?></span>
-                            <form method="POST" class="m-0" onsubmit="return confirm('Delete state?');">
+                <ul class="list-group list-group-flush small overflow-auto" style="max-height: 220px;">
+                    <?php foreach ($states as $s):
+                        $dis = !empty($s['is_disabled']);
+                    ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1 <?= $dis ? 'text-muted' : '' ?>">
+                            <span class="<?= $dis ? 'text-decoration-line-through' : '' ?>"><?= htmlspecialchars($s['name']) ?></span>
+                            <form method="POST" class="m-0">
                                 <?php csrf_field(); ?>
-                                <input type="hidden" name="action" value="delete_state">
+                                <input type="hidden" name="action" value="toggle_state">
                                 <input type="hidden" name="id" value="<?= $s['id'] ?>">
-                                <button type="submit" class="btn btn-xs text-danger border-0"><i class="fa-solid fa-trash-can"></i></button>
+                                <input type="hidden" name="is_disabled" value="<?= $dis ? 0 : 1 ?>">
+                                <button type="submit" class="btn btn-xs <?= $dis ? 'btn-outline-success' : 'btn-outline-warning' ?> border-0" title="<?= $dis ? 'Enable' : 'Disable' ?>">
+                                    <i class="fa-solid <?= $dis ? 'fa-toggle-off text-secondary' : 'fa-toggle-on text-warning' ?>"></i>
+                                </button>
                             </form>
                         </li>
                     <?php endforeach; ?>
@@ -267,15 +290,20 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     <input type="text" name="name" class="form-control form-control-sm" placeholder="New service name..." required>
                     <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i></button>
                 </form>
-                <ul class="list-group list-group-flush small overflow-auto" style="max-height: 200px;">
-                    <?php foreach ($services as $svc): ?>
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
-                            <span><?= htmlspecialchars($svc['name']) ?></span>
-                            <form method="POST" class="m-0" onsubmit="return confirm('Delete service?');">
+                <ul class="list-group list-group-flush small overflow-auto" style="max-height: 220px;">
+                    <?php foreach ($services as $svc):
+                        $dis = !empty($svc['is_disabled']);
+                    ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1 <?= $dis ? 'text-muted' : '' ?>">
+                            <span class="<?= $dis ? 'text-decoration-line-through' : '' ?>"><?= htmlspecialchars($svc['name']) ?></span>
+                            <form method="POST" class="m-0">
                                 <?php csrf_field(); ?>
-                                <input type="hidden" name="action" value="delete_service">
+                                <input type="hidden" name="action" value="toggle_service">
                                 <input type="hidden" name="id" value="<?= $svc['id'] ?>">
-                                <button type="submit" class="btn btn-xs text-danger border-0"><i class="fa-solid fa-trash-can"></i></button>
+                                <input type="hidden" name="is_disabled" value="<?= $dis ? 0 : 1 ?>">
+                                <button type="submit" class="btn btn-xs <?= $dis ? 'btn-outline-success' : 'btn-outline-warning' ?> border-0" title="<?= $dis ? 'Enable' : 'Disable' ?>">
+                                    <i class="fa-solid <?= $dis ? 'fa-toggle-off text-secondary' : 'fa-toggle-on text-warning' ?>"></i>
+                                </button>
                             </form>
                         </li>
                     <?php endforeach; ?>
@@ -298,15 +326,20 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     <input type="text" name="name" class="form-control form-control-sm" placeholder="New tag name..." required>
                     <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i></button>
                 </form>
-                <div class="d-flex flex-wrap gap-1 overflow-auto" style="max-height: 200px;">
-                    <?php foreach ($tags as $t): ?>
-                        <span class="badge bg-light text-dark border p-2 d-inline-flex align-items-center gap-1">
-                            #<?= htmlspecialchars($t['name']) ?>
-                            <form method="POST" class="m-0 d-inline" onsubmit="return confirm('Delete tag?');">
+                <div class="d-flex flex-wrap gap-1 overflow-auto" style="max-height: 220px;">
+                    <?php foreach ($tags as $t):
+                        $dis = !empty($t['is_disabled']);
+                    ?>
+                        <span class="badge <?= $dis ? 'bg-secondary text-light' : 'bg-light text-dark border' ?> p-2 d-inline-flex align-items-center gap-1">
+                            #<span class="<?= $dis ? 'text-decoration-line-through' : '' ?>"><?= htmlspecialchars($t['name']) ?></span>
+                            <form method="POST" class="m-0 d-inline">
                                 <?php csrf_field(); ?>
-                                <input type="hidden" name="action" value="delete_tag">
+                                <input type="hidden" name="action" value="toggle_tag">
                                 <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                                <button type="submit" class="btn btn-xs text-danger border-0 p-0 ms-1">&times;</button>
+                                <input type="hidden" name="is_disabled" value="<?= $dis ? 0 : 1 ?>">
+                                <button type="submit" class="btn btn-xs border-0 p-0 ms-1 <?= $dis ? 'text-light' : 'text-warning' ?>" title="<?= $dis ? 'Enable' : 'Disable' ?>">
+                                    <i class="fa-solid <?= $dis ? 'fa-toggle-off' : 'fa-toggle-on' ?>"></i>
+                                </button>
                             </form>
                         </span>
                     <?php endforeach; ?>
@@ -329,15 +362,20 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     <input type="text" name="name" class="form-control form-control-sm" placeholder="New area name..." required>
                     <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i></button>
                 </form>
-                <div class="d-flex flex-wrap gap-1 overflow-auto" style="max-height: 200px;">
-                    <?php foreach ($areas as $a): ?>
-                        <span class="badge bg-light text-dark border p-2 d-inline-flex align-items-center gap-1">
-                            <?= htmlspecialchars($a['name']) ?>
-                            <form method="POST" class="m-0 d-inline" onsubmit="return confirm('Delete area?');">
+                <div class="d-flex flex-wrap gap-1 overflow-auto" style="max-height: 220px;">
+                    <?php foreach ($areas as $a):
+                        $dis = !empty($a['is_disabled']);
+                    ?>
+                        <span class="badge <?= $dis ? 'bg-secondary text-light' : 'bg-light text-dark border' ?> p-2 d-inline-flex align-items-center gap-1">
+                            <span class="<?= $dis ? 'text-decoration-line-through' : '' ?>"><?= htmlspecialchars($a['name']) ?></span>
+                            <form method="POST" class="m-0 d-inline">
                                 <?php csrf_field(); ?>
-                                <input type="hidden" name="action" value="delete_area">
+                                <input type="hidden" name="action" value="toggle_area">
                                 <input type="hidden" name="id" value="<?= $a['id'] ?>">
-                                <button type="submit" class="btn btn-xs text-danger border-0 p-0 ms-1">&times;</button>
+                                <input type="hidden" name="is_disabled" value="<?= $dis ? 0 : 1 ?>">
+                                <button type="submit" class="btn btn-xs border-0 p-0 ms-1 <?= $dis ? 'text-light' : 'text-warning' ?>" title="<?= $dis ? 'Enable' : 'Disable' ?>">
+                                    <i class="fa-solid <?= $dis ? 'fa-toggle-off' : 'fa-toggle-on' ?>"></i>
+                                </button>
                             </form>
                         </span>
                     <?php endforeach; ?>

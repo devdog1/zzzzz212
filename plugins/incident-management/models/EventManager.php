@@ -29,6 +29,8 @@ class EventManager {
         $this->currentUser = $currentUser;
         $this->auth = $auth;
 
+        $this->ensureSchemaColumns();
+
         try {
             $config = [];
             $configPath = __DIR__ . '/../../../config.php';
@@ -56,6 +58,48 @@ class EventManager {
         } catch (Throwable $e) {
             // Ignore config loading errors
         }
+    }
+
+    private function ensureSchemaColumns() {
+        try {
+            $stmt = $this->pdb->query("SHOW COLUMNS FROM plug_incident_management_wb_events LIKE 'title'");
+            if (!$stmt->fetch()) {
+                $this->pdb->query("ALTER TABLE plug_incident_management_wb_events ADD COLUMN title VARCHAR(255) DEFAULT NULL");
+            }
+        } catch (Throwable $t) {
+            try {
+                $this->pdb->query("ALTER TABLE plug_incident_management_wb_events ADD COLUMN title VARCHAR(255) DEFAULT NULL");
+            } catch (Throwable $t2) {}
+        }
+
+        $refTables = [
+            'plug_incident_management_type',
+            'plug_incident_management_department',
+            'plug_incident_management_state',
+            'plug_incident_management_service',
+            'plug_incident_management_tag',
+            'plug_incident_management_area'
+        ];
+
+        foreach ($refTables as $tbl) {
+            try {
+                $stmt = $this->pdb->query("SHOW COLUMNS FROM `$tbl` LIKE 'is_disabled'");
+                if (!$stmt->fetch()) {
+                    $this->pdb->query("ALTER TABLE `$tbl` ADD COLUMN is_disabled TINYINT(1) DEFAULT 0");
+                }
+            } catch (Throwable $t) {
+                try {
+                    $this->pdb->query("ALTER TABLE `$tbl` ADD COLUMN is_disabled TINYINT(1) DEFAULT 0");
+                } catch (Throwable $t2) {}
+            }
+        }
+
+        try {
+            $stmt = $this->pdb->query("SELECT setting_key FROM plug_incident_management_defaults WHERE setting_key = 'otrs_queue'");
+            if (!$stmt->fetch()) {
+                $this->pdb->query("INSERT INTO plug_incident_management_defaults (setting_key, setting_value, description) VALUES ('otrs_queue', 'Raw', 'OTRS Queue Name or Queue ID for new ticket creation')");
+            }
+        } catch (Throwable $t) {}
     }
 
     public function setCurrentUser($user) {
@@ -382,10 +426,16 @@ class EventManager {
     // --- Services ---
 
     public function updateEventServices($eventId, $serviceIds) {
+        if (!$eventId) return;
         $this->pdb->query("DELETE FROM plug_incident_management_event_services WHERE event_id = ?", [$eventId]);
+        $serviceIds = array_unique(array_filter((array)$serviceIds));
         foreach ($serviceIds as $sid) {
-            if (empty($sid)) continue;
-            $this->pdb->query("INSERT INTO plug_incident_management_event_services (event_id, service_id) VALUES (?, ?)", [$eventId, $sid]);
+            $sid = (int)$sid;
+            if ($sid <= 0) continue;
+            $check = $this->pdb->query("SELECT id FROM plug_incident_management_service WHERE id = ?", [$sid]);
+            if ($check->fetch()) {
+                $this->pdb->query("INSERT INTO plug_incident_management_event_services (event_id, service_id) VALUES (?, ?)", [$eventId, $sid]);
+            }
         }
     }
 
@@ -398,13 +448,16 @@ class EventManager {
     // --- Tags ---
 
     public function updateEventTags($eventId, $tags) {
+        if (!$eventId) return;
         $this->pdb->query("DELETE FROM plug_incident_management_event_tags WHERE event_id = ?", [$eventId]);
         $uniqueTags = array_unique(array_filter(array_map('trim', (array)$tags)));
         foreach ($uniqueTags as $tagName) {
             if (empty($tagName)) continue;
 
             $tagId = $this->ensureRefExists('plug_incident_management_tag', $tagName);
-            $this->pdb->query("INSERT INTO plug_incident_management_event_tags (event_id, tag_id) VALUES (?, ?)", [$eventId, $tagId]);
+            if ($tagId) {
+                $this->pdb->query("INSERT INTO plug_incident_management_event_tags (event_id, tag_id) VALUES (?, ?)", [$eventId, $tagId]);
+            }
         }
     }
 
@@ -417,6 +470,11 @@ class EventManager {
     // --- Circuits (NetBox) ---
 
     public function addCircuit($eventId, $circuitId, $cid, $provider) {
+        if (!$eventId || !$circuitId) return false;
+        $check = $this->pdb->query("SELECT circuit_id FROM plug_incident_management_event_circuits WHERE event_id = ? AND circuit_id = ?", [$eventId, $circuitId]);
+        if ($check->fetch()) {
+            return true;
+        }
         $sql = "INSERT INTO plug_incident_management_event_circuits (event_id, circuit_id, circuit_cid, provider) VALUES (?, ?, ?, ?)";
         $this->pdb->query($sql, [$eventId, $circuitId, $cid, $provider]);
         $this->logAudit('plug_incident_management_event_circuits', $eventId, 'ADD_CIRCUIT', null, ['circuit_id' => $circuitId, 'cid' => $cid]);
@@ -437,13 +495,16 @@ class EventManager {
     // --- Areas ---
 
     public function updateEventAreas($eventId, $areas) {
+        if (!$eventId) return;
         $this->pdb->query("DELETE FROM plug_incident_management_event_areas WHERE event_id = ?", [$eventId]);
         $uniqueAreas = array_unique(array_filter(array_map('trim', (array)$areas)));
         foreach ($uniqueAreas as $areaName) {
             if (empty($areaName)) continue;
 
             $areaId = $this->ensureRefExists('plug_incident_management_area', $areaName);
-            $this->pdb->query("INSERT INTO plug_incident_management_event_areas (event_id, area_id) VALUES (?, ?)", [$eventId, $areaId]);
+            if ($areaId) {
+                $this->pdb->query("INSERT INTO plug_incident_management_event_areas (event_id, area_id) VALUES (?, ?)", [$eventId, $areaId]);
+            }
         }
     }
 
@@ -481,21 +542,23 @@ class EventManager {
         return true;
     }
 
-    private function deleteRef($table, $id) {
+    private function toggleDisabledRef($table, $id, $isDisabled) {
+        $val = $isDisabled ? 1 : 0;
         $stmt = $this->pdb->query("SELECT * FROM `$table` WHERE id = ?", [$id]);
         $oldRow = $stmt->fetch();
-        $sql = "DELETE FROM `$table` WHERE id = ?";
-        $this->pdb->query($sql, [$id]);
-        $this->logAudit($table, $id, 'DELETE', $oldRow, null);
+        $sql = "UPDATE `$table` SET is_disabled = ? WHERE id = ?";
+        $this->pdb->query($sql, [$val, $id]);
+        $this->logAudit($table, $id, $isDisabled ? 'DISABLE' : 'ENABLE', $oldRow, ['is_disabled' => $val]);
         return true;
     }
 
-    private function listRef($table) {
-        return $this->pdb->query("SELECT * FROM `$table` ORDER BY name ASC")->fetchAll();
+    private function listRef($table, $includeDisabled = false) {
+        $where = $includeDisabled ? "" : "WHERE is_disabled = 0 OR is_disabled IS NULL";
+        return $this->pdb->query("SELECT * FROM `$table` $where ORDER BY name ASC")->fetchAll();
     }
 
-    public function listDepartments($fetchMembers = false) {
-        $depts = $this->listRef('plug_incident_management_department');
+    public function listDepartments($fetchMembers = false, $includeDisabled = false) {
+        $depts = $this->listRef('plug_incident_management_department', $includeDisabled);
         if ($fetchMembers && $this->auth && method_exists($this->auth, 'getAccessToken')) {
             $accessToken = $this->auth->getAccessToken();
             if ($accessToken && method_exists($this->auth, 'getSSO')) {
@@ -540,32 +603,32 @@ class EventManager {
         return true;
     }
 
-    public function deleteDepartment($id) { return $this->deleteRef('plug_incident_management_department', $id); }
+    public function toggleDepartment($id, $isDisabled) { return $this->toggleDisabledRef('plug_incident_management_department', $id, $isDisabled); }
 
-    public function listTypes() { return $this->listRef('plug_incident_management_type'); }
+    public function listTypes($includeDisabled = false) { return $this->listRef('plug_incident_management_type', $includeDisabled); }
     public function createType($name) { return $this->createRef('plug_incident_management_type', $name); }
     public function updateType($id, $name) { return $this->updateRef('plug_incident_management_type', $id, $name); }
-    public function deleteType($id) { return $this->deleteRef('plug_incident_management_type', $id); }
+    public function toggleType($id, $isDisabled) { return $this->toggleDisabledRef('plug_incident_management_type', $id, $isDisabled); }
 
-    public function listStates() { return $this->listRef('plug_incident_management_state'); }
+    public function listStates($includeDisabled = false) { return $this->listRef('plug_incident_management_state', $includeDisabled); }
     public function createState($name) { return $this->createRef('plug_incident_management_state', $name); }
     public function updateState($id, $name) { return $this->updateRef('plug_incident_management_state', $id, $name); }
-    public function deleteState($id) { return $this->deleteRef('plug_incident_management_state', $id); }
+    public function toggleState($id, $isDisabled) { return $this->toggleDisabledRef('plug_incident_management_state', $id, $isDisabled); }
 
-    public function listServices() { return $this->listRef('plug_incident_management_service'); }
+    public function listServices($includeDisabled = false) { return $this->listRef('plug_incident_management_service', $includeDisabled); }
     public function createService($name) { return $this->createRef('plug_incident_management_service', $name); }
     public function updateService($id, $name) { return $this->updateRef('plug_incident_management_service', $id, $name); }
-    public function deleteService($id) { return $this->deleteRef('plug_incident_management_service', $id); }
+    public function toggleService($id, $isDisabled) { return $this->toggleDisabledRef('plug_incident_management_service', $id, $isDisabled); }
 
-    public function listAllTags() { return $this->listRef('plug_incident_management_tag'); }
+    public function listAllTags($includeDisabled = false) { return $this->listRef('plug_incident_management_tag', $includeDisabled); }
     public function createTag($name) { return $this->createRef('plug_incident_management_tag', $name); }
     public function updateTag($id, $name) { return $this->updateRef('plug_incident_management_tag', $id, $name); }
-    public function deleteTag($id) { return $this->deleteRef('plug_incident_management_tag', $id); }
+    public function toggleTag($id, $isDisabled) { return $this->toggleDisabledRef('plug_incident_management_tag', $id, $isDisabled); }
 
-    public function listAllAreas() { return $this->listRef('plug_incident_management_area'); }
+    public function listAllAreas($includeDisabled = false) { return $this->listRef('plug_incident_management_area', $includeDisabled); }
     public function createArea($name) { return $this->createRef('plug_incident_management_area', $name); }
     public function updateArea($id, $name) { return $this->updateRef('plug_incident_management_area', $id, $name); }
-    public function deleteArea($id) { return $this->deleteRef('plug_incident_management_area', $id); }
+    public function toggleArea($id, $isDisabled) { return $this->toggleDisabledRef('plug_incident_management_area', $id, $isDisabled); }
 
     // --- System Defaults ---
 
@@ -634,7 +697,7 @@ class EventManager {
 
         // Add OTRS Article
         $body = "<div style='font-family:sans-serif; border:1px solid #198754; border-radius:5px; padding:15px;'>\r\n";
-        $body .= "<h3 style='color:#198754; margin-top:0; border-bottom:2px solid #198754; padding-bottom:5px;'>Incident Update</h3>\r\n";
+        $body .= "<h3 style='color:#198754; margin-top:0; border-bottom:1px solid #198754; padding-bottom:5px;'>Incident Update</h3>\r\n";
         $body .= "<div style='padding:10px; background:#f9fff9; border:1px solid #e0eee0; white-space:pre-wrap;'>" . nl2br(htmlspecialchars($updateText)) . "</div>\r\n";
         $body .= "<p style='font-size:0.8rem; color:#666; margin-top:15px;'>\r\n";
         $body .= "Posted by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>\r\n";
@@ -799,8 +862,8 @@ class EventManager {
         $updates = $this->getEventUpdates($eventId);
         $audit   = $this->getAuditTrail('plug_incident_management_wb_events', $eventId);
 
-        $deptMap = array_column($this->listRef('plug_incident_management_department'), 'name', 'id');
-        $typeMap = array_column($this->listRef('plug_incident_management_type'), 'name', 'id');
+        $deptMap = array_column($this->listRef('plug_incident_management_department', true), 'name', 'id');
+        $typeMap = array_column($this->listRef('plug_incident_management_type', true), 'name', 'id');
 
         $timeline = [];
 
@@ -1195,12 +1258,14 @@ class EventManager {
         $event = $this->getEvent($eventId);
         $otrsUserId = $this->getOTRSUserId();
         $customerUser = $this->getDefault('otrs_customer_user') ?: 'customer@example.com';
+        $queue = $this->getDefault('otrs_queue') ?: 'Raw';
         $title = "Incident #$eventId: " . ($event['title'] ?? substr($description, 0, 100));
 
         try {
             $params = [
                 'title' => $title,
                 'customer' => $customerUser,
+                'queue' => $queue,
                 'body' => $description
             ];
             if ($otrsUserId) $params['userID'] = $otrsUserId;
@@ -1245,6 +1310,9 @@ class EventManager {
                 $body .= "</p></div>";
 
                 $this->addOTRSArticle($eventId, "Initial Incident Details", $body);
+            } else {
+                $this->lastError = "OTRS Ticket Creation Failed: Unable to create ticket via OTRS API. Check OTRS URL, API Key, and Queue settings.";
+                $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_FAILED', null, ['queue' => $queue, 'title' => $title]);
             }
         } catch (Exception $e) {
             $this->lastError = "OTRS integration exception: " . $e->getMessage();
