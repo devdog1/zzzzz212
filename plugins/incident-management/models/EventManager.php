@@ -27,7 +27,7 @@ class EventManager {
         $this->pdb = new PluginDatabase('incident-management');
         $this->db = get_db_connection();
         $this->currentUser = $currentUser;
-        $this->auth = $auth;
+        $this->auth = $auth ?: (function_exists('get_auth') ? get_auth() : null);
 
         $this->ensureSchemaColumns();
 
@@ -75,6 +75,37 @@ class EventManager {
         } catch (Throwable $e) {
             // Ignore config loading errors
         }
+    }
+
+    private function getSSO() {
+        if ($this->auth && method_exists($this->auth, 'getSSO')) {
+            return $this->auth->getSSO();
+        }
+        if (function_exists('get_auth')) {
+            $globalAuth = get_auth();
+            if ($globalAuth && method_exists($globalAuth, 'getSSO')) {
+                return $globalAuth->getSSO();
+            }
+        }
+        return null;
+    }
+
+    private function getAccessToken() {
+        if ($this->auth && method_exists($this->auth, 'getAccessToken')) {
+            $token = $this->auth->getAccessToken();
+            if (!empty($token)) return $token;
+        }
+        if (function_exists('get_auth')) {
+            $globalAuth = get_auth();
+            if ($globalAuth && method_exists($globalAuth, 'getAccessToken')) {
+                $token = $globalAuth->getAccessToken();
+                if (!empty($token)) return $token;
+            }
+        }
+        if (!empty($_SESSION['access_token'])) return $_SESSION['access_token'];
+        if (!empty($_SESSION['azure_access_token'])) return $_SESSION['azure_access_token'];
+        if (!empty($_SESSION['tokens']['access_token'])) return $_SESSION['tokens']['access_token'];
+        return null;
     }
 
     private function ensureSchemaColumns() {
@@ -637,16 +668,15 @@ class EventManager {
 
     public function listDepartments($fetchMembers = false, $includeDisabled = false) {
         $depts = $this->listRef('plug_incident_management_department', $includeDisabled);
-        if ($fetchMembers && $this->auth && method_exists($this->auth, 'getAccessToken')) {
-            $accessToken = $this->auth->getAccessToken();
-            if ($accessToken && method_exists($this->auth, 'getSSO')) {
-                $sso = $this->auth->getSSO();
-                foreach ($depts as &$d) {
-                    if (!empty($d['azure_group_id'])) {
-                        $d['members'] = $sso->getGroupMembers($accessToken, $d['azure_group_id']) ?? [];
-                    } else {
-                        $d['members'] = [];
-                    }
+        $sso = $this->getSSO();
+        $accessToken = $this->getAccessToken();
+
+        if ($fetchMembers && $accessToken && $sso) {
+            foreach ($depts as &$d) {
+                if (!empty($d['azure_group_id'])) {
+                    $d['members'] = $sso->getGroupMembers($accessToken, $d['azure_group_id']) ?? [];
+                } else {
+                    $d['members'] = [];
                 }
             }
         }
@@ -1179,14 +1209,18 @@ class EventManager {
             return;
         }
 
-        if (!$this->auth || !method_exists($this->auth, 'getAccessToken')) {
-            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['error' => 'Auth provider or getAccessToken method is not available']);
+        $sso = $this->getSSO();
+        $accessToken = $this->getAccessToken();
+
+        if (!$sso) {
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['error' => 'AzureADSSO provider is not available via Auth component']);
             return;
         }
 
-        $accessToken = $this->auth->getAccessToken();
         if (!$accessToken) {
-            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['error' => 'No active Azure AD Graph API access token in user session']);
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, [
+                'error' => 'No active Azure AD Graph API access token in session. Log in via Azure AD SSO to enable live Graph API chat creation.'
+            ]);
             return;
         }
 
@@ -1195,7 +1229,6 @@ class EventManager {
         $deptGroupId = $dept['azure_group_id'] ?? null;
         $deptName = $dept['name'] ?? 'Unknown Dept';
 
-        $sso = $this->auth->getSSO();
         $members = [];
 
         if ($deptGroupId) {
@@ -1219,7 +1252,7 @@ class EventManager {
             $members[] = $currentUserOid;
         }
 
-        $members = array_unique(array_filter($members));
+        $members = array_values(array_unique(array_filter($members)));
 
         $event = $this->getEvent($eventId);
         $titleStr = !empty($event['title']) ? $event['title'] : substr($description, 0, 50);
@@ -1227,7 +1260,7 @@ class EventManager {
         $topic = str_replace([':', '"', "'"], ' ', $topic);
 
         if (count($members) < 2) {
-            $errMsg = "Graph API requires at least 2 member OIDs to create a group chat. Only " . count($members) . " member OID(s) resolved.";
+            $errMsg = "Graph API requires at least 2 member OIDs to create a Teams group chat. Only " . count($members) . " member OID(s) resolved.";
             $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, [
                 'error' => $errMsg,
                 'topic' => $topic,
@@ -1240,7 +1273,7 @@ class EventManager {
             return;
         }
 
-        $chat = $sso->createChat($accessToken, $topic, array_values($members), $currentUserOid);
+        $chat = $sso->createChat($accessToken, $topic, $members, $currentUserOid);
 
         if ($chat && isset($chat['id'])) {
             $this->pdb->query("UPDATE plug_incident_management_wb_events SET teams_chat_id = ? WHERE id = ?", [$chat['id'], $eventId]);
@@ -1263,10 +1296,10 @@ class EventManager {
 
     private function syncTeamsChatMembers($eventId, $departmentId) {
         if ($this->getDefault('teams_enabled') === '0') return;
-        if (!$this->auth || !method_exists($this->auth, 'getAccessToken')) return;
 
-        $accessToken = $this->auth->getAccessToken();
-        if (!$accessToken) return;
+        $sso = $this->getSSO();
+        $accessToken = $this->getAccessToken();
+        if (!$sso || !$accessToken) return;
 
         $event = $this->getEvent($eventId);
         if (!$event || empty($event['teams_chat_id'])) return;
@@ -1275,7 +1308,6 @@ class EventManager {
         $dept = $stmt->fetch();
         $deptGroupId = $dept['azure_group_id'] ?? null;
 
-        $sso = $this->auth->getSSO();
         $members = [];
 
         if ($deptGroupId) {
@@ -1296,15 +1328,16 @@ class EventManager {
 
     private function postCardToTeamsChat($eventId, $card) {
         if ($this->getDefault('teams_enabled') === '0') return;
-        if (!$this->auth || !method_exists($this->auth, 'getAccessToken')) return;
-        $accessToken = $this->auth->getAccessToken();
-        if (!$accessToken) return;
+
+        $sso = $this->getSSO();
+        $accessToken = $this->getAccessToken();
+        if (!$sso || !$accessToken) return;
 
         $stmt = $this->pdb->query("SELECT teams_chat_id FROM plug_incident_management_wb_events WHERE id = ?", [$eventId]);
         $event = $stmt->fetch();
         if (!$event || empty($event['teams_chat_id'])) return;
 
-        $this->auth->getSSO()->sendAdaptiveCardToChat($accessToken, $event['teams_chat_id'], $card);
+        $sso->sendAdaptiveCardToChat($accessToken, $event['teams_chat_id'], $card);
     }
 
     // --- OTRS Integration ---
