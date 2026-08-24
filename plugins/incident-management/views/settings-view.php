@@ -101,6 +101,7 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     <span class="badge bg-secondary"><?= ($defaults['otrs_enabled'] ?? '0') === '1' ? 'Enabled' : 'Disabled' ?></span>
                 </div>
                 <div class="card-body">
+                    <h6 class="fw-bold text-primary mb-2 small"><i class="fa-solid fa-gears me-1"></i>OTRS API Ticket & Article Defaults</h6>
                     <div class="row g-3 mb-3 border-bottom pb-3">
                         <div class="col-md-3">
                             <label class="form-label fw-bold small">Enable OTRS Integration</label>
@@ -109,22 +110,41 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                                 <option value="0" <?= ($defaults['otrs_enabled'] ?? '0') === '0' ? 'selected' : '' ?>>Disabled</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-5">
                             <label class="form-label fw-bold small">OTRS API Base URL</label>
-                            <input type="text" name="settings[otrs_url]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_url'] ?? '') ?>" placeholder="https://otrs.example.com/api/v1">
+                            <input type="text" name="settings[otrs_url]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_url'] ?? '') ?>" placeholder="https://otrs.example.com/otrs/nph-genericinterface.pl/Webservice/GenericInterface">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label fw-bold small">OTRS API Key</label>
                             <input type="password" name="settings[otrs_key]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_key'] ?? '') ?>" placeholder="API Key">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-bold small">OTRS Ticket Queue</label>
-                            <input type="text" name="settings[otrs_queue]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_queue'] ?? 'Raw') ?>" placeholder="e.g. Raw or Queue ID">
                         </div>
                     </div>
 
                     <div class="row g-3 mb-3 border-bottom pb-3">
-                        <div class="col-md-12">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">OTRS Ticket Queue</label>
+                            <input type="text" name="settings[otrs_queue]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_queue'] ?? 'Raw') ?>" placeholder="e.g. Raw or Queue ID">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">Default Ticket Type</label>
+                            <input type="text" name="settings[otrs_type]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_type'] ?? 'Unclassified') ?>" placeholder="e.g. Unclassified">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">Default Ticket State</label>
+                            <input type="text" name="settings[otrs_state]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_state'] ?? 'new') ?>" placeholder="e.g. new">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">Default Priority</label>
+                            <input type="text" name="settings[otrs_priority]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_priority'] ?? '3 normal') ?>" placeholder="e.g. 3 normal">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3 border-bottom pb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Default Agent User ID</label>
+                            <input type="text" name="settings[otrs_user_id]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_user_id'] ?? '1') ?>" placeholder="Default User ID for API">
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label fw-bold small">Default Customer User</label>
                             <input type="text" name="settings[otrs_customer_user]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['otrs_customer_user'] ?? 'customer@example.com') ?>">
                         </div>

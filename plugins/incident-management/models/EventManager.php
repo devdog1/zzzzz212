@@ -48,11 +48,11 @@ class EventManager {
                             'url' => $otrsUrl,
                             'key' => $otrsKey,
                             'default' => [
-                                'type' => $config['api']['otrs']['default']['type'] ?? '',
+                                'type' => $this->getDefault('otrs_type') ?: ($config['api']['otrs']['default']['type'] ?? 'Unclassified'),
                                 'queue' => $this->getDefault('otrs_queue') ?: ($config['api']['otrs']['default']['queue'] ?? 'Raw'),
-                                'priority' => $config['api']['otrs']['default']['priority'] ?? '',
-                                'state' => $config['api']['otrs']['default']['state'] ?? '',
-                                'userID' => $config['api']['otrs']['default']['userID'] ?? ''
+                                'priority' => $this->getDefault('otrs_priority') ?: ($config['api']['otrs']['default']['priority'] ?? '3 normal'),
+                                'state' => $this->getDefault('otrs_state') ?: ($config['api']['otrs']['default']['state'] ?? 'new'),
+                                'userID' => $this->getDefault('otrs_user_id') ?: ($config['api']['otrs']['default']['userID'] ?? '1')
                             ]
                         ]
                     ]
@@ -113,8 +113,12 @@ class EventManager {
 
         $defaultSettings = [
             'otrs_queue' => ['Raw', 'OTRS Queue Name or Queue ID for new ticket creation'],
-            'otrs_url' => ['', 'OTRS API URL'],
+            'otrs_url' => ['', 'OTRS API Base URL'],
             'otrs_key' => ['', 'OTRS API Key'],
+            'otrs_type' => ['Unclassified', 'OTRS Default Ticket Type'],
+            'otrs_state' => ['new', 'OTRS Default Ticket State'],
+            'otrs_priority' => ['3 normal', 'OTRS Default Ticket Priority'],
+            'otrs_user_id' => ['1', 'OTRS Default User ID / Agent ID for ticket creation'],
             'teams_enabled' => ['1', 'Enable Microsoft Teams integration and chat creation (0 or 1)']
         ];
 
@@ -1354,7 +1358,7 @@ class EventManager {
                     $res['ticketnr'],
                     $eventId
                 ]);
-                $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_CREATED', null, $res);
+                $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_CREATED', null, array_merge(['url' => $this->getDefault('otrs_url')], (array)$res));
 
                 $body = "<div style='font-family:sans-serif; border:2px solid #dc3545; border-radius:8px; padding:20px;'>\r\n";
                 $body .= "<h2 style='color:#dc3545; margin-top:0; border-bottom:3px solid #dc3545; padding-bottom:10px;'>New Incident Reported</h2>\r\n";
@@ -1389,11 +1393,12 @@ class EventManager {
                 $this->addOTRSArticle($eventId, "Initial Incident Details", $body);
             } else {
                 $errDetails = is_array($res) ? $res : ['error' => 'Unknown OTRS API Error'];
+                $errDetails['url'] = $this->getDefault('otrs_url');
                 $this->lastError = "OTRS Ticket Creation Failed: " . ($errDetails['error'] ?? 'API Error');
                 $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_FAILED', null, $errDetails);
             }
         } catch (Exception $e) {
-            $errDetails = ['error' => $e->getMessage()];
+            $errDetails = ['error' => $e->getMessage(), 'url' => $this->getDefault('otrs_url')];
             $this->lastError = "OTRS integration exception: " . $e->getMessage();
             $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_FAILED', null, $errDetails);
         }
@@ -1467,13 +1472,14 @@ class EventManager {
 
             $res = $this->otrs->createArticle($params);
             if ($res && isset($res['articleid'])) {
-                $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_ARTICLE_CREATED', null, ['article_id' => $res['articleid']]);
+                $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_ARTICLE_CREATED', null, array_merge(['url' => $this->getDefault('otrs_url')], (array)$res));
             } else {
                 $errDetails = is_array($res) ? $res : ['error' => 'Unknown OTRS Article API Error'];
+                $errDetails['url'] = $this->getDefault('otrs_url');
                 $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_ARTICLE_FAILED', null, $errDetails);
             }
         } catch (Exception $e) {
-            $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_ARTICLE_FAILED', null, ['error' => $e->getMessage()]);
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_ARTICLE_FAILED', null, ['error' => $e->getMessage(), 'url' => $this->getDefault('otrs_url')]);
         }
     }
 }

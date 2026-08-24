@@ -414,16 +414,25 @@ function formatDurationLocal($seconds) {
                                                     <?php elseif ($action === 'OTRS_TICKET_FAILED'): ?>
                                                         <div class="text-danger fw-bold"><i class="fa-solid fa-triangle-exclamation me-1"></i>OTRS Ticket Creation Failed</div>
                                                         <div class="text-secondary">Error: <?= htmlspecialchars($new['error'] ?? 'API Error') ?></div>
+                                                        <?php if (!empty($new['url'])): ?><div>API URL: <code><?= htmlspecialchars($new['url']) ?></code></div><?php endif; ?>
                                                         <?php if (!empty($new['http_code'])): ?><div>HTTP Status: <code><?= htmlspecialchars($new['http_code']) ?></code></div><?php endif; ?>
                                                         <?php if (!empty($new['curl_error'])): ?><div>cURL Error: <code><?= htmlspecialchars($new['curl_error']) ?></code></div><?php endif; ?>
+                                                        <?php if (!empty($new['response'])): ?><div class="text-muted text-break mt-1" style="font-size:0.65rem;">Raw Response: <code><?= htmlspecialchars($new['response']) ?></code></div><?php endif; ?>
 
                                                     <?php elseif ($action === 'OTRS_TICKET_CREATED'): ?>
                                                         <div class="text-success fw-bold"><i class="fa-solid fa-circle-check me-1"></i>OTRS Ticket Created</div>
                                                         <div>Ticket #: <strong><?= htmlspecialchars($new['ticketnr'] ?? ($new['ticket_nr'] ?? 'N/A')) ?></strong> (ID: <?= htmlspecialchars($new['ticketid'] ?? ($new['ticket_id'] ?? 'N/A')) ?>)</div>
+                                                        <?php if (!empty($new['url'])): ?><div>API URL: <code><?= htmlspecialchars($new['url']) ?></code></div><?php endif; ?>
 
                                                     <?php elseif ($action === 'OTRS_ARTICLE_FAILED'): ?>
                                                         <div class="text-warning fw-bold"><i class="fa-solid fa-triangle-exclamation me-1"></i>OTRS Article Creation Failed</div>
                                                         <div class="text-secondary">Error: <?= htmlspecialchars($new['error'] ?? 'API Error') ?></div>
+                                                        <?php if (!empty($new['url'])): ?><div>API URL: <code><?= htmlspecialchars($new['url']) ?></code></div><?php endif; ?>
+                                                        <?php if (!empty($new['response'])): ?><div class="text-muted text-break mt-1" style="font-size:0.65rem;">Raw Response: <code><?= htmlspecialchars($new['response']) ?></code></div><?php endif; ?>
+
+                                                    <?php elseif ($action === 'OTRS_ARTICLE_CREATED'): ?>
+                                                        <div class="text-success fw-bold"><i class="fa-solid fa-file-circle-check me-1"></i>OTRS Article Created</div>
+                                                        <?php if (!empty($new['url'])): ?><div>API URL: <code><?= htmlspecialchars($new['url']) ?></code></div><?php endif; ?>
 
                                                     <?php elseif ($action === 'CREATE'): ?>
                                                         <div class="text-primary fw-bold"><i class="fa-solid fa-asterisk me-1"></i>Incident Reported</div>
@@ -631,7 +640,7 @@ function updateCounters() {
         if (diffInSeconds < 0) text = "0s";
         else if (diffInSeconds < 60) text = diffInSeconds + "s";
         else if (diffInSeconds < 3600) text = Math.floor(diffInSeconds / 60) + "m";
-        else text = Math.floor(diffInSeconds / 3600) + "h " + Math.floor((diffInSeconds % 3600) / 60) + "m";
+        else text = Math.floor(diffInSeconds / 3600) + "h " . Math.floor((diffInSeconds % 3600) / 60) + "m";
 
         const creationSpan = box.querySelector('.creation-counter');
         const stateSpan = box.querySelector('.state-counter');
