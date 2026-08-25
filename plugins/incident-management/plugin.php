@@ -72,39 +72,113 @@ PluginManager::getInstance()->addAction('index_dashboard_widgets', function ($us
         return;
     }
 
+    $activeCount = 0;
+    $totalImpact = 0;
+    $assignedTickets = [];
+    $OTRSTicketLink = '#';
+
     try {
         $em = new EventManager($userContext['display_name'] ?? 'system');
         $activeEvents = $em->listEvents(false);
         $activeCount = count($activeEvents);
         $stats = $em->getStatistics();
         $totalImpact = $stats['total_impact'] ?? 0;
+
+        $OTRSTicketLink = $em->getDefault('otrs_ticket_link') ?: '#';
+        $userEmail = $_SESSION['user']['email'] ?? ($userContext['username'] ?? '');
+
+        $otrsDB = $em->getOTRSDB();
+        if ($otrsDB && $otrsDB->isConnected() && !empty($userEmail)) {
+            $assignedTickets = $otrsDB->getUserAssignedTickets($userEmail);
+        }
     } catch (Throwable $e) {
-        $activeCount = 0;
-        $totalImpact = 0;
+        // Fallback for errors
     }
+
+    $badgeStatus = function(string $value): string {
+        $v = strtolower($value);
+        if (str_contains($v, 'open')) return 'bg-danger';
+        if (str_contains($v, 'progress')) return 'bg-warning text-dark';
+        if (str_contains($v, 'closed') || str_contains($v, 'successful')) return 'bg-success';
+        if (str_contains($v, 'approved')) return 'bg-primary';
+        return 'bg-secondary';
+    };
     ?>
     <div class="col-md-6 col-lg-4">
-        <div class="card shadow-sm border-start border-5 border-danger text-start">
-            <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <div>
-                        <h6 class="card-title fw-bold mb-0 text-dark">Active Incidents</h6>
-                        <small class="text-muted">Incident Management System</small>
+        <div class="card shadow-sm border-start border-5 border-danger text-start h-100">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div>
+                            <h6 class="card-title fw-bold mb-0 text-dark">Active Incidents</h6>
+                            <small class="text-muted">Incident Management System</small>
+                        </div>
+                        <div class="bg-danger-subtle rounded-circle p-2 text-center" style="width: 45px; height: 45px;">
+                            <i class="fa-solid fa-triangle-exclamation text-danger fs-4"></i>
+                        </div>
                     </div>
-                    <div class="bg-danger-subtle rounded-circle p-2 text-center" style="width: 45px; height: 45px;">
-                        <i class="fa-solid fa-triangle-exclamation text-danger fs-4"></i>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fs-3 fw-bold text-danger"><?= $activeCount ?></span>
+                        <span class="badge bg-secondary">Impact Score: <?= number_format($totalImpact) ?></span>
                     </div>
                 </div>
-                <hr class="my-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="fs-3 fw-bold text-danger"><?= $activeCount ?></span>
-                    <span class="badge bg-secondary">Impact Score: <?= number_format($totalImpact) ?></span>
-                </div>
-                <div class="mt-2 text-end">
+                <div class="text-end mt-2">
                     <a href="<?= url_for('incident_active') ?>" class="btn btn-sm btn-outline-danger">
                         <i class="fa-solid fa-fire me-1"></i>View Dashboard
                     </a>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Assigned Open Tickets (OTRS) Widget -->
+    <div class="col-md-6 col-lg-8">
+        <div class="card shadow-sm border text-start h-100">
+            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center py-2">
+                <span class="fw-bold"><i class="fa-solid fa-user-check me-2"></i>My Assigned Open Tickets (OTRS)</span>
+                <span class="badge bg-dark text-white"><?= count($assignedTickets) ?></span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 250px;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ticket Title</th>
+                                <th>Number</th>
+                                <th>Updated</th>
+                                <th>Queue</th>
+                                <th>Status</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($assignedTickets)): ?>
+                                <tr><td colspan="6" class="text-center text-muted py-4 small">No open tickets currently assigned to you.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($assignedTickets as $ticket): ?>
+                                    <tr>
+                                        <td class="fw-bold text-dark small"><?= htmlspecialchars($ticket['tickettitle']) ?></td>
+                                        <td><code><?= htmlspecialchars($ticket['ticketnumber']) ?></code></td>
+                                        <td><small class="text-muted"><?= humanTime(strtotime($ticket['changetime'])) ?></small></td>
+                                        <td><small><?= htmlspecialchars($ticket['queuename']) ?></small></td>
+                                        <td><span class="badge <?= $badgeStatus($ticket['statetype']) ?>"><?= htmlspecialchars($ticket['statetype']) ?></span></td>
+                                        <td class="text-end">
+                                            <a class="btn btn-xs btn-outline-primary btn-sm" target="_blank" href="<?= $OTRSTicketLink . $ticket['ticketid'] ?>">
+                                                <i class="fa-solid fa-external-link me-1"></i>Open
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-light p-2 text-end">
+                <a href="<?= url_for('incident_overview') ?>" class="btn btn-sm btn-outline-secondary">
+                    <i class="fa-solid fa-network-wired me-1"></i>Network Overview
+                </a>
             </div>
         </div>
     </div>
