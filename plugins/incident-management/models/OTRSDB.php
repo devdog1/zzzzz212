@@ -190,4 +190,28 @@ class OTRSDB
 
         return $this->query($sql);
     }
+
+    public function getUserAssignedTickets(string $userEmail): array
+    {
+        $login = explode('@', $userEmail)[0] ?? $userEmail;
+        if (empty($login)) {
+            return [];
+        }
+
+        $sql = "
+        SELECT t.title AS tickettitle, t.tn AS ticketnumber, q.name AS queuename,
+               tt.name AS tickettype, ts.name AS statetype,
+               t.create_time AS createtime, t.change_time AS changetime, t.id AS ticketid,
+               t.responsible_user_id AS responsible_user_id
+        FROM ticket t
+        INNER JOIN users u ON t.responsible_user_id = u.id
+        INNER JOIN queue q ON t.queue_id = q.id
+        LEFT JOIN ticket_type tt ON t.type_id = tt.id
+        LEFT JOIN ticket_state ts ON t.ticket_state_id = ts.id
+        WHERE u.login = :login
+          AND t.ticket_state_id IN (1, 4, 6, 7, 8)
+        ORDER BY t.change_time DESC";
+
+        return $this->query($sql, ['login' => $login]);
+    }
 }

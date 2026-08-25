@@ -13,7 +13,10 @@ $currentTime = time();
 $problems = [];
 $maint = [];
 $changes = [];
+$assignedTickets = [];
 $otrsError = null;
+
+$userEmail = $_SESSION['user']['email'] ?? ($_SESSION['user']['username'] ?? '');
 
 $OTRSTicketLink = $em->getDefault('otrs_ticket_link') ?: '#';
 $OTRSChangeLink = $em->getDefault('otrs_change_link') ?: '#';
@@ -24,6 +27,9 @@ try {
         $problems = $otrsDB->getProblemTickets();
         $maint    = $otrsDB->getMaintTickets();
         $changes  = $otrsDB->getChangeOverview();
+        if (!empty($userEmail)) {
+            $assignedTickets = $otrsDB->getUserAssignedTickets($userEmail);
+        }
     } else {
         $otrsError = "OTRS Database connection not configured or unreachable. Check OTRS DB host/credentials in Incident Settings.";
     }
@@ -61,7 +67,15 @@ function badgeStatus(string $value): string
 
 <!-- Summary Cards -->
 <div class="row g-4 mb-4 text-start">
-    <div class="col-md-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-5 border-warning bg-light">
+            <div class="card-body">
+                <div class="small text-muted mb-1 fw-bold">My Assigned Tickets</div>
+                <div class="fs-2 fw-bold text-warning"><?= count($assignedTickets) ?></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
         <div class="card shadow-sm border-start border-5 border-danger bg-light">
             <div class="card-body">
                 <div class="small text-muted mb-1 fw-bold">Open OTRS Problems</div>
@@ -69,7 +83,7 @@ function badgeStatus(string $value): string
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card shadow-sm border-start border-5 border-primary bg-light">
             <div class="card-body">
                 <div class="small text-muted mb-1 fw-bold">Upcoming Changes</div>
@@ -77,12 +91,55 @@ function badgeStatus(string $value): string
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card shadow-sm border-start border-5 border-secondary bg-light">
             <div class="card-body">
                 <div class="small text-muted mb-1 fw-bold">Maintenance Tickets</div>
                 <div class="fs-2 fw-bold text-secondary"><?= count($maint) ?></div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- My Assigned Open Tickets Table Widget -->
+<div class="card shadow-sm border mb-4 text-start">
+    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center py-2">
+        <span class="fw-bold"><i class="fa-solid fa-user-check me-2"></i>My Assigned Open Tickets (OTRS)</span>
+        <span class="badge bg-dark text-white"><?= count($assignedTickets) ?></span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Ticket Title</th>
+                        <th>Number</th>
+                        <th>Updated</th>
+                        <th>Queue</th>
+                        <th>Status</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($assignedTickets)): ?>
+                        <tr><td colspan="6" class="text-center text-muted py-4 small">No open tickets currently assigned to you.</td></tr>
+                    <?php endif; ?>
+                    <?php foreach ($assignedTickets as $ticket): ?>
+                        <tr>
+                            <td class="fw-bold text-dark"><?= htmlspecialchars($ticket['tickettitle']) ?></td>
+                            <td><code><?= htmlspecialchars($ticket['ticketnumber']) ?></code></td>
+                            <td><small class="text-muted"><?= humanTime(strtotime($ticket['changetime'])) ?></small></td>
+                            <td><?= htmlspecialchars($ticket['queuename']) ?></td>
+                            <td><span class="badge <?= badgeStatus($ticket['statetype']) ?>"><?= htmlspecialchars($ticket['statetype']) ?></span></td>
+                            <td class="text-end">
+                                <a class="btn btn-xs btn-outline-primary btn-sm" target="_blank" href="<?= $OTRSTicketLink . $ticket['ticketid'] ?>">
+                                    <i class="fa-solid fa-external-link me-1"></i>Open
+                                </a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
