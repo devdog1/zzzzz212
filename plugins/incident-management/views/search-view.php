@@ -18,6 +18,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && count($_GET) > 1) {
 $departments = $em->listDepartments();
 $types = $em->listTypes();
 $states = $em->listStates();
+
+// Handle CSV Export
+if (isset($_GET['export']) && $_GET['export'] === 'csv' && $results !== null) {
+    if (ob_get_length()) ob_clean();
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=incident_search_results_' . date('Y-m-d_H-i-s') . '.csv');
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['ID', 'Title', 'Created', 'Type', 'Status', 'Department', 'Customers Affected', 'Ticket NR', 'Description']);
+    foreach ($results as $r) {
+        fputcsv($output, [
+            $r['id'],
+            $r['title'] ?: 'Incident #' . $r['id'],
+            $r['create_time'],
+            $r['type_name'] ?? '',
+            $r['state_name'] ?? '',
+            $r['department_name'] ?? '',
+            $r['customers_affected'] ?? 0,
+            $r['ticket_nr'] ?? '',
+            $r['description'] ?? ''
+        ]);
+    }
+    fclose($output);
+    exit;
+}
 ?>
 
 <div class="row mb-4">
@@ -113,6 +137,16 @@ $states = $em->listStates();
         <?php if (empty($results)): ?>
             <div class="alert alert-info shadow-sm"><i class="fa-solid fa-circle-info me-2"></i>No incidents matched your search criteria.</div>
         <?php else: ?>
+            <div class="mb-3 text-end">
+                <?php
+                $csvParams = $_GET;
+                $csvParams['export'] = 'csv';
+                $csvUrl = 'index.php?' . http_build_query($csvParams);
+                ?>
+                <a href="<?= $csvUrl ?>" class="btn btn-sm btn-success fw-bold">
+                    <i class="fa-solid fa-file-csv me-1"></i>Export Search Results to CSV
+                </a>
+            </div>
             <div class="table-responsive bg-white shadow-sm border rounded">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">

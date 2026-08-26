@@ -22,6 +22,19 @@ $reportNames = [
     'location'       => 'Incidents by Location (Area)',
     'tag_usage'      => 'Tag Popularity'
 ];
+
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    if (ob_get_length()) ob_clean();
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=incident_report_' . $reportType . '_' . date('Y-m-d') . '.csv');
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['Category / Label', 'Value']);
+    foreach ($reportData as $row) {
+        fputcsv($output, [$row['label'], $row['value']]);
+    }
+    fclose($output);
+    exit;
+}
 ?>
 
 <div class="row mb-4 text-start">
@@ -69,7 +82,15 @@ $reportNames = [
         <div class="card shadow-sm border">
             <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
                 <h5 class="mb-0 fs-6 fw-bold text-dark"><i class="fa-solid fa-table me-2 text-primary"></i><?= $reportNames[$reportType] ?? 'Report' ?></h5>
-                <span class="badge bg-secondary"><?= count($reportData) ?> Rows</span>
+                <div>
+                    <?php
+                    $csvParams = $_GET;
+                    $csvParams['export'] = 'csv';
+                    $csvUrl = 'index.php?' . http_build_query($csvParams);
+                    ?>
+                    <a href="<?= $csvUrl ?>" class="btn btn-xs btn-success me-2 fw-bold"><i class="fa-solid fa-file-csv me-1"></i>CSV Export</a>
+                    <span class="badge bg-secondary"><?= count($reportData) ?> Rows</span>
+                </div>
             </div>
             <div class="card-body p-0">
                 <?php if (empty($reportData)): ?>

@@ -48,16 +48,69 @@ function badgeStatus(string $value): string
 }
 ?>
 
-<div class="row mb-4 text-start">
-    <div class="col-md-8">
+<div class="row mb-4 text-start align-items-center">
+    <div class="col-md-7">
         <h1 class="h2"><i class="fa-solid fa-network-wired text-primary me-2"></i>Network & OTRS Operational Overview</h1>
-        <p class="text-muted">Live operational status dashboard, problem tickets, and scheduled maintenance windows queried from OTRS DB.</p>
+        <p class="text-muted mb-0">Live operational status dashboard, problem tickets, and scheduled maintenance windows queried from OTRS DB.</p>
     </div>
-    <div class="col-md-4 text-end align-self-center">
-        <small class="text-muted d-block">Last Status Refresh</small>
-        <span class="fw-bold text-dark"><i class="fa-solid fa-clock me-1"></i><?= date('Y-m-d H:i:s') ?></span>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-column align-items-md-end justify-content-center">
+        <div class="d-inline-flex align-items-center bg-light border p-2 rounded shadow-sm mb-1">
+            <i class="fa-solid fa-desktop me-2 text-primary"></i>
+            <span class="small fw-bold me-2">Wallboard Auto-Refresh:</span>
+            <select id="overviewRefreshInterval" class="form-select form-select-sm me-2" style="width: auto;" onchange="toggleOverviewRefresh(this.value)">
+                <option value="off">Off</option>
+                <option value="30">30s</option>
+                <option value="60">60s</option>
+            </select>
+            <span id="overviewRefreshCountdown" class="badge bg-secondary font-monospace" style="display:none;">30s</span>
+        </div>
+        <div>
+            <small class="text-muted me-1">Refreshed:</small>
+            <span class="fw-bold text-dark small"><i class="fa-solid fa-clock me-1"></i><?= date('Y-m-d H:i:s') ?></span>
+        </div>
     </div>
 </div>
+
+<script>
+let overviewRefreshTimer = null;
+let overviewCountdownSecs = 0;
+
+function toggleOverviewRefresh(val) {
+    if (overviewRefreshTimer) clearInterval(overviewRefreshTimer);
+    const badge = document.getElementById('overviewRefreshCountdown');
+
+    if (val === 'off') {
+        badge.style.display = 'none';
+        localStorage.removeItem('overview_wallboard_refresh');
+        return;
+    }
+
+    localStorage.setItem('overview_wallboard_refresh', val);
+    overviewCountdownSecs = parseInt(val, 10);
+    badge.style.display = 'inline-block';
+    badge.textContent = overviewCountdownSecs + 's';
+
+    overviewRefreshTimer = setInterval(() => {
+        overviewCountdownSecs--;
+        if (overviewCountdownSecs <= 0) {
+            location.reload();
+        } else {
+            badge.textContent = overviewCountdownSecs + 's';
+        }
+    }, 1000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('overview_wallboard_refresh');
+    if (saved && saved !== 'off') {
+        const sel = document.getElementById('overviewRefreshInterval');
+        if (sel) {
+            sel.value = saved;
+            toggleOverviewRefresh(saved);
+        }
+    }
+});
+</script>
 
 <?php if ($otrsError): ?>
     <div class="alert alert-warning shadow-sm text-start mb-4">

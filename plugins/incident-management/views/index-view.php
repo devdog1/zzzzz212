@@ -60,10 +60,22 @@ function formatDurationLocal($seconds) {
     .pill .remove:hover { color: #ffc107; }
 </style>
 
-<div class="row mb-4">
-    <div class="col-md-12 text-start">
+<div class="row mb-4 align-items-center">
+    <div class="col-md-7 text-start">
         <h1 class="h2"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Active Incident Management</h1>
-        <p class="text-muted">Track active incidents, manage updates, state transitions, NetBox circuits, and external communications.</p>
+        <p class="text-muted mb-0">Track active incidents, manage updates, state transitions, NetBox circuits, and external communications.</p>
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0">
+        <div class="d-inline-flex align-items-center bg-light border p-2 rounded shadow-sm">
+            <i class="fa-solid fa-desktop me-2 text-primary"></i>
+            <span class="small fw-bold me-2">Wallboard Auto-Refresh:</span>
+            <select id="autoRefreshInterval" class="form-select form-select-sm me-2" style="width: auto;" onchange="toggleAutoRefresh(this.value)">
+                <option value="off">Off</option>
+                <option value="30">30s</option>
+                <option value="60">60s</option>
+            </select>
+            <span id="refreshCountdown" class="badge bg-secondary font-monospace" style="display:none;">30s</span>
+        </div>
     </div>
 </div>
 
@@ -158,7 +170,17 @@ function formatDurationLocal($seconds) {
 
     <!-- Active Events List -->
     <div class="col-md-8">
-        <h4 class="mb-3 fw-bold text-dark"><i class="fa-solid fa-fire text-danger me-2"></i>Active Incidents (<?= count($events) ?>)</h4>
+        <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
+            <h4 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-fire text-danger me-2"></i>Active Incidents (<?= count($events) ?>)</h4>
+            <!-- Quick Filter Chips -->
+            <div class="btn-group btn-group-sm" role="group" id="incidentFilterGroup">
+                <button type="button" class="btn btn-outline-dark active" onclick="filterIncidents('all', this)">All</button>
+                <?php foreach ($departments as $d): ?>
+                    <button type="button" class="btn btn-outline-primary" onclick="filterIncidents('dept-<?= $d['id'] ?>', this)"><?= htmlspecialchars($d['name']) ?></button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
         <?php if (empty($events)): ?>
             <div class="alert alert-success shadow-sm"><i class="fa-solid fa-circle-check me-2"></i>No active incidents currently reported. System normal!</div>
         <?php else: ?>
@@ -168,7 +190,7 @@ function formatDurationLocal($seconds) {
                     $lastState = end($history);
                     $stateEnterTime = $lastState ? $lastState['enter_time'] : $e['create_time'];
                 ?>
-                    <div class="card shadow-sm mb-3 border">
+                    <div class="card shadow-sm mb-3 border incident-card dept-<?= $e['department_id'] ?>">
                         <div class="card-header card-header-clickable bg-white d-flex justify-content-between align-items-center py-2"
                              data-bs-toggle="collapse" data-bs-target="#collapse-<?= $e['id'] ?>">
                             <span>
@@ -359,6 +381,14 @@ function formatDurationLocal($seconds) {
                                             <input type="hidden" name="action" value="add_update">
                                             <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
                                             <div class="col-12">
+                                                <select class="form-select form-select-sm mb-2 text-muted" onchange="if(this.value){ this.form.update_text.value = this.value; }">
+                                                    <option value="">-- 1-Click Update Presets --</option>
+                                                    <option value="Investigating root cause with upstream engineering teams.">Investigating root cause with upstream engineering teams.</option>
+                                                    <option value="Mitigation applied - monitoring network & service stability.">Mitigation applied - monitoring network & service stability.</option>
+                                                    <option value="Issue identified - emergency fix deployment in progress.">Issue identified - emergency fix deployment in progress.</option>
+                                                    <option value="Service fully restored - verifying customer impact & starting post-mortem.">Service fully restored - verifying customer impact & starting post-mortem.</option>
+                                                    <option value="External customer communications and status advisory dispatched.">External customer communications and status advisory dispatched.</option>
+                                                </select>
                                                 <textarea name="update_text" class="form-control form-control-sm" placeholder="Post new status update..." rows="3" required></textarea>
                                             </div>
                                             <?php if($em->getDefault('netbox_enabled') === '1'): ?>
@@ -666,4 +696,60 @@ function updateCounters() {
 }
 setInterval(updateCounters, 1000);
 updateCounters();
+
+function filterIncidents(filterClass, btn) {
+    document.querySelectorAll('#incidentFilterGroup .btn').forEach(b => b.classList.remove('active', 'btn-dark'));
+    document.querySelectorAll('#incidentFilterGroup .btn-outline-primary, #incidentFilterGroup .btn-outline-dark').forEach(b => {
+        if (b !== btn) b.classList.remove('active');
+    });
+    btn.classList.add('active');
+
+    const cards = document.querySelectorAll('.incident-card');
+    cards.forEach(card => {
+        if (filterClass === 'all' || card.classList.contains(filterClass)) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+let refreshTimer = null;
+let countdownSecs = 0;
+
+function toggleAutoRefresh(val) {
+    if (refreshTimer) clearInterval(refreshTimer);
+    const badge = document.getElementById('refreshCountdown');
+
+    if (val === 'off') {
+        badge.style.display = 'none';
+        localStorage.removeItem('incident_wallboard_refresh');
+        return;
+    }
+
+    localStorage.setItem('incident_wallboard_refresh', val);
+    countdownSecs = parseInt(val, 10);
+    badge.style.display = 'inline-block';
+    badge.textContent = countdownSecs + 's';
+
+    refreshTimer = setInterval(() => {
+        countdownSecs--;
+        if (countdownSecs <= 0) {
+            location.reload();
+        } else {
+            badge.textContent = countdownSecs + 's';
+        }
+    }, 1000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('incident_wallboard_refresh');
+    if (saved && saved !== 'off') {
+        const sel = document.getElementById('autoRefreshInterval');
+        if (sel) {
+            sel.value = saved;
+            toggleAutoRefresh(saved);
+        }
+    }
+});
 </script>

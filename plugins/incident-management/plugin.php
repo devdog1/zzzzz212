@@ -123,9 +123,12 @@ PluginManager::getInstance()->addAction('index_dashboard_widgets', function ($us
                         <span class="badge bg-secondary">Impact Score: <?= number_format($totalImpact) ?></span>
                     </div>
                 </div>
-                <div class="text-end mt-2">
-                    <a href="<?= url_for('incident_active') ?>" class="btn btn-sm btn-outline-danger">
-                        <i class="fa-solid fa-fire me-1"></i>View Dashboard
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <a href="<?= url_for('incident_active') ?>" class="btn btn-sm btn-danger fw-bold">
+                        <i class="fa-solid fa-plus-circle me-1"></i>+ Report Incident
+                    </a>
+                    <a href="<?= url_for('incident_active') ?>" class="btn btn-sm btn-outline-secondary">
+                        <i class="fa-solid fa-fire me-1"></i>View Active
                     </a>
                 </div>
             </div>
