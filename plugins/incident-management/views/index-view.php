@@ -17,7 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($_POST['action'] === 'create_event') {
             $em->createEvent($_POST);
         } elseif ($_POST['action'] === 'add_update') {
-            $em->addEventUpdate($_POST['event_id'], $_POST['update_text'], isset($_POST['message_external']));
+            $customMsg = !empty($_POST['custom_external_message']) ? $_POST['custom_external_message'] : null;
+            $em->addEventUpdate($_POST['event_id'], $_POST['update_text'], isset($_POST['message_external']), $customMsg);
         } elseif ($_POST['action'] === 'update_metadata') {
             $em->updateEvent($_POST['event_id'], $_POST);
         }
@@ -25,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$slaThresholdMinutes = (int)($em->getDefault('sla_threshold_minutes') ?: 30);
 $events = $em->listEvents(false);
 $departments = $em->listDepartments();
 $types = $em->listTypes();
@@ -82,6 +84,28 @@ function formatDurationLocal($seconds) {
 <?php if ($emError): ?>
     <div class="alert alert-danger alert-dismissible fade show mb-4 shadow-sm text-start" role="alert">
         <i class="fa-solid fa-circle-exclamation me-2"></i><strong>System Error:</strong> <?= htmlspecialchars($emError) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
+<?php
+$maintBannerChanges = [];
+try {
+    $otrsDB = $em->getOTRSDB();
+    if ($otrsDB && $otrsDB->isConnected()) {
+        $maintBannerChanges = $otrsDB->getChangeOverview();
+    }
+} catch (Throwable $e) {}
+
+if (!empty($maintBannerChanges)): ?>
+    <div class="alert alert-warning alert-dismissible fade show shadow-sm text-start mb-4 border-start border-4 border-warning" role="alert">
+        <div class="d-flex align-items-center">
+            <i class="fa-solid fa-triangle-exclamation text-warning fs-3 me-3"></i>
+            <div>
+                <strong class="text-dark">Global Maintenance Advisory:</strong>
+                <span class="ms-1">There are currently <?= count($maintBannerChanges) ?> active or upcoming scheduled change window(s) in OTRS. Check <a href="<?= url_for('incident_overview') ?>" class="alert-link">Network Overview</a> for schedule details.</span>
+            </div>
+        </div>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 <?php endif; ?>
@@ -190,14 +214,24 @@ function formatDurationLocal($seconds) {
                     $lastState = end($history);
                     $stateEnterTime = $lastState ? $lastState['enter_time'] : $e['create_time'];
                 ?>
-                    <div class="card shadow-sm mb-3 border incident-card dept-<?= $e['department_id'] ?>">
+                    <?php
+                    $updatesForE = $em->getEventUpdates($e['id']);
+                    $lastUpdateObj = end($updatesForE);
+                    $lastUpdateTime = $lastUpdateObj ? strtotime($lastUpdateObj['create_time']) : strtotime($stateEnterTime);
+                    $minutesSinceUpdate = floor((time() - $lastUpdateTime) / 60);
+                    $isStaleSla = $minutesSinceUpdate >= $slaThresholdMinutes;
+                    ?>
+                    <div class="card shadow-sm mb-3 border <?= $isStaleSla ? 'border-danger border-2' : '' ?> incident-card dept-<?= $e['department_id'] ?>">
                         <div class="card-header card-header-clickable bg-white d-flex justify-content-between align-items-center py-2"
                              data-bs-toggle="collapse" data-bs-target="#collapse-<?= $e['id'] ?>">
                             <span>
                                 <span class="badge bg-secondary me-2">ID: #<?= $e['id'] ?></span>
                                 <strong class="text-dark me-2"><?= htmlspecialchars($e['title'] ?: 'Incident #' . $e['id']) ?></strong>
-                                <span class="badge bg-info text-dark"><?= htmlspecialchars($e['type_name'] ?? 'General') ?></span>
-                                <span class="badge bg-warning text-dark ms-2"><?= htmlspecialchars($e['state_name'] ?? 'Detected') ?></span>
+                                <span class="badge bg-info text-dark me-1"><?= htmlspecialchars($e['type_name'] ?? 'General') ?></span>
+                                <span class="badge bg-warning text-dark me-1"><?= htmlspecialchars($e['state_name'] ?? 'Detected') ?></span>
+                                <?php if ($isStaleSla): ?>
+                                    <span class="badge bg-danger me-1" title="No update for over <?= $slaThresholdMinutes ?> minutes"><i class="fa-solid fa-bell me-1"></i>SLA Stale (<?= $minutesSinceUpdate ?>m)</span>
+                                <?php endif; ?>
                                 <span class="counter-box" data-start-time="<?= $e['create_time'] ?>" title="Time since creation">
                                     Age: <span class="creation-counter">0s</span>
                                 </span>
@@ -392,10 +426,22 @@ function formatDurationLocal($seconds) {
                                                 <textarea name="update_text" class="form-control form-control-sm" placeholder="Post new status update..." rows="3" required></textarea>
                                             </div>
                                             <?php if($em->getDefault('netbox_enabled') === '1'): ?>
-                                            <div class="col-auto d-flex align-items-center">
-                                                <div class="form-check form-check-inline mb-0">
-                                                    <input class="form-check-input" type="checkbox" name="message_external" id="msgExt-<?= $e['id'] ?>">
-                                                    <label class="form-check-label small" for="msgExt-<?= $e['id'] ?>">Msg External</label>
+                                            <div class="col-12 mt-1">
+                                                <div class="form-check form-check-inline mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="message_external" id="msgExt-<?= $e['id'] ?>" onchange="document.getElementById('extMsgBox-<?= $e['id'] ?>').style.display = this.checked ? 'block' : 'none';">
+                                                    <label class="form-check-label small fw-bold text-primary" for="msgExt-<?= $e['id'] ?>">
+                                                        <i class="fa-solid fa-envelope me-1"></i>Msg External (Notify Circuit Tenants)
+                                                    </label>
+                                                </div>
+                                                <div id="extMsgBox-<?= $e['id'] ?>" class="bg-light p-2 border rounded mb-2 text-start" style="display:none;">
+                                                    <label class="small text-muted fw-bold mb-1">External Notification Content / Template Preset:</label>
+                                                    <select class="form-select form-select-sm mb-2" onchange="if(this.value){ document.getElementById('custExt-<?= $e['id'] ?>').value = this.value; }">
+                                                        <option value="">-- Use Internal Update Text OR Select External Template --</option>
+                                                        <option value="<?= htmlspecialchars($em->getDefault('external_email_template') ?: '') ?>">Template 1: Default</option>
+                                                        <option value="<?= htmlspecialchars($em->getDefault('external_email_template_2') ?: '') ?>">Template 2: Outage / Advisory</option>
+                                                        <option value="<?= htmlspecialchars($em->getDefault('external_email_template_3') ?: '') ?>">Template 3: Resolution</option>
+                                                    </select>
+                                                    <textarea name="custom_external_message" id="custExt-<?= $e['id'] ?>" class="form-control form-control-sm" rows="2" placeholder="Custom external message (leave blank to send internal update text)..."></textarea>
                                                 </div>
                                             </div>
                                             <?php endif; ?>

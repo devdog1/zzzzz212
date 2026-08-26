@@ -759,7 +759,7 @@ class EventManager {
 
     // --- Event Updates ---
 
-    public function addEventUpdate($eventId, $updateText, $messageExternal = false) {
+    public function addEventUpdate($eventId, $updateText, $messageExternal = false, $customExternalMessage = null) {
         if ($this->isEventClosed($eventId)) {
             return false;
         }
@@ -768,7 +768,8 @@ class EventManager {
             'event_id' => $eventId,
             'update_text' => $updateText,
             'create_user' => $this->currentUser,
-            'message_external' => $messageExternal
+            'message_external' => $messageExternal,
+            'custom_external_message' => $customExternalMessage
         ];
 
         $sql = "INSERT INTO plug_incident_management_event_updates (event_id, update_text, create_user) VALUES (?, ?, ?)";
@@ -778,7 +779,8 @@ class EventManager {
         $this->logAudit('plug_incident_management_event_updates', $updateId, 'CREATE', null, $data);
 
         if ($messageExternal) {
-            $this->sendExternalMessages($eventId, $updateText);
+            $externalContent = !empty($customExternalMessage) ? $customExternalMessage : $updateText;
+            $this->sendExternalMessages($eventId, $externalContent);
         }
 
         // Post to Teams Chat

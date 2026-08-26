@@ -54,6 +54,25 @@ if (method_exists(get_auth(), 'getAccessToken')) {
     <input type="hidden" name="action" value="update_defaults">
 
     <div class="row justify-content-center">
+        <!-- SLA & Escalation Settings -->
+        <div class="col-md-10 mb-4">
+            <div class="card shadow-sm border border-warning">
+                <div class="card-header bg-warning text-dark fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-bell me-2"></i>SLA Alerting & Escalation Thresholds</span>
+                    <span class="badge bg-dark text-white">Active</span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Stale Incident SLA Threshold (Minutes)</label>
+                            <input type="number" name="settings[sla_threshold_minutes]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['sla_threshold_minutes'] ?? '30') ?>" placeholder="30">
+                            <div class="form-text small">Highlights active incidents with a visual SLA warning badge if no updates or state changes occur within this timeframe.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Microsoft Teams Integration -->
         <div class="col-md-10 mb-4">
             <div class="card shadow-sm border">
@@ -212,9 +231,16 @@ if (method_exists(get_auth(), 'getAccessToken')) {
                     </div>
 
                     <div>
-                        <label class="form-label fw-bold small">External Email Notification Template</label>
-                        <textarea name="settings[external_email_template]" class="form-control form-control-sm" rows="3"><?= htmlspecialchars($defaults['external_email_template'] ?? '') ?></textarea>
-                        <div class="form-text small">Placeholders: <code>{circuit_cid}</code>, <code>{description}</code>, <code>{update_text}</code></div>
+                        <label class="form-label fw-bold small">External Email Notification Template #1 (Default)</label>
+                        <textarea name="settings[external_email_template]" class="form-control form-control-sm mb-3" rows="2"><?= htmlspecialchars($defaults['external_email_template'] ?? '') ?></textarea>
+
+                        <label class="form-label fw-bold small">External Email Notification Template #2 (Outage / Advisory)</label>
+                        <textarea name="settings[external_email_template_2]" class="form-control form-control-sm mb-3" rows="2"><?= htmlspecialchars($defaults['external_email_template_2'] ?? "ADVISORY: Service degradation affecting circuit {circuit_cid}. Details: {update_text}") ?></textarea>
+
+                        <label class="form-label fw-bold small">External Email Notification Template #3 (Resolution)</label>
+                        <textarea name="settings[external_email_template_3]" class="form-control form-control-sm" rows="2"><?= htmlspecialchars($defaults['external_email_template_3'] ?? "RESOLVED: Service restored on circuit {circuit_cid}. Update: {update_text}") ?></textarea>
+
+                        <div class="form-text small mt-2">Placeholders: <code>{circuit_cid}</code>, <code>{description}</code>, <code>{update_text}</code></div>
                     </div>
                 </div>
             </div>

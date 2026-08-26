@@ -77,9 +77,14 @@ function formatDurationClosed($seconds) {
                                         </td>
                                         <td><span class="badge bg-danger"><?= (int)($e['impactScore'] ?? 0) ?></span></td>
                                         <td>
-                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-<?= $e['id'] ?>">
-                                                <i class="fa-solid fa-eye me-1"></i>View Details
-                                            </button>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-<?= $e['id'] ?>">
+                                                    <i class="fa-solid fa-eye me-1"></i>Details
+                                                </button>
+                                                <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#pir-modal-<?= $e['id'] ?>">
+                                                    <i class="fa-solid fa-file-contract me-1"></i>PIR Report
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
 
@@ -212,6 +217,73 @@ function formatDurationClosed($seconds) {
                                                     </div>
                                                 </div>
                                                 <div class="modal-footer">
+                                                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- PIR Report Generator Modal -->
+                                    <div class="modal fade text-start" id="pir-modal-<?= $e['id'] ?>" tabindex="-1">
+                                        <div class="modal-dialog modal-lg">
+                                            <div class="modal-content">
+                                                <div class="modal-header bg-success text-white">
+                                                    <h5 class="modal-title fs-6 fw-bold"><i class="fa-solid fa-file-contract me-2"></i>Post-Incident Review (PIR) - Incident #<?= $e['id'] ?></h5>
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body font-monospace p-4" id="pir-content-<?= $e['id'] ?>" style="background: #fdfdfd;">
+                                                    <div class="border-bottom pb-2 mb-3">
+                                                        <h4 class="fw-bold text-dark mb-1">POST-INCIDENT REVIEW (PIR) SUMMARY</h4>
+                                                        <div class="text-muted small">Generated: <?= date('Y-m-d H:i:s') ?> | Executive Operational Report</div>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <strong>INCIDENT IDENTIFIER:</strong> #<?= $e['id'] ?><br>
+                                                        <strong>SUBJECT / TITLE:</strong> <?= htmlspecialchars($e['title'] ?: 'Incident #' . $e['id']) ?><br>
+                                                        <strong>DEPARTMENT:</strong> <?= htmlspecialchars($e['department_name'] ?? 'N/A') ?><br>
+                                                        <strong>TYPE:</strong> <?= htmlspecialchars($e['type_name'] ?? 'N/A') ?><br>
+                                                        <strong>OTRS TICKET #:</strong> <?= htmlspecialchars($e['ticket_nr'] ?? 'N/A') ?>
+                                                    </div>
+
+                                                    <div class="mb-3 border p-3 rounded bg-light">
+                                                        <h6 class="fw-bold text-dark mb-2">OUTAGE & IMPACT METRICS</h6>
+                                                        <strong>CREATED AT:</strong> <?= $e['create_time'] ?><br>
+                                                        <strong>CLOSED AT:</strong> <?= $lastState['enter_time'] ?? $e['update_time'] ?><br>
+                                                        <strong>CUSTOMERS AFFECTED:</strong> <?= number_format((int)($e['customers_affected'] ?? 0)) ?><br>
+                                                        <strong>TOTAL IMPACT SCORE:</strong> <?= number_format((int)($e['impactScore'] ?? 0)) ?>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <h6 class="fw-bold text-dark mb-2">DESCRIPTION & ROOT CAUSE</h6>
+                                                        <p class="text-secondary mb-0"><?= nl2br(htmlspecialchars($e['description'] ?? 'No description.')) ?></p>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <h6 class="fw-bold text-dark mb-2">STATE DURATION BREAKDOWN</h6>
+                                                        <?php foreach ($history as $h):
+                                                            $enter = strtotime($h['enter_time']);
+                                                            $exit = $h['exit_time'] ? strtotime($h['exit_time']) : time();
+                                                            $duration = $exit - $enter;
+                                                        ?>
+                                                            <div>- <strong><?= htmlspecialchars($h['state_name']) ?>:</strong> <?= formatDurationClosed($duration) ?> (Entered: <?= $h['enter_time'] ?>)</div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <h6 class="fw-bold text-dark mb-2">CHRONOLOGICAL UPDATE TIMELINE</h6>
+                                                        <?php
+                                                        $updatesPIR = $em->getEventUpdates($e['id']);
+                                                        if (empty($updatesPIR)) echo '<div class="text-muted small">No updates recorded.</div>';
+                                                        foreach ($updatesPIR as $u): ?>
+                                                            <div class="mb-1 small">
+                                                                <span class="text-muted">[<?= $u['create_time'] ?> - <?= htmlspecialchars($u['create_user']) ?>]</span>
+                                                                <span><?= htmlspecialchars($u['update_text']) ?></span>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-sm btn-outline-dark" onclick="window.print()"><i class="fa-solid fa-print me-1"></i>Print PIR</button>
                                                     <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                                                 </div>
                                             </div>
