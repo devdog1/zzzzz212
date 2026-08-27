@@ -714,6 +714,27 @@ function initPillInput(containerId) {
                 }
             }
         };
+
+        input.onblur = () => {
+            const val = input.value.trim();
+            if (val && !items.includes(val)) {
+                items.push(val);
+                render();
+                input.value = '';
+            }
+        };
+
+        const form = container.closest('form');
+        if (form) {
+            form.addEventListener('submit', () => {
+                const val = input.value.trim();
+                if (val && !items.includes(val)) {
+                    items.push(val);
+                    render();
+                    input.value = '';
+                }
+            });
+        }
     }
 }
 

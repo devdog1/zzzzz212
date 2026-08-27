@@ -638,6 +638,11 @@ class EventManager {
         $sql = "INSERT INTO `$table` (name) VALUES (?)";
         $this->pdb->query($sql, [$name]);
         $id = $this->db->lastInsertId();
+        if (empty($id) || $id == 0) {
+            $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM `$table`");
+            $row = $stmt->fetch();
+            $id = $row['max_id'] ?? 0;
+        }
         $this->logAudit($table, $id, 'CREATE', null, ['name' => $name]);
         return $id;
     }
