@@ -8,6 +8,72 @@ if (!has_permission('incident_management_view_events') && !has_permission('event
 
 $currentUser = $_SESSION['user']['name'] ?? ($_SESSION['user']['display_name'] ?? 'User');
 $em = new EventManager($currentUser);
+$rfoSuccessMessage = null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'start_rfo') {
+    validate_csrf();
+    $eventId = (int)($_POST['event_id'] ?? 0);
+    $eventData = $em->getEvent($eventId);
+    if ($eventData) {
+        $history = $em->getStateHistory($eventId);
+        $lastState = end($history);
+        $closedTime = $lastState['enter_time'] ?? $eventData['update_time'];
+
+        $areasStr = implode(', ', array_column($eventData['areas'] ?? [], 'name'));
+        $servicesStr = implode(', ', array_column($eventData['services'] ?? [], 'name'));
+        $tagsStr = implode(', ', array_column($eventData['tags'] ?? [], 'name'));
+
+        $rfoData = [
+            'incident_id'        => $eventData['id'],
+            'title'              => "RFO - " . ($eventData['title'] ?: "Incident #" . $eventData['id']),
+            'subject'            => $eventData['title'] ?: "Incident #" . $eventData['id'],
+            'description'        => $eventData['description'] ?? '',
+            'ticket_nr'          => $eventData['ticket_nr'] ?? '',
+            'department_name'    => $eventData['department_name'] ?? '',
+            'type_name'          => $eventData['type_name'] ?? '',
+            'customers_affected' => $eventData['customers_affected'] ?? 0,
+            'impact_score'       => $eventData['impactScore'] ?? 0,
+            'areas'              => $areasStr,
+            'services'           => $servicesStr,
+            'tags'               => $tagsStr,
+            'start_time'         => $eventData['create_time'],
+            'end_time'           => $closedTime,
+            'author'             => $currentUser,
+            'created_at'         => date('Y-m-d H:i:s')
+        ];
+
+        // Trigger doc_handle_create_rfo_hook
+        if (class_exists('PluginManager')) {
+            PluginManager::getInstance()->doAction('doc_handle_create_rfo_hook', $rfoData);
+
+            // Add timeline entries via doc_handle_add_rfo_timeline_hook
+            $updates = $em->getEventUpdates($eventId);
+            foreach ($updates as $u) {
+                $timelineItem = [
+                    'incident_id' => $eventData['id'],
+                    'timestamp'   => $u['create_time'],
+                    'user'        => $u['create_user'],
+                    'update_text' => $u['update_text'],
+                    'type'        => 'update'
+                ];
+                PluginManager::getInstance()->doAction('doc_handle_add_rfo_timeline_hook', $timelineItem);
+            }
+
+            foreach ($history as $h) {
+                $timelineItem = [
+                    'incident_id' => $eventData['id'],
+                    'timestamp'   => $h['enter_time'],
+                    'user'        => 'System',
+                    'update_text' => "State changed to: " . $h['state_name'],
+                    'type'        => 'state_change'
+                ];
+                PluginManager::getInstance()->doAction('doc_handle_add_rfo_timeline_hook', $timelineItem);
+            }
+        }
+
+        $rfoSuccessMessage = "Reason for Outage (RFO) document initiated for Incident #" . $eventId . "! Pre-populated fields and timeline synced to Document Manager.";
+    }
+}
 
 $events = $em->listEvents(true);
 $events = array_filter($events, function($e) { return strtolower($e['state_name'] ?? '') === 'closed'; });
@@ -34,6 +100,13 @@ function formatDurationClosed($seconds) {
         <p class="text-muted">Historical archive of resolved and closed incidents, timeline updates, and metadata audit logs.</p>
     </div>
 </div>
+
+<?php if ($rfoSuccessMessage): ?>
+    <div class="alert alert-success alert-dismissible fade show text-start mb-4 shadow-sm" role="alert">
+        <i class="fa-solid fa-file-circle-check me-2 fs-5"></i><strong>RFO Initiated:</strong> <?= htmlspecialchars($rfoSuccessMessage) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
 
 <div class="row text-start">
     <div class="col-md-12">
@@ -84,6 +157,14 @@ function formatDurationClosed($seconds) {
                                                 <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#pir-modal-<?= $e['id'] ?>">
                                                     <i class="fa-solid fa-file-contract me-1"></i>PIR Report
                                                 </button>
+                                                <form method="POST" class="d-inline" onsubmit="return confirm('Start a Reason for Outage (RFO) document for Incident #<?= $e['id'] ?>?');">
+                                                    <?php csrf_field(); ?>
+                                                    <input type="hidden" name="action" value="start_rfo">
+                                                    <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
+                                                    <button type="submit" class="btn btn-outline-warning text-dark fw-bold">
+                                                        <i class="fa-solid fa-file-pen me-1"></i>Start RFO
+                                                    </button>
+                                                </form>
                                             </div>
                                         </td>
                                     </tr>
@@ -282,9 +363,19 @@ function formatDurationClosed($seconds) {
                                                         <?php endforeach; ?>
                                                     </div>
                                                 </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-sm btn-outline-dark" onclick="window.print()"><i class="fa-solid fa-print me-1"></i>Print PIR</button>
-                                                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                <div class="modal-footer d-flex justify-content-between">
+                                                    <form method="POST" class="d-inline" onsubmit="return confirm('Start a Reason for Outage (RFO) document for Incident #<?= $e['id'] ?>?');">
+                                                        <?php csrf_field(); ?>
+                                                        <input type="hidden" name="action" value="start_rfo">
+                                                        <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
+                                                        <button type="submit" class="btn btn-sm btn-warning text-dark fw-bold">
+                                                            <i class="fa-solid fa-file-pen me-1"></i>Start RFO Document
+                                                        </button>
+                                                    </form>
+                                                    <div>
+                                                        <button type="button" class="btn btn-sm btn-outline-dark me-1" onclick="window.print()"><i class="fa-solid fa-print me-1"></i>Print PIR</button>
+                                                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
