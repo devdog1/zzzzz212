@@ -10,7 +10,7 @@ $currentUser = $_SESSION['user']['name'] ?? ($_SESSION['user']['display_name'] ?
 $em = new EventManager($currentUser);
 $emError = null;
 
-// Handle form submissions
+// Handle form submissions (PRG Pattern)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     validate_csrf();
     if (isset($_POST['action'])) {
@@ -23,6 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $em->updateEvent($_POST['event_id'], $_POST);
         }
         $emError = $em->getLastError();
+        if (!$emError) {
+            header("Location: index.php?route=incident_active");
+            exit;
+        }
     }
 }
 
@@ -622,7 +626,7 @@ async function addCircuit(circuitId, cid, provider) {
             body: JSON.stringify({ event_id: eventId, circuit_id: circuitId, circuit_cid: cid, provider: provider })
         });
         if (response.ok) {
-            location.reload();
+            window.location.href = 'index.php?route=incident_active';
         }
     } catch (e) {
         alert('Failed to add circuit');
@@ -636,7 +640,7 @@ async function removeCircuit(eventId, circuitId) {
             method: 'DELETE'
         });
         if (response.ok) {
-            location.reload();
+            window.location.href = 'index.php?route=incident_active';
         }
     } catch (e) {
         alert('Failed to remove circuit');
