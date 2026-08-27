@@ -9,12 +9,21 @@ if (!has_permission('incident_management_view_events') && !has_permission('event
 $currentUser = $_SESSION['user']['name'] ?? ($_SESSION['user']['display_name'] ?? 'User');
 $em = new EventManager($currentUser);
 $rfoSuccessMessage = null;
+$rfoErrorMessage = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'start_rfo') {
-    validate_csrf();
-    $eventId = (int)($_POST['event_id'] ?? 0);
-    $eventData = $em->getEvent($eventId);
-    if ($eventData) {
+    try {
+        validate_csrf();
+        $eventId = (int)($_POST['event_id'] ?? 0);
+        if ($eventId <= 0) {
+            throw new Exception("Invalid or missing Incident ID.");
+        }
+
+        $eventData = $em->getEvent($eventId);
+        if (!$eventData) {
+            throw new Exception("Incident #{$eventId} not found in database.");
+        }
+
         $history = $em->getStateHistory($eventId);
         $lastState = end($history);
         $closedTime = $lastState['enter_time'] ?? $eventData['update_time'];
@@ -72,6 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
 
         $rfoSuccessMessage = "Reason for Outage (RFO) document initiated for Incident #" . $eventId . "! Pre-populated fields and timeline synced to Document Manager.";
+    } catch (Throwable $t) {
+        $rfoErrorMessage = "Error starting RFO for Incident #" . ($eventId ?? 'N/A') . ": " . $t->getMessage();
     }
 }
 
@@ -104,6 +115,13 @@ function formatDurationClosed($seconds) {
 <?php if ($rfoSuccessMessage): ?>
     <div class="alert alert-success alert-dismissible fade show text-start mb-4 shadow-sm" role="alert">
         <i class="fa-solid fa-file-circle-check me-2 fs-5"></i><strong>RFO Initiated:</strong> <?= htmlspecialchars($rfoSuccessMessage) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
+<?php if ($rfoErrorMessage): ?>
+    <div class="alert alert-danger alert-dismissible fade show text-start mb-4 shadow-sm" role="alert">
+        <i class="fa-solid fa-circle-exclamation me-2 fs-5"></i><strong>RFO Error:</strong> <?= htmlspecialchars($rfoErrorMessage) ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 <?php endif; ?>
@@ -157,7 +175,7 @@ function formatDurationClosed($seconds) {
                                                 <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#pir-modal-<?= $e['id'] ?>">
                                                     <i class="fa-solid fa-file-contract me-1"></i>PIR Report
                                                 </button>
-                                                <form method="POST" class="d-inline" onsubmit="return confirm('Start a Reason for Outage (RFO) document for Incident #<?= $e['id'] ?>?');">
+                                                <form method="POST" action="index.php?route=incident_closed" class="d-inline" onsubmit="return confirm('Start a Reason for Outage (RFO) document for Incident #<?= $e['id'] ?>?');">
                                                     <?php csrf_field(); ?>
                                                     <input type="hidden" name="action" value="start_rfo">
                                                     <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
@@ -364,7 +382,7 @@ function formatDurationClosed($seconds) {
                                                     </div>
                                                 </div>
                                                 <div class="modal-footer d-flex justify-content-between">
-                                                    <form method="POST" class="d-inline" onsubmit="return confirm('Start a Reason for Outage (RFO) document for Incident #<?= $e['id'] ?>?');">
+                                                    <form method="POST" action="index.php?route=incident_closed" class="d-inline" onsubmit="return confirm('Start a Reason for Outage (RFO) document for Incident #<?= $e['id'] ?>?');">
                                                         <?php csrf_field(); ?>
                                                         <input type="hidden" name="action" value="start_rfo">
                                                         <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
