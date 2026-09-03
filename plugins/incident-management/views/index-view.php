@@ -21,6 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $em->addEventUpdate($_POST['event_id'], $_POST['update_text'], isset($_POST['message_external']), $customMsg);
         } elseif ($_POST['action'] === 'update_metadata') {
             $em->updateEvent($_POST['event_id'], $_POST);
+        } elseif ($_POST['action'] === 'create_teams_chat_mandatory_group') {
+            $em->createTeamsChatMandatoryGroupOnly((int)$_POST['event_id']);
         }
         $emError = $em->getLastError();
         if (!$emError) {
@@ -254,7 +256,19 @@ if (!empty($maintBannerChanges)): ?>
                                             <h6 class="text-primary mb-0 me-3 fw-bold"><i class="fa-solid fa-sitemap me-1"></i><?= htmlspecialchars($e['department_name'] ?: 'No Department') ?></h6>
                                             <span class="badge bg-info text-dark me-2">Type: <?= htmlspecialchars($e['type_name'] ?: 'N/A') ?></span>
                                             <?php if(!empty($e['ticket_nr']) && $e['ticket_nr'] !== '0'): ?>
-                                                <span class="badge bg-secondary">OTRS Ticket #: <?= htmlspecialchars($e['ticket_nr']) ?></span>
+                                                <span class="badge bg-secondary me-2">OTRS Ticket #: <?= htmlspecialchars($e['ticket_nr']) ?></span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($e['teams_chat_id'])): ?>
+                                                <span class="badge bg-success me-2"><i class="fa-brands fa-microsoft me-1"></i>Teams Chat Active</span>
+                                            <?php elseif ($em->getDefault('teams_enabled') === '1'): ?>
+                                                <form method="POST" class="d-inline">
+                                                    <?php csrf_field(); ?>
+                                                    <input type="hidden" name="action" value="create_teams_chat_mandatory_group">
+                                                    <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
+                                                    <button type="submit" class="btn btn-xs btn-outline-primary fw-bold" style="font-size:0.75rem;" title="Create Teams chat using Mandatory Azure AD Group only (excluding department group)">
+                                                        <i class="fa-brands fa-microsoft me-1"></i>Start Teams Chat (Mandatory Group Only)
+                                                    </button>
+                                                </form>
                                             <?php endif; ?>
                                         </div>
 

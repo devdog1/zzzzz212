@@ -1301,6 +1301,96 @@ class EventManager {
         }
     }
 
+    public function createTeamsChatMandatoryGroupOnly($eventId) {
+        if ($this->getDefault('teams_enabled') === '0') {
+            $this->lastError = "Microsoft Teams integration is disabled in settings.";
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_DISABLED', null, ['reason' => $this->lastError]);
+            return false;
+        }
+
+        $sso = $this->getSSO();
+        $accessToken = $this->getAccessToken();
+
+        if (!$sso) {
+            $this->lastError = "AzureADSSO provider is not available.";
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['error' => $this->lastError]);
+            return false;
+        }
+
+        if (!$accessToken) {
+            $this->lastError = "No active Azure AD access token in session. Log in via Azure AD SSO.";
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['error' => $this->lastError]);
+            return false;
+        }
+
+        $alwaysIncludeGroupId = $this->getDefault('always_include_azure_group_id');
+        if (empty($alwaysIncludeGroupId)) {
+            $this->lastError = "No Mandatory Azure AD Group ID is configured in Incident Settings.";
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, ['error' => $this->lastError]);
+            return false;
+        }
+
+        $members = [];
+        $extraMembers = $sso->getGroupMembers($accessToken, $alwaysIncludeGroupId);
+        if ($extraMembers) {
+            $members = array_column($extraMembers, 'id');
+        }
+
+        $currentUserOid = $_SESSION['user']['azure_oid'] ?? null;
+        if ($currentUserOid && !in_array($currentUserOid, $members)) {
+            $members[] = $currentUserOid;
+        }
+
+        $members = array_values(array_unique(array_filter($members)));
+
+        $event = $this->getEvent($eventId);
+        if (!$event) {
+            $this->lastError = "Incident #{$eventId} not found.";
+            return false;
+        }
+
+        $titleStr = !empty($event['title']) ? $event['title'] : "Incident #$eventId";
+        $topic = "Incident #$eventId - " . $titleStr;
+        $topic = str_replace([':', '"', "'"], ' ', $topic);
+
+        if (count($members) < 2) {
+            $this->lastError = "Graph API requires at least 2 member OIDs to create a Teams group chat. Resolved " . count($members) . " member OID(s) from Mandatory Group ID: " . $alwaysIncludeGroupId;
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, [
+                'error' => $this->lastError,
+                'topic' => $topic,
+                'resolved_members_count' => count($members),
+                'always_include_azure_group_id' => $alwaysIncludeGroupId,
+                'current_user_oid' => $currentUserOid
+            ]);
+            return false;
+        }
+
+        $chat = $sso->createChat($accessToken, $topic, $members, $currentUserOid);
+
+        if ($chat && isset($chat['id'])) {
+            $this->pdb->query("UPDATE plug_incident_management_wb_events SET teams_chat_id = ? WHERE id = ?", [$chat['id'], $eventId]);
+            $card = $this->formatEventMetadataCard($eventId);
+            $sso->sendAdaptiveCardToChat($accessToken, $chat['id'], $card);
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_CREATED', null, [
+                'teams_chat_id' => $chat['id'],
+                'topic' => $topic,
+                'members_count' => count($members),
+                'mode' => 'Mandatory Group Only'
+            ]);
+            return true;
+        } else {
+            $this->lastError = "Microsoft Graph API createChat request failed.";
+            $this->logAudit('plug_incident_management_wb_events', $eventId, 'TEAMS_CHAT_FAILED', null, [
+                'error' => 'Microsoft Graph API createChat request failed or returned invalid response',
+                'topic' => $topic,
+                'members_count' => count($members),
+                'raw_response' => $chat,
+                'mode' => 'Mandatory Group Only'
+            ]);
+            return false;
+        }
+    }
+
     private function syncTeamsChatMembers($eventId, $departmentId) {
         if ($this->getDefault('teams_enabled') === '0') return;
 
