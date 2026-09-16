@@ -36,6 +36,7 @@ PluginManager::getInstance()->addFilter('theme_nav_links', function ($links) {
             ['label' => 'Statistics', 'icon' => 'fa-solid fa-chart-line', 'route' => 'incident_statistics', 'permission' => 'incident_management_view_events'],
             ['label' => 'Reports', 'icon' => 'fa-solid fa-file-contract', 'route' => 'incident_reports', 'permission' => 'incident_management_view_events'],
             ['label' => 'Network Overview', 'icon' => 'fa-solid fa-network-wired', 'route' => 'incident_overview', 'permission' => 'incident_management_view_events'],
+            ['label' => 'NOC TV Wallboard (Public)', 'icon' => 'fa-solid fa-desktop', 'url' => 'noc-wallboard.php', 'target' => '_blank', 'permission' => 'incident_management_view_events'],
             ['label' => 'Change Calendar', 'icon' => 'fa-solid fa-calendar-days', 'route' => 'incident_calendar', 'permission' => 'incident_management_view_events'],
             ['label' => 'Reference Data', 'icon' => 'fa-solid fa-sitemap', 'route' => 'incident_departments', 'permission' => 'incident_management_manage_departments'],
             ['label' => 'Incident Settings', 'icon' => 'fa-solid fa-sliders', 'route' => 'incident_settings', 'permission' => 'incident_management_manage_settings'],
@@ -56,6 +57,7 @@ PluginManager::getInstance()->addAction('register_routes', function () {
         'incident_settings'    => 'settings-view.php',
         'incident_calendar'    => 'calendar-view.php',
         'incident_overview'    => 'overview-view.php',
+        'incident_wallboard'   => 'wallboard-view.php',
         'incident_api'         => 'api-view.php',
     ];
 
