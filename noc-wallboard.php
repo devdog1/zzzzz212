@@ -1,6 +1,6 @@
 <?php
 // Public NOC TV Wallboard Display for Incident Management Plugin
-// Designed for 24/7 unauthenticated NOC room wallboard displays (Dark Theme)
+// Designed for 24/7 unauthenticated NOC room wallboard displays (4K Widescreen Dark Theme)
 
 // Initialize plugin environment without forcing user login
 if (file_exists(__DIR__ . '/zzz5-repo/functions.php')) {
@@ -24,7 +24,6 @@ $em = new EventManager('NOC Wallboard Display');
 $activeEvents = $em->listEvents(false);
 $activeCount = count($activeEvents);
 $stats = $em->getStatistics();
-$totalImpact = $stats['total_impact'] ?? 0;
 
 $problems = [];
 $maint = [];
@@ -68,24 +67,39 @@ foreach ($allEventsForTrend as $ev) {
     $cust = (int)($ev['customers_affected'] ?? 0);
     if ($cust <= 0) continue;
 
-    $createTs = strtotime($ev['create_time']);
     $history = $em->getStateHistory($ev['id']);
-    $lastState = end($history);
-    $closeTs = (strtolower($ev['state_name'] ?? '') === 'closed') ? strtotime($lastState['enter_time'] ?? $ev['update_time']) : $nowTs;
+    if (empty($history)) {
+        $history = [[
+            'state_name' => $ev['state_name'] ?? 'Detected',
+            'enter_time' => $ev['create_time'],
+            'exit_time'  => (strtolower($ev['state_name'] ?? '') === 'closed') ? $ev['update_time'] : null
+        ]];
+    }
 
-    for ($i = 47; $i >= 0; $i--) {
-        $windowStart = $currentHourStart - ($i * 3600);
-        $windowEnd = $windowStart + 3600;
+    foreach ($history as $h) {
+        $stateName = strtolower($h['state_name'] ?? '');
+        if ($stateName === 'closed') continue;
 
-        $overlapStart = max($createTs, $windowStart);
-        $overlapEnd = min($closeTs, $windowEnd);
+        $enterTs = strtotime($h['enter_time']);
+        $exitTs = !empty($h['exit_time']) ? strtotime($h['exit_time']) : $nowTs;
 
-        if ($overlapEnd > $overlapStart) {
-            $overlapMins = ($overlapEnd - $overlapStart) / 60;
-            $hourlyImpact[47 - $i] += round($overlapMins * $cust);
+        for ($i = 47; $i >= 0; $i--) {
+            $windowStart = $currentHourStart - ($i * 3600);
+            $windowEnd = $windowStart + 3600;
+
+            $overlapStart = max($enterTs, $windowStart);
+            $overlapEnd = min($exitTs, $windowEnd);
+
+            if ($overlapEnd > $overlapStart) {
+                $overlapMins = ($overlapEnd - $overlapStart) / 60;
+                $hourlyImpact[47 - $i] += round($overlapMins * $cust);
+            }
         }
     }
 }
+
+// 48-Hour Outage Impact Score Total
+$totalImpact48h = array_sum($hourlyImpact);
 
 function badgeStatusNoc(string $value): string
 {
@@ -102,84 +116,102 @@ function badgeStatusNoc(string $value): string
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NOC Operational Status Wallboard</title>
+    <title>NOC Operational Status Wallboard (4K Ultra-Widescreen)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
-        body {
-            background-color: #0b0f19;
+        html, body {
+            height: 100%;
+            background-color: #080c14;
             color: #f1f5f9;
             font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
             overflow-x: hidden;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+        }
+        .wallboard-container {
+            width: 100%;
+            min-height: 100vh;
+            padding: 24px 32px;
         }
         .wallboard-header {
             border-bottom: 2px solid #1e293b;
-            padding-bottom: 12px;
-            margin-bottom: 20px;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
         }
         .stat-card {
-            background: #1e293b;
+            background: #0f172a;
             border: 1px solid #334155;
-            border-radius: 10px;
-            padding: 18px;
+            border-radius: 12px;
+            padding: 24px 20px;
             text-align: center;
         }
         .stat-card .number {
-            font-size: 2.8rem;
-            font-weight: 800;
+            font-size: 3.5rem;
+            font-weight: 900;
             line-height: 1;
         }
         .stat-card .label {
-            font-size: 0.85rem;
+            font-size: 0.95rem;
             color: #94a3b8;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 5px;
+            letter-spacing: 0.08em;
+            margin-top: 8px;
         }
         .noc-card {
-            background: #1e293b;
+            background: #0f172a;
             border: 1px solid #334155;
-            border-radius: 10px;
-            margin-bottom: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
         }
         .noc-card-header {
-            background: #0f172a;
+            background: #1e293b;
             border-bottom: 1px solid #334155;
-            padding: 12px 18px;
-            font-weight: 700;
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
+            padding: 16px 24px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+        }
+        .table-responsive {
+            background-color: #0f172a !important;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
         }
         .noc-table {
-            color: #f1f5f9;
-            background-color: #1e293b;
+            --bs-table-bg: #0f172a !important;
+            --bs-table-color: #f1f5f9 !important;
+            --bs-table-border-color: #334155 !important;
+            --bs-table-hover-bg: #1e293b !important;
+            --bs-table-hover-color: #ffffff !important;
+            background-color: #0f172a !important;
+            color: #f1f5f9 !important;
             margin: 0;
         }
-        .noc-table thead {
-            background-color: #0f172a !important;
-            color: #94a3b8;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-        }
-        .noc-table tbody tr {
+        .noc-table thead, .noc-table thead tr, .noc-table thead th {
+            --bs-table-bg: #1e293b !important;
+            --bs-table-color: #94a3b8 !important;
             background-color: #1e293b !important;
+            color: #94a3b8 !important;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            border-color: #334155 !important;
+            padding: 12px 18px;
         }
-        .noc-table tbody tr:hover {
-            background-color: #334155 !important;
-        }
-        .noc-table td, .noc-table th {
-            border-color: #334155;
-            padding: 10px 14px;
-            font-size: 0.9rem;
+        .noc-table tbody, .noc-table tbody tr, .noc-table tbody td {
+            --bs-table-bg: #0f172a !important;
+            --bs-table-color: #f1f5f9 !important;
+            background-color: #0f172a !important;
             color: #f1f5f9 !important;
+            border-color: #334155 !important;
+            padding: 14px 18px;
+            font-size: 0.95rem;
         }
         .progress-bar-container {
-            height: 4px;
-            background: #1e293b;
+            height: 6px;
+            background: #0f172a;
             width: 100%;
             position: fixed;
             top: 0;
@@ -197,7 +229,7 @@ function badgeStatusNoc(string $value): string
         }
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
             100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
     </style>
@@ -208,197 +240,203 @@ function badgeStatusNoc(string $value): string
         <div class="progress-bar-fill" id="refreshProgressBar"></div>
     </div>
 
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center wallboard-header">
-        <div class="d-flex align-items-center">
-            <i class="fa-solid fa-desktop text-info fs-2 me-3"></i>
-            <div>
-                <h2 class="mb-0 fw-bold">NOC Operational Status Display</h2>
-                <small class="text-secondary">24/7 Live Monitoring Wallboard | Incident & Network Overview</small>
-            </div>
-        </div>
-        <div class="text-end">
-            <span class="badge bg-dark border border-secondary text-info p-2 font-monospace fs-6">
-                <i class="fa-solid fa-clock me-1"></i><span id="wallboardClock"><?= date('Y-m-d H:i:s') ?></span>
-            </span>
-            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleFullScreen()"><i class="fa-solid fa-expand"></i></button>
-        </div>
-    </div>
-
-    <!-- KPI Summary Row -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="stat-card border-danger <?= $activeCount > 0 ? 'pulse-active' : '' ?>">
-                <div class="number text-danger"><?= $activeCount ?></div>
-                <div class="label"><i class="fa-solid fa-triangle-exclamation me-1"></i>Active Incidents</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-card border-warning">
-                <div class="number text-warning"><?= number_format($totalImpact) ?></div>
-                <div class="label"><i class="fa-solid fa-chart-line me-1"></i>Total Outage Impact</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-card border-info">
-                <div class="number text-info"><?= count($problems) ?></div>
-                <div class="label"><i class="fa-solid fa-ticket me-1"></i>Open OTRS Problems</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stat-card border-primary">
-                <div class="number text-primary"><?= count($changes) ?></div>
-                <div class="label"><i class="fa-solid fa-calendar-check me-1"></i>Scheduled Changes (48h)</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row g-4 mb-4">
-        <!-- Left Column: Active Incidents -->
-        <div class="col-lg-7">
-            <div class="noc-card h-100">
-                <div class="noc-card-header text-danger d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-fire me-2"></i>Active Incident Queue</span>
-                    <span class="badge bg-danger text-white"><?= $activeCount ?></span>
+    <div class="wallboard-container">
+        <!-- Widescreen Header -->
+        <div class="d-flex justify-content-between align-items-center wallboard-header">
+            <div class="d-flex align-items-center">
+                <i class="fa-solid fa-desktop text-info fs-1 me-4"></i>
+                <div>
+                    <h1 class="mb-0 fw-bold fs-2 text-white">NOC Operational Status Display</h1>
+                    <span class="text-secondary fs-6">24/7 Live Monitoring Wallboard | Incident & Network Overview (4K Landscape Mode)</span>
                 </div>
-                <div class="p-3">
-                    <?php if (empty($activeEvents)): ?>
-                        <div class="text-center py-5 text-success">
-                            <i class="fa-solid fa-circle-check fs-1 mb-2 d-block"></i>
-                            <h4 class="fw-bold">No Active Incident</h4>
-                            <p class="text-secondary small mb-0">No active incidents currently reported on network.</p>
-                        </div>
-                    <?php else: ?>
-                        <?php foreach ($activeEvents as $e):
-                            $history = $em->getStateHistory($e['id']);
-                            $lastState = end($history);
-                            $stateEnterTime = $lastState ? $lastState['enter_time'] : $e['create_time'];
-                            $updates = $em->getEventUpdates($e['id']);
-                            $lastUpdate = end($updates);
-                            $lastUpdateTime = $lastUpdate ? strtotime($lastUpdate['create_time']) : strtotime($stateEnterTime);
-                            $minutesSinceUpdate = floor((time() - $lastUpdateTime) / 60);
-                            $isStale = $minutesSinceUpdate >= $slaThresholdMinutes;
-                        ?>
-                            <div class="p-3 mb-3 border <?= $isStale ? 'border-danger' : 'border-secondary' ?> rounded bg-dark">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
-                                        <span class="badge bg-secondary me-2">#<?= $e['id'] ?></span>
-                                        <span class="fw-bold fs-5 text-white me-2"><?= htmlspecialchars($e['title'] ?: 'Incident #' . $e['id']) ?></span>
-                                        <span class="badge <?= badgeStatusNoc($e['state_name'] ?? 'Detected') ?>"><?= htmlspecialchars($e['state_name'] ?? 'Detected') ?></span>
-                                        <?php if ($isStale): ?>
-                                            <span class="badge bg-danger ms-1"><i class="fa-solid fa-bell me-1"></i>SLA Stale (<?= $minutesSinceUpdate ?>m)</span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="text-end text-secondary small">
-                                        <div>Age: <strong class="text-info"><?= humanTime(strtotime($e['create_time'])) ?></strong></div>
-                                    </div>
-                                </div>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-dark border border-secondary text-info px-3 py-2 font-monospace fs-5">
+                    <i class="fa-solid fa-clock me-2"></i><span id="wallboardClock"><?= date('Y-m-d H:i:s') ?></span>
+                </span>
+                <button class="btn btn-md btn-outline-secondary ms-2" onclick="toggleFullScreen()"><i class="fa-solid fa-expand fs-5"></i></button>
+            </div>
+        </div>
 
-                                <p class="small mb-2 text-light"><?= htmlspecialchars($e['description'] ?? '') ?></p>
+        <!-- 4-Card Widescreen KPI Row -->
+        <div class="row g-4 mb-4">
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card border-danger <?= $activeCount > 0 ? 'pulse-active' : '' ?>">
+                    <div class="number text-danger counter-animate" data-target="<?= $activeCount ?>">0</div>
+                    <div class="label"><i class="fa-solid fa-triangle-exclamation me-2"></i>Active Incidents</div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card border-warning">
+                    <div class="number text-warning counter-animate" data-target="<?= $totalImpact48h ?>">0</div>
+                    <div class="label"><i class="fa-solid fa-chart-line me-2"></i>Total Outage Impact (48h)</div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card border-info">
+                    <div class="number text-info counter-animate" data-target="<?= count($problems) ?>">0</div>
+                    <div class="label"><i class="fa-solid fa-ticket me-2"></i>Open OTRS Problems</div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card border-primary">
+                    <div class="number text-primary counter-animate" data-target="<?= count($changes) ?>">0</div>
+                    <div class="label"><i class="fa-solid fa-calendar-check me-2"></i>Scheduled Changes (48h)</div>
+                </div>
+            </div>
+        </div>
 
-                                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                    <span class="small text-secondary">Department: <strong class="text-white"><?= htmlspecialchars($e['department_name'] ?: 'General') ?></strong></span>
-                                    <span class="small text-secondary">| Impact Score: <strong class="text-danger"><?= number_format((int)($e['impactScore'] ?? 0)) ?></strong></span>
-                                    <span class="small text-secondary">| Affected: <strong class="text-warning"><?= number_format((int)($e['customers_affected'] ?? 0)) ?></strong> customers</span>
-                                </div>
-
-                                <?php if ($lastUpdate): ?>
-                                    <div class="p-2 rounded bg-slate-900 border border-slate-700 small mt-2">
-                                        <div class="text-info fw-bold mb-1"><i class="fa-solid fa-comment-dots me-1"></i>Latest Update (<?= $lastUpdate['create_time'] ?>):</div>
-                                        <div class="text-light"><?= htmlspecialchars($lastUpdate['update_text']) ?></div>
-                                    </div>
-                                <?php endif; ?>
+        <!-- Full Widescreen 3-Column Middle Grid -->
+        <div class="row g-4 mb-4">
+            <!-- Column 1: Active Incidents (6/12 on Widescreen) -->
+            <div class="col-xl-6 col-lg-12">
+                <div class="noc-card h-100">
+                    <div class="noc-card-header text-danger d-flex justify-content-between align-items-center">
+                        <span><i class="fa-solid fa-fire me-2"></i>Active Incident Queue</span>
+                        <span class="badge bg-danger text-white fs-6"><?= $activeCount ?></span>
+                    </div>
+                    <div class="p-3">
+                        <?php if (empty($activeEvents)): ?>
+                            <div class="text-center py-5 text-success">
+                                <i class="fa-solid fa-circle-check display-3 mb-3 d-block"></i>
+                                <h3 class="fw-bold">No Active Incident</h3>
+                                <p class="text-secondary fs-6 mb-0">No active incidents currently reported on network.</p>
                             </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                        <?php else: ?>
+                            <?php foreach ($activeEvents as $e):
+                                $history = $em->getStateHistory($e['id']);
+                                $lastState = end($history);
+                                $stateEnterTime = $lastState ? $lastState['enter_time'] : $e['create_time'];
+                                $updates = $em->getEventUpdates($e['id']);
+                                $lastUpdate = end($updates);
+                                $lastUpdateTime = $lastUpdate ? strtotime($lastUpdate['create_time']) : strtotime($stateEnterTime);
+                                $minutesSinceUpdate = floor((time() - $lastUpdateTime) / 60);
+                                $isStale = $minutesSinceUpdate >= $slaThresholdMinutes;
+                            ?>
+                                <div class="p-3 mb-3 border <?= $isStale ? 'border-danger border-2' : 'border-secondary' ?> rounded bg-dark">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <span class="badge bg-secondary me-2 fs-6">#<?= $e['id'] ?></span>
+                                            <span class="fw-bold fs-4 text-white me-2"><?= htmlspecialchars($e['title'] ?: 'Incident #' . $e['id']) ?></span>
+                                            <span class="badge <?= badgeStatusNoc($e['state_name'] ?? 'Detected') ?> fs-6"><?= htmlspecialchars($e['state_name'] ?? 'Detected') ?></span>
+                                            <?php if ($isStale): ?>
+                                                <span class="badge bg-danger ms-1 fs-6"><i class="fa-solid fa-bell me-1"></i>SLA Stale (<?= $minutesSinceUpdate ?>m)</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="text-end text-secondary small">
+                                            <div class="fs-6">Age: <strong class="text-info"><?= humanTime(strtotime($e['create_time'])) ?></strong></div>
+                                        </div>
+                                    </div>
+
+                                    <p class="fs-6 mb-2 text-light"><?= htmlspecialchars($e['description'] ?? '') ?></p>
+
+                                    <div class="d-flex flex-wrap align-items-center gap-3 mb-2 fs-6">
+                                        <span class="text-secondary">Department: <strong class="text-white"><?= htmlspecialchars($e['department_name'] ?: 'General') ?></strong></span>
+                                        <span class="text-secondary">| Impact Score: <strong class="text-danger counter-animate" data-target="<?= (int)($e['impactScore'] ?? 0) ?>"><?= number_format((int)($e['impactScore'] ?? 0)) ?></strong></span>
+                                        <span class="text-secondary">| Affected: <strong class="text-warning"><?= number_format((int)($e['customers_affected'] ?? 0)) ?></strong> customers</span>
+                                    </div>
+
+                                    <?php if ($lastUpdate): ?>
+                                        <div class="p-3 rounded bg-slate-900 border border-slate-700 small mt-2">
+                                            <div class="text-info fw-bold mb-1 fs-6"><i class="fa-solid fa-comment-dots me-2"></i>Latest Update (<?= $lastUpdate['create_time'] ?>):</div>
+                                            <div class="text-light fs-6"><?= htmlspecialchars($lastUpdate['update_text']) ?></div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column 2: Problem Tickets (3/12 on Widescreen) -->
+            <div class="col-xl-3 col-md-6">
+                <div class="noc-card h-100">
+                    <div class="noc-card-header text-warning d-flex justify-content-between align-items-center">
+                        <span><i class="fa-solid fa-triangle-exclamation me-2"></i>OTRS Problems</span>
+                        <span class="badge bg-warning text-dark fs-6"><?= count($problems) ?></span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-dark noc-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Ticket</th>
+                                    <th>Queue</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($problems)): ?>
+                                    <tr><td colspan="3" class="text-center text-secondary py-4">No active OTRS problem tickets.</td></tr>
+                                <?php else: ?>
+                                    <?php foreach (array_slice($problems, 0, 7) as $p): ?>
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold text-white fs-6"><?= htmlspecialchars($p['tickettitle'] ?: 'Ticket #' . $p['ticketnumber']) ?></div>
+                                                <div class="text-secondary" style="font-size:0.8rem;"><?= htmlspecialchars($p['ticketnumber']) ?></div>
+                                            </td>
+                                            <td><span class="small text-light"><?= htmlspecialchars($p['queuename']) ?></span></td>
+                                            <td><span class="badge <?= badgeStatusNoc($p['statetype']) ?>"><?= htmlspecialchars($p['statetype']) ?></span></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column 3: Scheduled Changes (3/12 on Widescreen) -->
+            <div class="col-xl-3 col-md-6">
+                <div class="noc-card h-100">
+                    <div class="noc-card-header text-primary d-flex justify-content-between align-items-center">
+                        <span><i class="fa-solid fa-calendar-days me-2"></i>Changes (Next 48h)</span>
+                        <span class="badge bg-primary text-white fs-6"><?= count($changes) ?></span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-dark noc-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Change Title</th>
+                                    <th>Status</th>
+                                    <th>Window</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($changes)): ?>
+                                    <tr><td colspan="3" class="text-center text-secondary py-4">No maintenance windows starting in the next 48 hours.</td></tr>
+                                <?php else: ?>
+                                    <?php foreach (array_slice($changes, 0, 7) as $c):
+                                        $title = !empty($c['changeTitle']) ? $c['changeTitle'] : (!empty($c['workOrderTitle']) ? $c['workOrderTitle'] : 'Change #' . $c['changeId']);
+                                    ?>
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold text-white fs-6"><?= htmlspecialchars($title) ?></div>
+                                                <div class="text-secondary" style="font-size:0.8rem;">#<?= htmlspecialchars($c['changeId']) ?></div>
+                                            </td>
+                                            <td><span class="badge <?= badgeStatusNoc($c['changeStatus']) ?>"><?= htmlspecialchars($c['changeStatus']) ?></span></td>
+                                            <td><small class="text-light"><?= htmlspecialchars($c['plannedStartTime']) ?></small></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Right Column: OTRS Problems & Changes -->
-        <div class="col-lg-5">
-            <!-- Problem Tickets -->
-            <div class="noc-card mb-4">
-                <div class="noc-card-header text-warning d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-triangle-exclamation me-2"></i>Active OTRS Problem Tickets</span>
-                    <span class="badge bg-warning text-dark"><?= count($problems) ?></span>
-                </div>
-                <div class="table-responsive">
-                    <table class="table noc-table align-middle">
-                        <thead>
-                            <tr>
-                                <th>Ticket</th>
-                                <th>Queue</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($problems)): ?>
-                                <tr><td colspan="3" class="text-center text-secondary py-3">No active OTRS problem tickets.</td></tr>
-                            <?php else: ?>
-                                <?php foreach (array_slice($problems, 0, 5) as $p): ?>
-                                    <tr>
-                                        <td>
-                                            <div class="fw-bold text-white small"><?= htmlspecialchars($p['tickettitle']) ?></div>
-                                            <div class="text-secondary" style="font-size:0.75rem;"><?= htmlspecialchars($p['ticketnumber']) ?></div>
-                                        </td>
-                                        <td><span class="small text-light"><?= htmlspecialchars($p['queuename']) ?></span></td>
-                                        <td><span class="badge <?= badgeStatusNoc($p['statetype']) ?>"><?= htmlspecialchars($p['statetype']) ?></span></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Scheduled Maintenance Windows (Next 48 Hours) -->
-            <div class="noc-card">
-                <div class="noc-card-header text-primary d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-calendar-days me-2"></i>Scheduled Maintenance Windows (Next 48h)</span>
-                    <span class="badge bg-primary text-white"><?= count($changes) ?></span>
-                </div>
-                <div class="table-responsive">
-                    <table class="table noc-table align-middle">
-                        <thead>
-                            <tr>
-                                <th>Change Title</th>
-                                <th>Status</th>
-                                <th>Planned Window</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($changes)): ?>
-                                <tr><td colspan="3" class="text-center text-secondary py-3">No maintenance windows starting in the next 48 hours.</td></tr>
-                            <?php else: ?>
-                                <?php foreach (array_slice($changes, 0, 5) as $c): ?>
-                                    <tr>
-                                        <td>
-                                            <div class="fw-bold text-white small"><?= htmlspecialchars($c['changeTitle']) ?></div>
-                                            <div class="text-secondary" style="font-size:0.75rem;">#<?= htmlspecialchars($c['changeId']) ?></div>
-                                        </td>
-                                        <td><span class="badge <?= badgeStatusNoc($c['changeStatus']) ?>"><?= htmlspecialchars($c['changeStatus']) ?></span></td>
-                                        <td><small class="text-secondary"><?= htmlspecialchars($c['plannedStartTime']) ?></small></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 48-Hour Hourly Outage Impact Score Graph (Bottom Card) -->
-    <div class="row">
-        <div class="col-12">
-            <div class="noc-card">
-                <div class="noc-card-header text-warning d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-chart-column me-2"></i>Last 48 Hours - Outage Impact Score per Hour</span>
-                    <span class="badge bg-dark border border-secondary text-warning">48-Hour Hourly Metric</span>
-                </div>
-                <div class="p-3" style="height: 220px; position: relative;">
-                    <canvas id="impactTrendChart"></canvas>
+        <!-- 48-Hour Hourly Outage Impact Score Graph (Full Landscape Width) -->
+        <div class="row">
+            <div class="col-12">
+                <div class="noc-card">
+                    <div class="noc-card-header text-warning d-flex justify-content-between align-items-center">
+                        <span><i class="fa-solid fa-chart-column me-2"></i>Last 48 Hours - Outage Impact Score per Hour</span>
+                        <span class="badge bg-dark border border-secondary text-warning fs-6">48-Hour Hourly Outage Metric</span>
+                    </div>
+                    <div class="p-4" style="height: 280px; position: relative;">
+                        <canvas id="impactTrendChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -441,8 +479,31 @@ function badgeStatusNoc(string $value): string
         }
     }
 
-    // Chart.js 48-Hour Impact Trend Graph
+    // Dynamic Count-Up Animation for Impact Score & Metrics on Page Load
     document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.counter-animate').forEach(el => {
+            const target = parseInt(el.getAttribute('data-target') || '0', 10);
+            if (isNaN(target) || target <= 0) {
+                el.textContent = '0';
+                return;
+            }
+            let current = 0;
+            const duration = 1200; // ms
+            const steps = 30;
+            const increment = Math.ceil(target / steps);
+            const stepTime = duration / steps;
+
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                el.textContent = current.toLocaleString();
+            }, stepTime);
+        });
+
+        // Chart.js 48-Hour Impact Trend Graph
         const ctx = document.getElementById('impactTrendChart').getContext('2d');
         const labels = <?= json_encode($hourlyLabels) ?>;
         const data = <?= json_encode($hourlyImpact) ?>;
@@ -457,7 +518,7 @@ function badgeStatusNoc(string $value): string
                     backgroundColor: '#f59e0b',
                     borderColor: '#fbbf24',
                     borderWidth: 1,
-                    borderRadius: 3
+                    borderRadius: 4
                 }]
             },
             options: {
@@ -467,16 +528,18 @@ function badgeStatusNoc(string $value): string
                     legend: { display: false },
                     tooltip: {
                         mode: 'index',
-                        intersect: false
+                        intersect: false,
+                        bodyFont: { size: 14 },
+                        titleFont: { size: 14 }
                     }
                 },
                 scales: {
                     x: {
-                        ticks: { color: '#94a3b8', font: { size: 10 } },
+                        ticks: { color: '#94a3b8', font: { size: 12 } },
                         grid: { color: '#1e293b' }
                     },
                     y: {
-                        ticks: { color: '#94a3b8', font: { size: 10 } },
+                        ticks: { color: '#94a3b8', font: { size: 12 } },
                         grid: { color: '#334155' },
                         beginAtZero: true
                     }
