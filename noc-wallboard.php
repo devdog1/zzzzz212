@@ -30,16 +30,62 @@ $problems = [];
 $maint = [];
 $changes = [];
 
+$nowTs = time();
+$max48hTs = $nowTs + (48 * 3600);
+
 try {
     $otrsDB = $em->getOTRSDB();
     if ($otrsDB && $otrsDB->isConnected()) {
         $problems = $otrsDB->getProblemTickets();
         $maint    = $otrsDB->getMaintTickets();
-        $changes  = $otrsDB->getChangeOverview();
+        $rawChanges = $otrsDB->getChangeOverview();
+
+        // Filter changes: currently in window OR starting within the next 48 hours
+        foreach ($rawChanges as $c) {
+            $startTs = strtotime($c['plannedStartTime'] ?? '');
+            $endTs   = strtotime($c['plannedEndTime'] ?? '');
+            if (($nowTs >= $startTs && $nowTs <= $endTs) || ($startTs >= $nowTs && $startTs <= $max48hTs)) {
+                $changes[] = $c;
+            }
+        }
     }
 } catch (Throwable $e) {}
 
 $slaThresholdMinutes = (int)($em->getDefault('sla_threshold_minutes') ?: 30);
+
+// --- 48-Hour Hourly Outage Impact Trend Calculation ---
+$hourlyImpact = array_fill(0, 48, 0);
+$hourlyLabels = [];
+$currentHourStart = strtotime(date('Y-m-d H:00:00', $nowTs));
+
+for ($i = 47; $i >= 0; $i--) {
+    $hourStart = $currentHourStart - ($i * 3600);
+    $hourlyLabels[] = date('m/d H:00', $hourStart);
+}
+
+$allEventsForTrend = $em->listEvents(true);
+foreach ($allEventsForTrend as $ev) {
+    $cust = (int)($ev['customers_affected'] ?? 0);
+    if ($cust <= 0) continue;
+
+    $createTs = strtotime($ev['create_time']);
+    $history = $em->getStateHistory($ev['id']);
+    $lastState = end($history);
+    $closeTs = (strtolower($ev['state_name'] ?? '') === 'closed') ? strtotime($lastState['enter_time'] ?? $ev['update_time']) : $nowTs;
+
+    for ($i = 47; $i >= 0; $i--) {
+        $windowStart = $currentHourStart - ($i * 3600);
+        $windowEnd = $windowStart + 3600;
+
+        $overlapStart = max($createTs, $windowStart);
+        $overlapEnd = min($closeTs, $windowEnd);
+
+        if ($overlapEnd > $overlapStart) {
+            $overlapMins = ($overlapEnd - $overlapStart) / 60;
+            $hourlyImpact[47 - $i] += round($overlapMins * $cust);
+        }
+    }
+}
 
 function badgeStatusNoc(string $value): string
 {
@@ -59,6 +105,7 @@ function badgeStatusNoc(string $value): string
     <title>NOC Operational Status Wallboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         body {
             background-color: #0b0f19;
@@ -109,18 +156,26 @@ function badgeStatusNoc(string $value): string
         }
         .noc-table {
             color: #f1f5f9;
+            background-color: #1e293b;
             margin: 0;
         }
         .noc-table thead {
-            background: #0f172a;
+            background-color: #0f172a !important;
             color: #94a3b8;
             font-size: 0.8rem;
             text-transform: uppercase;
+        }
+        .noc-table tbody tr {
+            background-color: #1e293b !important;
+        }
+        .noc-table tbody tr:hover {
+            background-color: #334155 !important;
         }
         .noc-table td, .noc-table th {
             border-color: #334155;
             padding: 10px 14px;
             font-size: 0.9rem;
+            color: #f1f5f9 !important;
         }
         .progress-bar-container {
             height: 4px;
@@ -193,15 +248,15 @@ function badgeStatusNoc(string $value): string
         <div class="col-md-3">
             <div class="stat-card border-primary">
                 <div class="number text-primary"><?= count($changes) ?></div>
-                <div class="label"><i class="fa-solid fa-calendar-check me-1"></i>Upcoming Changes</div>
+                <div class="label"><i class="fa-solid fa-calendar-check me-1"></i>Scheduled Changes (48h)</div>
             </div>
         </div>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-4 mb-4">
         <!-- Left Column: Active Incidents -->
         <div class="col-lg-7">
-            <div class="noc-card">
+            <div class="noc-card h-100">
                 <div class="noc-card-header text-danger d-flex justify-content-between align-items-center">
                     <span><i class="fa-solid fa-fire me-2"></i>Active Incident Queue</span>
                     <span class="badge bg-danger text-white"><?= $activeCount ?></span>
@@ -210,8 +265,8 @@ function badgeStatusNoc(string $value): string
                     <?php if (empty($activeEvents)): ?>
                         <div class="text-center py-5 text-success">
                             <i class="fa-solid fa-circle-check fs-1 mb-2 d-block"></i>
-                            <h4 class="fw-bold">All Systems Operational</h4>
-                            <p class="text-secondary small mb-0">No active incidents currently reported.</p>
+                            <h4 class="fw-bold">No Active Incident</h4>
+                            <p class="text-secondary small mb-0">No active incidents currently reported on network.</p>
                         </div>
                     <?php else: ?>
                         <?php foreach ($activeEvents as $e):
@@ -239,7 +294,7 @@ function badgeStatusNoc(string $value): string
                                     </div>
                                 </div>
 
-                                <p class="text-slate-300 small mb-2 text-secondary"><?= htmlspecialchars($e['description'] ?? '') ?></p>
+                                <p class="small mb-2 text-light"><?= htmlspecialchars($e['description'] ?? '') ?></p>
 
                                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                                     <span class="small text-secondary">Department: <strong class="text-white"><?= htmlspecialchars($e['department_name'] ?: 'General') ?></strong></span>
@@ -287,7 +342,7 @@ function badgeStatusNoc(string $value): string
                                             <div class="fw-bold text-white small"><?= htmlspecialchars($p['tickettitle']) ?></div>
                                             <div class="text-secondary" style="font-size:0.75rem;"><?= htmlspecialchars($p['ticketnumber']) ?></div>
                                         </td>
-                                        <td><span class="small text-slate-300"><?= htmlspecialchars($p['queuename']) ?></span></td>
+                                        <td><span class="small text-light"><?= htmlspecialchars($p['queuename']) ?></span></td>
                                         <td><span class="badge <?= badgeStatusNoc($p['statetype']) ?>"><?= htmlspecialchars($p['statetype']) ?></span></td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -297,10 +352,10 @@ function badgeStatusNoc(string $value): string
                 </div>
             </div>
 
-            <!-- Scheduled Changes -->
+            <!-- Scheduled Maintenance Windows (Next 48 Hours) -->
             <div class="noc-card">
                 <div class="noc-card-header text-primary d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-calendar-days me-2"></i>Scheduled Maintenance Windows</span>
+                    <span><i class="fa-solid fa-calendar-days me-2"></i>Scheduled Maintenance Windows (Next 48h)</span>
                     <span class="badge bg-primary text-white"><?= count($changes) ?></span>
                 </div>
                 <div class="table-responsive">
@@ -314,7 +369,7 @@ function badgeStatusNoc(string $value): string
                         </thead>
                         <tbody>
                             <?php if (empty($changes)): ?>
-                                <tr><td colspan="3" class="text-center text-secondary py-3">No upcoming changes scheduled.</td></tr>
+                                <tr><td colspan="3" class="text-center text-secondary py-3">No maintenance windows starting in the next 48 hours.</td></tr>
                             <?php else: ?>
                                 <?php foreach (array_slice($changes, 0, 5) as $c): ?>
                                     <tr>
@@ -329,6 +384,21 @@ function badgeStatusNoc(string $value): string
                             <?php endif; ?>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 48-Hour Hourly Outage Impact Score Graph (Bottom Card) -->
+    <div class="row">
+        <div class="col-12">
+            <div class="noc-card">
+                <div class="noc-card-header text-warning d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-chart-column me-2"></i>Last 48 Hours - Outage Impact Score per Hour</span>
+                    <span class="badge bg-dark border border-secondary text-warning">48-Hour Hourly Metric</span>
+                </div>
+                <div class="p-3" style="height: 220px; position: relative;">
+                    <canvas id="impactTrendChart"></canvas>
                 </div>
             </div>
         </div>
@@ -370,6 +440,50 @@ function badgeStatusNoc(string $value): string
             }
         }
     }
+
+    // Chart.js 48-Hour Impact Trend Graph
+    document.addEventListener('DOMContentLoaded', () => {
+        const ctx = document.getElementById('impactTrendChart').getContext('2d');
+        const labels = <?= json_encode($hourlyLabels) ?>;
+        const data = <?= json_encode($hourlyImpact) ?>;
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Impact Score (Customer-Mins)',
+                    data: data,
+                    backgroundColor: '#f59e0b',
+                    borderColor: '#fbbf24',
+                    borderWidth: 1,
+                    borderRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#94a3b8', font: { size: 10 } },
+                        grid: { color: '#1e293b' }
+                    },
+                    y: {
+                        ticks: { color: '#94a3b8', font: { size: 10 } },
+                        grid: { color: '#334155' },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
 </script>
 </body>
 </html>
