@@ -226,6 +226,31 @@ if (!empty($maintBannerChanges)): ?>
                     $lastUpdateTime = $lastUpdateObj ? strtotime($lastUpdateObj['create_time']) : strtotime($stateEnterTime);
                     $minutesSinceUpdate = floor((time() - $lastUpdateTime) / 60);
                     $isStaleSla = $minutesSinceUpdate >= $slaThresholdMinutes;
+
+                    $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Mitigating', 'Reopened'];
+                    $isCurrentStateOutage = in_array(ucfirst(strtolower($e['state_name'] ?? '')), $outageStates);
+                    $pastOutageSeconds = 0;
+                    $currentStateEnterTime = null;
+
+                    if (!empty($history)) {
+                        foreach ($history as $h) {
+                            if (in_array(ucfirst(strtolower($h['state_name'] ?? '')), $outageStates)) {
+                                $enter = strtotime($h['enter_time']);
+                                if (!empty($h['exit_time'])) {
+                                    $exit = strtotime($h['exit_time']);
+                                    if ($exit > $enter) {
+                                        $pastOutageSeconds += ($exit - $enter);
+                                    }
+                                } else {
+                                    $currentStateEnterTime = $enter;
+                                }
+                            }
+                        }
+                    }
+
+                    if ($isCurrentStateOutage && $currentStateEnterTime === null) {
+                        $currentStateEnterTime = strtotime($e['create_time']);
+                    }
                     ?>
                     <div class="card shadow-sm mb-3 border <?= $isStaleSla ? 'border-danger border-2' : '' ?> incident-card dept-<?= $e['department_id'] ?>">
                         <div class="card-header card-header-clickable bg-white d-flex justify-content-between align-items-center py-2"
@@ -319,7 +344,7 @@ if (!empty($maintBannerChanges)): ?>
                                             </div>
                                             <div class="d-flex justify-content-between mb-2 small">
                                                 <strong>Impact Score:</strong>
-                                                <span class="badge bg-danger fs-6"><?= number_format((int)($e['impactScore'] ?? 0)) ?></span>
+                                                <span class="badge bg-danger fs-6 dynamic-impact-score" data-past-seconds="<?= $pastOutageSeconds ?>" data-enter-time="<?= $currentStateEnterTime ?? 0 ?>" data-customers="<?= (int)($e['customers_affected'] ?? 0) ?>" data-is-outage="<?= $isCurrentStateOutage ? '1' : '0' ?>"><?= number_format((int)($e['impactScore'] ?? 0)) ?></span>
                                             </div>
                                             <div class="text-muted" style="font-size: 0.7rem;">
                                                 (Customers &times; Outage Minutes)
@@ -762,6 +787,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function updateCounters() {
     const now = new Date();
+    const nowSec = Math.floor(now.getTime() / 1000);
+
     document.querySelectorAll('.counter-box').forEach(box => {
         const startTimeStr = box.getAttribute('data-start-time');
         if (!startTimeStr) return;
@@ -777,6 +804,24 @@ function updateCounters() {
         const stateSpan = box.querySelector('.state-counter');
         if (creationSpan) creationSpan.textContent = text;
         if (stateSpan) stateSpan.textContent = text;
+    });
+
+    document.querySelectorAll('.dynamic-impact-score').forEach(el => {
+        const pastSec = parseInt(el.getAttribute('data-past-seconds') || '0', 10);
+        const enterTime = parseInt(el.getAttribute('data-enter-time') || '0', 10);
+        const customers = parseInt(el.getAttribute('data-customers') || '0', 10);
+        const isOutage = el.getAttribute('data-is-outage') === '1';
+
+        let currentSec = 0;
+        if (isOutage && enterTime > 0) {
+            currentSec = Math.max(0, nowSec - enterTime);
+        }
+
+        const totalSec = pastSec + currentSec;
+        const totalMins = totalSec / 60;
+        const score = Math.round(totalMins * customers);
+
+        el.textContent = score.toLocaleString();
     });
 }
 setInterval(updateCounters, 1000);

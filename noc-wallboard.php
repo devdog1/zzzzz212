@@ -3,12 +3,28 @@
 // Designed for 24/7 unauthenticated NOC room wallboard displays (4K Widescreen Dark Theme)
 
 // Initialize plugin environment without forcing user login
+if (!function_exists('get_db_connection')) {
+    if (file_exists(__DIR__ . '/db.php')) {
+        require_once __DIR__ . '/db.php';
+    } elseif (file_exists(__DIR__ . '/zzz5-repo/db.php')) {
+        require_once __DIR__ . '/zzz5-repo/db.php';
+    }
+}
+
 if (file_exists(__DIR__ . '/zzz5-repo/functions.php')) {
     require_once __DIR__ . '/zzz5-repo/functions.php';
 } elseif (file_exists(__DIR__ . '/functions.php')) {
     require_once __DIR__ . '/functions.php';
 } elseif (file_exists(__DIR__ . '/autoload.php')) {
     require_once __DIR__ . '/autoload.php';
+}
+
+if (!class_exists('PluginDatabase')) {
+    if (file_exists(__DIR__ . '/PluginDatabase.php')) {
+        require_once __DIR__ . '/PluginDatabase.php';
+    } elseif (file_exists(__DIR__ . '/zzz5-repo/PluginDatabase.php')) {
+        require_once __DIR__ . '/zzz5-repo/PluginDatabase.php';
+    }
 }
 
 if (!class_exists('EventManager')) {
@@ -312,6 +328,31 @@ function badgeStatusNoc(string $value): string
                                 $lastUpdateTime = $lastUpdate ? strtotime($lastUpdate['create_time']) : strtotime($stateEnterTime);
                                 $minutesSinceUpdate = floor((time() - $lastUpdateTime) / 60);
                                 $isStale = $minutesSinceUpdate >= $slaThresholdMinutes;
+
+                                $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Mitigating', 'Reopened'];
+                                $isCurrentStateOutage = in_array(ucfirst(strtolower($e['state_name'] ?? '')), $outageStates);
+                                $pastOutageSeconds = 0;
+                                $currentStateEnterTime = null;
+
+                                if (!empty($history)) {
+                                    foreach ($history as $h) {
+                                        if (in_array(ucfirst(strtolower($h['state_name'] ?? '')), $outageStates)) {
+                                            $enter = strtotime($h['enter_time']);
+                                            if (!empty($h['exit_time'])) {
+                                                $exit = strtotime($h['exit_time']);
+                                                if ($exit > $enter) {
+                                                    $pastOutageSeconds += ($exit - $enter);
+                                                }
+                                            } else {
+                                                $currentStateEnterTime = $enter;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if ($isCurrentStateOutage && $currentStateEnterTime === null) {
+                                    $currentStateEnterTime = strtotime($e['create_time']);
+                                }
                             ?>
                                 <div class="p-3 mb-3 border <?= $isStale ? 'border-danger border-2' : 'border-secondary' ?> rounded bg-dark">
                                     <div class="d-flex justify-content-between align-items-start mb-2">
@@ -324,7 +365,7 @@ function badgeStatusNoc(string $value): string
                                             <?php endif; ?>
                                         </div>
                                         <div class="text-end text-secondary small">
-                                            <div class="fs-6">Age: <strong class="text-info"><?= humanTime(strtotime($e['create_time'])) ?></strong></div>
+                                            <div class="fs-6">Age: <strong class="text-info dynamic-age" data-create-time="<?= strtotime($e['create_time']) ?>"><?= humanTime(strtotime($e['create_time'])) ?></strong></div>
                                         </div>
                                     </div>
 
@@ -332,7 +373,7 @@ function badgeStatusNoc(string $value): string
 
                                     <div class="d-flex flex-wrap align-items-center gap-3 mb-2 fs-6">
                                         <span class="text-secondary">Department: <strong class="text-white"><?= htmlspecialchars($e['department_name'] ?: 'General') ?></strong></span>
-                                        <span class="text-secondary">| Impact Score: <strong class="text-danger counter-animate" data-target="<?= (int)($e['impactScore'] ?? 0) ?>"><?= number_format((int)($e['impactScore'] ?? 0)) ?></strong></span>
+                                        <span class="text-secondary">| Impact Score: <strong class="text-danger counter-animate dynamic-impact-score" data-past-seconds="<?= $pastOutageSeconds ?>" data-enter-time="<?= $currentStateEnterTime ?? 0 ?>" data-customers="<?= (int)($e['customers_affected'] ?? 0) ?>" data-is-outage="<?= $isCurrentStateOutage ? '1' : '0' ?>" data-target="<?= (int)($e['impactScore'] ?? 0) ?>"><?= number_format((int)($e['impactScore'] ?? 0)) ?></strong></span>
                                         <span class="text-secondary">| Affected: <strong class="text-warning"><?= number_format((int)($e['customers_affected'] ?? 0)) ?></strong> customers</span>
                                     </div>
 
@@ -479,8 +520,57 @@ function badgeStatusNoc(string $value): string
         }
     }
 
+    function updateDynamicImpactScores() {
+        const now = Math.floor(Date.now() / 1000);
+
+        document.querySelectorAll('.dynamic-impact-score').forEach(el => {
+            const pastSec = parseInt(el.getAttribute('data-past-seconds') || '0', 10);
+            const enterTime = parseInt(el.getAttribute('data-enter-time') || '0', 10);
+            const customers = parseInt(el.getAttribute('data-customers') || '0', 10);
+            const isOutage = el.getAttribute('data-is-outage') === '1';
+
+            let currentSec = 0;
+            if (isOutage && enterTime > 0) {
+                currentSec = Math.max(0, now - enterTime);
+            }
+
+            const totalSec = pastSec + currentSec;
+            const totalMins = totalSec / 60;
+            const score = Math.round(totalMins * customers);
+
+            el.textContent = score.toLocaleString();
+        });
+
+        document.querySelectorAll('.dynamic-age').forEach(el => {
+            const createTime = parseInt(el.getAttribute('data-create-time') || '0', 10);
+            if (!createTime) return;
+            const diff = Math.max(0, now - createTime);
+
+            let text = '';
+            if (diff < 60) {
+                text = diff + 's';
+            } else if (diff < 3600) {
+                const m = Math.floor(diff / 60);
+                const s = diff % 60;
+                text = m + 'm ' + s + 's';
+            } else if (diff < 86400) {
+                const h = Math.floor(diff / 3600);
+                const m = Math.floor((diff % 3600) / 60);
+                text = h + 'h ' + m + 'm';
+            } else {
+                const d = Math.floor(diff / 86400);
+                const h = Math.floor((diff % 86400) / 3600);
+                text = d + 'd ' + h + 'h';
+            }
+            el.textContent = text;
+        });
+    }
+
+    setInterval(updateDynamicImpactScores, 1000);
+
     // Dynamic Count-Up Animation for Impact Score & Metrics on Page Load
     document.addEventListener('DOMContentLoaded', () => {
+        updateDynamicImpactScores();
         document.querySelectorAll('.counter-animate').forEach(el => {
             const target = parseInt(el.getAttribute('data-target') || '0', 10);
             if (isNaN(target) || target <= 0) {

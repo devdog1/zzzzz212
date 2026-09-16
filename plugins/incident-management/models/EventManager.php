@@ -109,6 +109,31 @@ class EventManager {
     }
 
     private function ensureSchemaColumns() {
+        $createTables = [
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_type (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(255) NOT NULL UNIQUE, is_disabled TINYINT(1) DEFAULT 0)",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_department (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(255) NOT NULL UNIQUE, azure_group_id VARCHAR(255), is_disabled TINYINT(1) DEFAULT 0)",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_state (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(255) NOT NULL UNIQUE, is_disabled TINYINT(1) DEFAULT 0)",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_service (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(255) NOT NULL UNIQUE, is_disabled TINYINT(1) DEFAULT 0)",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_tag (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(255) NOT NULL UNIQUE, is_disabled TINYINT(1) DEFAULT 0)",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_area (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(255) NOT NULL UNIQUE, is_disabled TINYINT(1) DEFAULT 0)",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_wb_events (id INTEGER PRIMARY KEY AUTOINCREMENT, title VARCHAR(255) DEFAULT NULL, type_id INT, ticket_id VARCHAR(255) DEFAULT '0', ticket_nr VARCHAR(255) DEFAULT '0', create_user VARCHAR(255) DEFAULT '0', create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_user VARCHAR(255), department_id INT, customers_affected INT DEFAULT 0, description TEXT, state_id INT DEFAULT 0, teams_message_Id VARCHAR(255), teams_chat_id VARCHAR(255), impactScoreNotified INT DEFAULT 0, impactScore INT DEFAULT 0)",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_event_services (event_id INT, service_id INT, PRIMARY KEY (event_id, service_id))",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_event_tags (event_id INT, tag_id INT, PRIMARY KEY (event_id, tag_id))",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_event_areas (event_id INT, area_id INT, PRIMARY KEY (event_id, area_id))",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_event_updates (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INT NOT NULL, update_text TEXT, create_user VARCHAR(255), create_time DATETIME DEFAULT CURRENT_TIMESTAMP)",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_event_state_history (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INT NOT NULL, state_id INT NOT NULL, enter_time DATETIME DEFAULT CURRENT_TIMESTAMP, exit_time DATETIME NULL, user VARCHAR(255))",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, table_name VARCHAR(255), record_id INT, action VARCHAR(50), old_values TEXT, new_values TEXT, user VARCHAR(255), timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_defaults (setting_key VARCHAR(255) PRIMARY KEY, setting_value TEXT, description VARCHAR(255))",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_event_circuits (event_id INT, circuit_id INT, circuit_cid VARCHAR(255), provider VARCHAR(255), PRIMARY KEY (event_id, circuit_id))",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_external_message_log (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INT NOT NULL, recipient VARCHAR(255), subject VARCHAR(255), message TEXT, sent_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+        ];
+
+        foreach ($createTables as $createSql) {
+            try {
+                $this->pdb->query($createSql);
+            } catch (Throwable $t) {}
+        }
+
         try {
             $stmt = $this->pdb->query("SHOW COLUMNS FROM plug_incident_management_wb_events LIKE 'title'");
             if (!$stmt->fetch()) {
@@ -455,15 +480,44 @@ class EventManager {
         }
     }
 
-    public function calculateImpactScore($eventId, $customers) {
+    public function calculateImpactScore($eventId, $customers, $currentStateName = null, $createTime = null) {
+        if ($currentStateName === null || $createTime === null) {
+            $stmt = $this->pdb->query("
+                SELECT e.create_time, s.name as state_name
+                FROM plug_incident_management_wb_events e
+                LEFT JOIN plug_incident_management_state s ON e.state_id = s.id
+                WHERE e.id = ?
+            ", [$eventId]);
+            $row = $stmt->fetch();
+            if ($row) {
+                if ($currentStateName === null) $currentStateName = $row['state_name'] ?? '';
+                if ($createTime === null) $createTime = $row['create_time'] ?? null;
+            }
+        }
+
         $history = $this->getStateHistory($eventId);
         $totalOutageSeconds = 0;
+        $hasOpenActiveEntry = false;
 
-        foreach ($history as $h) {
-            if (in_array(ucfirst(strtolower($h['state_name'] ?? '')), $this->outageStates)) {
-                $enter = strtotime($h['enter_time']);
-                $exit = $h['exit_time'] ? strtotime($h['exit_time']) : time();
-                $totalOutageSeconds += ($exit - $enter);
+        if (!empty($history)) {
+            foreach ($history as $h) {
+                if (in_array(ucfirst(strtolower($h['state_name'] ?? '')), $this->outageStates)) {
+                    $enter = strtotime($h['enter_time']);
+                    $exit = $h['exit_time'] ? strtotime($h['exit_time']) : time();
+                    if (empty($h['exit_time'])) {
+                        $hasOpenActiveEntry = true;
+                    }
+                    if ($exit > $enter) {
+                        $totalOutageSeconds += ($exit - $enter);
+                    }
+                }
+            }
+        }
+
+        if (!$hasOpenActiveEntry && $currentStateName && in_array(ucfirst(strtolower($currentStateName)), $this->outageStates)) {
+            if ($totalOutageSeconds == 0 && $createTime) {
+                $start = strtotime($createTime);
+                $totalOutageSeconds = max(0, time() - $start);
             }
         }
 
@@ -486,6 +540,7 @@ class EventManager {
             $event['areas'] = $this->getEventAreas($eventId);
             $event['state_history'] = $this->getStateHistory($eventId);
             $event['circuits'] = $this->getEventCircuits($eventId);
+            $event['impactScore'] = $this->calculateImpactScore($eventId, $event['customers_affected'] ?? 0, $event['state_name'] ?? '', $event['create_time'] ?? null);
         }
         return $event;
     }
@@ -506,6 +561,7 @@ class EventManager {
             $e['tags'] = $this->getEventTags($e['id']);
             $e['areas'] = $this->getEventAreas($e['id']);
             $e['circuits'] = $this->getEventCircuits($e['id']);
+            $e['impactScore'] = $this->calculateImpactScore($e['id'], $e['customers_affected'] ?? 0, $e['state_name'] ?? '', $e['create_time'] ?? null);
         }
         return $events;
     }
