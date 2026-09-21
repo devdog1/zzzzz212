@@ -281,16 +281,9 @@ function badgeStatusNoc(string $value): string
     </div>
 
     <div class="wallboard-container">
-        <!-- Widescreen Header -->
-        <div class="d-flex justify-content-between align-items-center wallboard-header">
-            <div class="d-flex align-items-center">
-                <i class="fa-solid fa-desktop text-info fs-1 me-4"></i>
-                <div>
-                    <h1 class="mb-0 fw-bold fs-2 text-white">NOC Operational Status Display</h1>
-                    <span class="text-secondary fs-6">24/7 Live Monitoring Wallboard | Incident & Network Overview (4K Landscape Mode)</span>
-                </div>
-            </div>
-            <div class="text-end">
+        <!-- Compact Clock & Action Header -->
+        <div class="d-flex justify-content-end align-items-center mb-3">
+            <div>
                 <span class="badge bg-dark border border-secondary text-info px-3 py-2 font-monospace fs-5">
                     <i class="fa-solid fa-clock me-2"></i><span id="wallboardClock"><?= date('Y-m-d H:i:s') ?></span>
                 </span>
@@ -476,8 +469,8 @@ function badgeStatusNoc(string $value): string
             String(now.getSeconds()).padStart(2, '0');
     }, 1000);
 
-    // 30-Second Refresh Countdown Progress Bar
-    const REFRESH_SECONDS = 30;
+    // 60-Second Refresh Countdown Progress Bar
+    const REFRESH_SECONDS = 60;
     let secondsLeft = REFRESH_SECONDS;
     const progressBar = document.getElementById('refreshProgressBar');
 
@@ -489,6 +482,37 @@ function badgeStatusNoc(string $value): string
             location.reload();
         }
     }, 1000);
+
+    // Auto-scroll scrollable card bodies smoothly within the 60s refresh cycle
+    function initAutoScroll() {
+        const scrollContainers = document.querySelectorAll('.noc-card-body-scroll');
+        const startTime = performance.now();
+        const totalDuration = REFRESH_SECONDS * 1000; // 60000ms
+        const pauseStart = 3000; // 3s pause at top
+        const pauseEnd = 5000;   // 5s pause at bottom
+        const scrollDuration = totalDuration - pauseStart - pauseEnd; // 52000ms
+
+        function step(now) {
+            const elapsed = now - startTime;
+            scrollContainers.forEach(el => {
+                const maxScroll = el.scrollHeight - el.clientHeight;
+                if (maxScroll > 0) {
+                    if (elapsed < pauseStart) {
+                        el.scrollTop = 0;
+                    } else if (elapsed < pauseStart + scrollDuration) {
+                        const progress = (elapsed - pauseStart) / scrollDuration;
+                        el.scrollTop = progress * maxScroll;
+                    } else {
+                        el.scrollTop = maxScroll;
+                    }
+                }
+            });
+            if (elapsed < totalDuration) {
+                requestAnimationFrame(step);
+            }
+        }
+        requestAnimationFrame(step);
+    }
 
     // Fullscreen Toggle Helper
     function toggleFullScreen() {
@@ -552,6 +576,7 @@ function badgeStatusNoc(string $value): string
     // Dynamic Count-Up Animation for Impact Score & Metrics on Page Load
     document.addEventListener('DOMContentLoaded', () => {
         updateDynamicImpactScores();
+        initAutoScroll();
         document.querySelectorAll('.counter-animate').forEach(el => {
             const target = parseInt(el.getAttribute('data-target') || '0', 10);
             if (isNaN(target) || target <= 0) {
