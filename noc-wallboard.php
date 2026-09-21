@@ -415,7 +415,7 @@ function badgeStatusNoc(string $value): string
                         <span><i class="fa-solid fa-calendar-days me-2"></i>Changes (Next 48h)</span>
                         <span class="badge bg-primary text-white fs-6"><?= count($changes) ?></span>
                     </div>
-                    <div class="table-responsive">
+                    <div class="table-responsive noc-card-body-scroll">
                         <table class="table table-dark noc-table align-middle">
                             <thead>
                                 <tr>
@@ -428,7 +428,7 @@ function badgeStatusNoc(string $value): string
                                 <?php if (empty($changes)): ?>
                                     <tr><td colspan="3" class="text-center text-secondary py-4">No maintenance windows starting in the next 48 hours.</td></tr>
                                 <?php else: ?>
-                                    <?php foreach (array_slice($changes, 0, 7) as $c):
+                                    <?php foreach ($changes as $c):
                                         $title = !empty($c['changeTitle']) ? $c['changeTitle'] : (!empty($c['workOrderTitle']) ? $c['workOrderTitle'] : 'Change #' . $c['changeId']);
                                     ?>
                                         <tr>
