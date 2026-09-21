@@ -302,7 +302,7 @@ function badgeStatusNocView(string $value): string
                                 $lastState = end($history);
                                 $stateEnterTime = $lastState ? $lastState['enter_time'] : $e['create_time'];
                                 $updates = $em->getEventUpdates($e['id']);
-                                $lastUpdate = end($updates);
+                                $lastUpdate = !empty($updates) ? $updates[0] : null;
                                 $lastUpdateTime = $lastUpdate ? strtotime($lastUpdate['create_time']) : strtotime($stateEnterTime);
                                 $minutesSinceUpdate = floor((time() - $lastUpdateTime) / 60);
                                 $isStale = $minutesSinceUpdate >= $slaThresholdMinutes;
