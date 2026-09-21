@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS `plug_incident_management_external_message_log`;
+DROP TABLE IF EXISTS `plug_incident_management_event_circuits`;
+DROP TABLE IF EXISTS `plug_incident_management_event_state_history`;
+DROP TABLE IF EXISTS `plug_incident_management_event_updates`;
+DROP TABLE IF EXISTS `plug_incident_management_event_areas`;
+DROP TABLE IF EXISTS `plug_incident_management_event_tags`;
+DROP TABLE IF EXISTS `plug_incident_management_event_services`;
+DROP TABLE IF EXISTS `plug_incident_management_wb_events`;
+DROP TABLE IF EXISTS `plug_incident_management_area`;
+DROP TABLE IF EXISTS `plug_incident_management_tag`;
+DROP TABLE IF EXISTS `plug_incident_management_service`;
+DROP TABLE IF EXISTS `plug_incident_management_state`;
+DROP TABLE IF EXISTS `plug_incident_management_department`;
+DROP TABLE IF EXISTS `plug_incident_management_type`;
+DROP TABLE IF EXISTS `plug_incident_management_audit_log`;
+DROP TABLE IF EXISTS `plug_incident_management_defaults`;
