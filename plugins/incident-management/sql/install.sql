@@ -140,6 +140,14 @@ CREATE TABLE IF NOT EXISTS `plug_incident_management_external_message_log` (
     FOREIGN KEY (`event_id`) REFERENCES `plug_incident_management_wb_events`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS `plug_incident_management_email_rules` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `trigger_event` VARCHAR(50) NOT NULL,
+    `recipients` TEXT NOT NULL,
+    `is_enabled` TINYINT(1) DEFAULT 1,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 -- Seed Default States
 INSERT IGNORE INTO `plug_incident_management_state` (`id`, `name`) VALUES
 (1, 'Detected'),
@@ -178,4 +186,6 @@ INSERT IGNORE INTO `plug_incident_management_defaults` (`setting_key`, `setting_
 ('netbox_enabled', '0', 'Enable NetBox circuit integration (0 or 1)'),
 ('netbox_url', '', 'NetBox API URL'),
 ('netbox_token', '', 'NetBox API Token'),
-('external_email_template', 'Hello,\n\nAn incident has been reported that may affect your circuit {circuit_cid}.\n\nIncident Description: {description}\nLatest Update: {update_text}\n\nWe will keep you informed.', 'Template for external circuit owner emails');
+('external_email_template', 'Hello,\n\nAn incident has been reported that may affect your circuit {circuit_cid}.\n\nIncident Description: {description}\nLatest Update: {update_text}\n\nWe will keep you informed.', 'Template for external circuit owner emails'),
+('email_confidentiality_footer', 'CONFIDENTIALITY NOTICE: This email and any attachments are confidential and intended solely for the use of the individual or entity to whom they are addressed.', 'Confidentiality statement footer for outbound emails'),
+('outbound_email_from', 'noreply@example.com', 'From and envelope sender email address for outbound emails');
