@@ -125,7 +125,8 @@ class EventManager {
             "CREATE TABLE IF NOT EXISTS plug_incident_management_audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, table_name VARCHAR(255), record_id INT, action VARCHAR(50), old_values TEXT, new_values TEXT, user VARCHAR(255), timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)",
             "CREATE TABLE IF NOT EXISTS plug_incident_management_defaults (setting_key VARCHAR(255) PRIMARY KEY, setting_value TEXT, description VARCHAR(255))",
             "CREATE TABLE IF NOT EXISTS plug_incident_management_event_circuits (event_id INT, circuit_id INT, circuit_cid VARCHAR(255), provider VARCHAR(255), PRIMARY KEY (event_id, circuit_id))",
-            "CREATE TABLE IF NOT EXISTS plug_incident_management_external_message_log (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INT NOT NULL, recipient VARCHAR(255), subject VARCHAR(255), message TEXT, sent_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_external_message_log (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INT NOT NULL, recipient VARCHAR(255), subject VARCHAR(255), message TEXT, sent_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+            "CREATE TABLE IF NOT EXISTS plug_incident_management_email_rules (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(255) NOT NULL, recipient_email VARCHAR(255) NOT NULL, event_creation TINYINT(1) DEFAULT 0, event_update TINYINT(1) DEFAULT 0, metadata_change TINYINT(1) DEFAULT 0, event_closure TINYINT(1) DEFAULT 0, pir_on_closure TINYINT(1) DEFAULT 0, is_active TINYINT(1) DEFAULT 1, create_time DATETIME DEFAULT CURRENT_TIMESTAMP)"
         ];
 
         foreach ($createTables as $createSql) {
@@ -335,6 +336,9 @@ class EventManager {
 
         $this->initOTRSTicket($eventId, $filteredData['description'] ?? '');
 
+        // Trigger Outbound Email Notifications on Creation
+        $this->triggerOutboundEmails($eventId, 'event_creation');
+
         return $eventId;
     }
 
@@ -419,8 +423,22 @@ class EventManager {
         $this->notifyTeamsOfMetadataChange($oldEvent, $newEvent);
         $this->notifyOTRSOfMetadataChange($oldEvent, $newEvent);
 
+        // Trigger Outbound Email Notifications on Metadata Change
+        $metadataSummary = [];
+        foreach ($this->allowedEventFields as $field) {
+            if (isset($oldEvent[$field]) && isset($newEvent[$field]) && $oldEvent[$field] != $newEvent[$field]) {
+                $metadataSummary[] = "{$field}: '{$oldEvent[$field]}' → '{$newEvent[$field]}'";
+            }
+        }
+        if (!empty($metadataSummary)) {
+            $this->triggerOutboundEmails($eventId, 'metadata_change', implode("\n", $metadataSummary));
+        }
+
         if (strtolower($newEvent['state_name'] ?? '') === 'closed' && strtolower($oldEvent['state_name'] ?? '') !== 'closed') {
             $this->sendClosureSummary($eventId);
+            // Trigger Outbound Email Notifications on Closure and PIR on Closure
+            $this->triggerOutboundEmails($eventId, 'event_closure');
+            $this->triggerOutboundEmails($eventId, 'pir_on_closure');
         }
 
         return true;
@@ -818,6 +836,324 @@ class EventManager {
         return true;
     }
 
+    // --- Outbound Email Rules CRUD ---
+
+    public function listEmailRules() {
+        return $this->pdb->query("SELECT * FROM plug_incident_management_email_rules ORDER BY id DESC")->fetchAll();
+    }
+
+    public function getEmailRule($id) {
+        $stmt = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules WHERE id = ?", [$id]);
+        return $stmt->fetch();
+    }
+
+    public function createEmailRule($name, $recipientEmail, $eventCreation = 0, $eventUpdate = 0, $metadataChange = 0, $eventClosure = 0, $pirOnClosure = 0, $isActive = 1) {
+        $sql = "INSERT INTO plug_incident_management_email_rules
+                (name, recipient_email, event_creation, event_update, metadata_change, event_closure, pir_on_closure, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $this->pdb->query($sql, [
+            $name,
+            $recipientEmail,
+            $eventCreation ? 1 : 0,
+            $eventUpdate ? 1 : 0,
+            $metadataChange ? 1 : 0,
+            $eventClosure ? 1 : 0,
+            $pirOnClosure ? 1 : 0,
+            $isActive ? 1 : 0
+        ]);
+        $ruleId = $this->db->lastInsertId();
+        $this->logAudit('plug_incident_management_email_rules', $ruleId, 'CREATE', null, [
+            'name' => $name,
+            'recipient_email' => $recipientEmail,
+            'event_creation' => $eventCreation,
+            'event_update' => $eventUpdate,
+            'metadata_change' => $metadataChange,
+            'event_closure' => $eventClosure,
+            'pir_on_closure' => $pirOnClosure,
+            'is_active' => $isActive
+        ]);
+        return $ruleId;
+    }
+
+    public function updateEmailRule($id, $name, $recipientEmail, $eventCreation = 0, $eventUpdate = 0, $metadataChange = 0, $eventClosure = 0, $pirOnClosure = 0, $isActive = 1) {
+        $old = $this->getEmailRule($id);
+        if (!$old) return false;
+
+        $sql = "UPDATE plug_incident_management_email_rules SET
+                name = ?, recipient_email = ?, event_creation = ?, event_update = ?, metadata_change = ?, event_closure = ?, pir_on_closure = ?, is_active = ?
+                WHERE id = ?";
+        $this->pdb->query($sql, [
+            $name,
+            $recipientEmail,
+            $eventCreation ? 1 : 0,
+            $eventUpdate ? 1 : 0,
+            $metadataChange ? 1 : 0,
+            $eventClosure ? 1 : 0,
+            $pirOnClosure ? 1 : 0,
+            $isActive ? 1 : 0,
+            $id
+        ]);
+
+        $this->logAudit('plug_incident_management_email_rules', $id, 'UPDATE', $old, [
+            'name' => $name,
+            'recipient_email' => $recipientEmail,
+            'event_creation' => $eventCreation,
+            'event_update' => $eventUpdate,
+            'metadata_change' => $metadataChange,
+            'event_closure' => $eventClosure,
+            'pir_on_closure' => $pirOnClosure,
+            'is_active' => $isActive
+        ]);
+        return true;
+    }
+
+    public function deleteEmailRule($id) {
+        $old = $this->getEmailRule($id);
+        if (!$old) return false;
+
+        $this->pdb->query("DELETE FROM plug_incident_management_email_rules WHERE id = ?", [$id]);
+        $this->logAudit('plug_incident_management_email_rules', $id, 'DELETE', $old, null);
+        return true;
+    }
+
+    // --- Outbound Email Trigger & Dispatch Engine ---
+
+    public function triggerOutboundEmails($eventId, $eventType, $extraDetails = null) {
+        if ($this->getDefault('outbound_email_enabled') === '0') {
+            return false;
+        }
+
+        $rules = $this->listEmailRules();
+        if (empty($rules)) {
+            return false;
+        }
+
+        $event = $this->getEvent($eventId);
+        if (!$event) return false;
+
+        $fromAddress = $this->getDefault('outbound_from_email') ?: 'noreply@example.com';
+        $confidentiality = $this->getDefault('confidentiality_statement') ?: '';
+
+        foreach ($rules as $rule) {
+            if (!$rule['is_active']) continue;
+
+            $shouldSend = false;
+            $subjectTag = '';
+
+            switch ($eventType) {
+                case 'event_creation':
+                    if ($rule['event_creation']) {
+                        $shouldSend = true;
+                        $subjectTag = '[NEW INCIDENT]';
+                    }
+                    break;
+
+                case 'event_update':
+                    if ($rule['event_update']) {
+                        $shouldSend = true;
+                        $subjectTag = '[INCIDENT UPDATE]';
+                    }
+                    break;
+
+                case 'metadata_change':
+                    if ($rule['metadata_change']) {
+                        $shouldSend = true;
+                        $subjectTag = '[METADATA CHANGE]';
+                    }
+                    break;
+
+                case 'event_closure':
+                    if ($rule['event_closure']) {
+                        $shouldSend = true;
+                        $subjectTag = '[INCIDENT RESOLVED]';
+                    }
+                    break;
+
+                case 'pir_on_closure':
+                    if ($rule['pir_on_closure']) {
+                        $shouldSend = true;
+                        $subjectTag = '[PIR REPORT]';
+                    }
+                    break;
+            }
+
+            if (!$shouldSend) continue;
+
+            $titleStr = !empty($event['title']) ? $event['title'] : "Incident #{$event['id']}";
+            $subject = "{$subjectTag} #{$event['id']}: {$titleStr}";
+
+            $htmlBody = $this->buildProfessionalEmailHtml($event, $eventType, $extraDetails, $confidentiality);
+
+            $headers  = "MIME-Version: 1.0\r\n";
+            $headers .= "Content-type: text/html; charset=UTF-8\r\n";
+            $headers .= "From: Incident Management <{$fromAddress}>\r\n";
+            $headers .= "X-Mailer: PHP/" . phpversion();
+
+            @mail($rule['recipient_email'], $subject, $htmlBody, $headers);
+
+            $this->logAudit('plug_incident_management_email_rules', $rule['id'], 'EMAIL_DISPATCH', null, [
+                'event_id' => $eventId,
+                'event_type' => $eventType,
+                'recipient' => $rule['recipient_email'],
+                'subject' => $subject
+            ]);
+        }
+
+        return true;
+    }
+
+    private function buildProfessionalEmailHtml($event, $eventType, $extraDetails, $confidentiality) {
+        $eventId = $event['id'];
+        $title = htmlspecialchars(!empty($event['title']) ? $event['title'] : "Incident #{$eventId}");
+        $state = htmlspecialchars($event['state_name'] ?? 'Detected');
+        $department = htmlspecialchars($event['department_name'] ?? 'General');
+        $type = htmlspecialchars($event['type_name'] ?? 'Unclassified');
+        $customers = number_format((int)($event['customers_affected'] ?? 0));
+        $impactScore = number_format((int)($event['impactScore'] ?? 0));
+        $description = nl2br(htmlspecialchars($event['description'] ?? ''));
+        $createTime = htmlspecialchars($event['create_time'] ?? '');
+        $updateTime = htmlspecialchars($event['update_time'] ?? '');
+
+        $areasList = !empty($event['areas']) ? implode(', ', array_map('htmlspecialchars', array_column($event['areas'], 'name'))) : 'None';
+        $servicesList = !empty($event['services']) ? implode(', ', array_map('htmlspecialchars', array_column($event['services'], 'name'))) : 'None';
+        $tagsList = !empty($event['tags']) ? implode(', ', array_map('htmlspecialchars', array_column($event['tags'], 'name'))) : 'None';
+
+        $bannerColor = '#0284c7'; // Primary blue
+        if (str_contains(strtolower($state), 'closed') || str_contains(strtolower($state), 'resolved')) {
+            $bannerColor = '#16a34a'; // Green
+        } elseif ($eventType === 'pir_on_closure') {
+            $bannerColor = '#0f172a'; // Dark slate
+        }
+
+        $eventTypeLabel = strtoupper(str_replace('_', ' ', $eventType));
+
+        $html = "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <style>
+                body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b; margin: 0; padding: 20px; }
+                .email-card { max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+                .header { background-color: {$bannerColor}; color: #ffffff; padding: 20px 24px; }
+                .header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+                .header p { margin: 4px 0 0 0; font-size: 13px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.05em; }
+                .content { padding: 24px; }
+                .section-title { font-size: 14px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-top: 20px; margin-bottom: 12px; }
+                .grid-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+                .grid-table td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; }
+                .grid-table td.label { font-weight: 600; color: #64748b; width: 35%; background: #f8fafc; }
+                .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; background: #e2e8f0; color: #1e293b; }
+                .highlight-box { background-color: #f0fdf4; border-left: 4px solid #16a34a; padding: 12px 16px; font-size: 14px; border-radius: 0 6px 6px 0; margin-bottom: 16px; }
+                .update-box { background-color: #f0f9ff; border-left: 4px solid #0284c7; padding: 12px 16px; font-size: 14px; border-radius: 0 6px 6px 0; margin-bottom: 16px; }
+                .timeline-item { padding: 10px 12px; border-left: 2px solid #cbd5e1; margin-left: 8px; margin-bottom: 10px; font-size: 13px; background: #fafafa; }
+                .timeline-time { font-size: 11px; color: #64748b; font-weight: 600; }
+                .footer { background-color: #f8fafc; padding: 16px 24px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; text-align: center; line-height: 1.5; }
+            </style>
+        </head>
+        <body>
+            <div class='email-card'>
+                <div class='header'>
+                    <p>INCIDENT MANAGEMENT NOTIFICATION &bull; {$eventTypeLabel}</p>
+                    <h1>#{$eventId}: {$title}</h1>
+                </div>
+                <div class='content'>
+        ";
+
+        if ($eventType === 'event_update' && !empty($extraDetails)) {
+            $html .= "
+                    <div class='update-box'>
+                        <strong>Latest Incident Update:</strong><br>
+                        " . nl2br(htmlspecialchars($extraDetails)) . "
+                    </div>
+            ";
+        } elseif ($eventType === 'metadata_change' && !empty($extraDetails)) {
+            $html .= "
+                    <div class='highlight-box'>
+                        <strong>Incident Metadata Updated:</strong><br>
+                        " . nl2br(htmlspecialchars($extraDetails)) . "
+                    </div>
+            ";
+        }
+
+        $html .= "
+                    <div class='section-title'>Incident Overview</div>
+                    <table class='grid-table'>
+                        <tr><td class='label'>Incident ID</td><td>#{$eventId}</td></tr>
+                        <tr><td class='label'>Status / State</td><td><span class='badge'>{$state}</span></td></tr>
+                        <tr><td class='label'>Department</td><td>{$department}</td></tr>
+                        <tr><td class='label'>Incident Type</td><td>{$type}</td></tr>
+                        <tr><td class='label'>Affected Customers</td><td>{$customers}</td></tr>
+                        <tr><td class='label'>Outage Impact Score</td><td>{$impactScore}</td></tr>
+                        <tr><td class='label'>Geographical Areas</td><td>{$areasList}</td></tr>
+                        <tr><td class='label'>Services Affected</td><td>{$servicesList}</td></tr>
+                        <tr><td class='label'>Tags</td><td>{$tagsList}</td></tr>
+                        <tr><td class='label'>Reported Time</td><td>{$createTime}</td></tr>
+                        <tr><td class='label'>Last Modified</td><td>{$updateTime}</td></tr>
+                    </table>
+
+                    <div class='section-title'>Description</div>
+                    <p style='font-size: 13px; line-height: 1.6; color: #334155;'>{$description}</p>
+        ";
+
+        // Include Timeline for Updates, Metadata Changes, Closure, and PIR
+        if (in_array($eventType, ['event_update', 'metadata_change', 'event_closure', 'pir_on_closure'])) {
+            $updates = $this->getEventUpdates($eventId);
+            $history = $this->getStateHistory($eventId);
+
+            $html .= "<div class='section-title'>Incident History Timeline</div>";
+
+            if (!empty($updates)) {
+                $html .= "<p style='font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px;'>Posted Updates:</p>";
+                foreach ($updates as $u) {
+                    $uTime = htmlspecialchars($u['create_time']);
+                    $uUser = htmlspecialchars($u['create_user'] ?? 'System');
+                    $uText = nl2br(htmlspecialchars($u['update_text']));
+                    $html .= "
+                        <div class='timeline-item'>
+                            <div class='timeline-time'>{$uTime} by {$uUser}</div>
+                            <div>{$uText}</div>
+                        </div>
+                    ";
+                }
+            }
+
+            if (!empty($history)) {
+                $html .= "<p style='font-size: 12px; font-weight: 700; color: #475569; margin-top: 12px; margin-bottom: 8px;'>State Changes:</p>";
+                foreach ($history as $h) {
+                    $hTime = htmlspecialchars($h['enter_time']);
+                    $hState = htmlspecialchars($h['state_name'] ?? '');
+                    $hUser = htmlspecialchars($h['user'] ?? 'System');
+                    $html .= "
+                        <div class='timeline-item' style='border-left-color: #0284c7;'>
+                            <div class='timeline-time'>{$hTime} by {$hUser}</div>
+                            <div>Transitioned to <strong>{$hState}</strong></div>
+                        </div>
+                    ";
+                }
+            }
+        }
+
+        $html .= "
+                </div>
+                <div class='footer'>
+                    This is an automated operational notification generated by the Incident Management Platform.<br>
+        ";
+
+        if (!empty($confidentiality)) {
+            $html .= "<div style='margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-style: italic;'>" . nl2br(htmlspecialchars($confidentiality)) . "</div>";
+        }
+
+        $html .= "
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+
+        return $html;
+    }
+
     // --- Event Updates ---
 
     public function addEventUpdate($eventId, $updateText, $messageExternal = false, $customExternalMessage = null) {
@@ -865,6 +1201,9 @@ class EventManager {
             'horizontalAlignment' => 'Right'
         ];
         $this->postCardToTeamsChat($eventId, $card);
+
+        // Trigger Outbound Email Notifications on Update
+        $this->triggerOutboundEmails($eventId, 'event_update', $updateText);
 
         // Add OTRS Article
         $body = "<div style='font-family:sans-serif; border:1px solid #198754; border-radius:5px; padding:15px;'>\r\n";

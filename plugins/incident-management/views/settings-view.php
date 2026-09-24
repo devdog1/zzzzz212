@@ -17,6 +17,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $em->updateDefault($key, $value);
         }
         $message = "Incident system integration settings updated successfully.";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'create_email_rule') {
+        $name = trim($_POST['rule_name'] ?? '');
+        $email = trim($_POST['recipient_email'] ?? '');
+        if (!empty($name) && !empty($email)) {
+            $em->createEmailRule(
+                $name,
+                $email,
+                isset($_POST['event_creation']),
+                isset($_POST['event_update']),
+                isset($_POST['metadata_change']),
+                isset($_POST['event_closure']),
+                isset($_POST['pir_on_closure']),
+                1
+            );
+            $message = "Outbound email notification rule created successfully.";
+        }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'update_email_rule') {
+        $id = (int)($_POST['rule_id'] ?? 0);
+        $name = trim($_POST['rule_name'] ?? '');
+        $email = trim($_POST['recipient_email'] ?? '');
+        if ($id > 0 && !empty($name) && !empty($email)) {
+            $em->updateEmailRule(
+                $id,
+                $name,
+                $email,
+                isset($_POST['event_creation']),
+                isset($_POST['event_update']),
+                isset($_POST['metadata_change']),
+                isset($_POST['event_closure']),
+                isset($_POST['pir_on_closure']),
+                isset($_POST['is_active'])
+            );
+            $message = "Outbound email notification rule updated successfully.";
+        }
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'delete_email_rule') {
+        $id = (int)($_POST['rule_id'] ?? 0);
+        if ($id > 0) {
+            $em->deleteEmailRule($id);
+            $message = "Outbound email notification rule deleted successfully.";
+        }
     }
 }
 
@@ -204,6 +244,37 @@ if (method_exists(get_auth(), 'getAccessToken')) {
             </div>
         </div>
 
+        <!-- Outbound Email Rules & Confidentiality Statement -->
+        <div class="col-md-10 mb-4">
+            <div class="card shadow-sm border border-info">
+                <div class="card-header bg-info text-dark fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-envelope me-2"></i>Outbound Incident Email Notifications & Rules</span>
+                    <span class="badge bg-dark text-white"><?= ($defaults['outbound_email_enabled'] ?? '1') === '1' ? 'Enabled' : 'Disabled' ?></span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-4 border-bottom pb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small">Enable Outbound Incident Emails</label>
+                            <select name="settings[outbound_email_enabled]" class="form-select form-select-sm">
+                                <option value="1" <?= ($defaults['outbound_email_enabled'] ?? '1') === '1' ? 'selected' : '' ?>>Enabled</option>
+                                <option value="0" <?= ($defaults['outbound_email_enabled'] ?? '1') === '0' ? 'selected' : '' ?>>Disabled</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold small">Outbound 'From' Email Address</label>
+                            <input type="email" name="settings[outbound_from_email]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['outbound_from_email'] ?? 'noreply@example.com') ?>" placeholder="noreply@example.com">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small"><i class="fa-solid fa-lock text-warning me-1"></i>Confidentiality Statement Footer</label>
+                        <textarea name="settings[confidentiality_statement]" class="form-control form-control-sm" rows="3" placeholder="Confidentiality notice included at the bottom of all outbound emails..."><?= htmlspecialchars($defaults['confidentiality_statement'] ?? '') ?></textarea>
+                        <div class="form-text small">This legal confidentiality notice will automatically be appended to all outbound incident notification emails.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- NetBox Integration -->
         <div class="col-md-10 mb-4">
             <div class="card shadow-sm border">
@@ -253,6 +324,181 @@ if (method_exists(get_auth(), 'getAccessToken')) {
         </div>
     </div>
 </form>
+
+<div class="row justify-content-center text-start mb-4">
+    <div class="col-md-10">
+        <div class="card shadow-sm border border-info">
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-list-check me-2 text-info"></i>Configured Outbound Email Notification Rules</span>
+                <button type="button" class="btn btn-sm btn-info text-dark fw-bold" data-bs-toggle="modal" data-bs-target="#addEmailRuleModal">
+                    <i class="fa-solid fa-plus me-1"></i>Add New Email Rule
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small">
+                            <tr>
+                                <th>Rule Name</th>
+                                <th>Recipient Email</th>
+                                <th class="text-center">On Creation</th>
+                                <th class="text-center">On Update</th>
+                                <th class="text-center">On Metadata Change</th>
+                                <th class="text-center">On Closure</th>
+                                <th class="text-center">PIR (Closure)</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-end pe-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $emailRules = $em->listEmailRules();
+                            if (empty($emailRules)):
+                            ?>
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4 small">
+                                        No custom outbound email rules configured. Click "Add New Email Rule" to set up rules for different recipients.
+                                    </td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($emailRules as $rule): ?>
+                                    <tr>
+                                        <td class="fw-bold text-dark"><?= htmlspecialchars($rule['name']) ?></td>
+                                        <td><code class="text-primary"><?= htmlspecialchars($rule['recipient_email']) ?></code></td>
+                                        <td class="text-center"><?= $rule['event_creation'] ? '<span class="badge bg-success"><i class="fa-solid fa-check"></i></span>' : '<span class="badge bg-light text-muted"><i class="fa-solid fa-xmark"></i></span>' ?></td>
+                                        <td class="text-center"><?= $rule['event_update'] ? '<span class="badge bg-success"><i class="fa-solid fa-check"></i></span>' : '<span class="badge bg-light text-muted"><i class="fa-solid fa-xmark"></i></span>' ?></td>
+                                        <td class="text-center"><?= $rule['metadata_change'] ? '<span class="badge bg-success"><i class="fa-solid fa-check"></i></span>' : '<span class="badge bg-light text-muted"><i class="fa-solid fa-xmark"></i></span>' ?></td>
+                                        <td class="text-center"><?= $rule['event_closure'] ? '<span class="badge bg-success"><i class="fa-solid fa-check"></i></span>' : '<span class="badge bg-light text-muted"><i class="fa-solid fa-xmark"></i></span>' ?></td>
+                                        <td class="text-center"><?= $rule['pir_on_closure'] ? '<span class="badge bg-success"><i class="fa-solid fa-check"></i></span>' : '<span class="badge bg-light text-muted"><i class="fa-solid fa-xmark"></i></span>' ?></td>
+                                        <td class="text-center"><?= $rule['is_active'] ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Disabled</span>' ?></td>
+                                        <td class="text-end pe-3">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 me-1" data-bs-toggle="modal" data-bs-target="#editEmailRuleModal<?= $rule['id'] ?>">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                            </button>
+                                            <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this email rule?');">
+                                                <?php csrf_field(); ?>
+                                                <input type="hidden" name="action" value="delete_email_rule">
+                                                <input type="hidden" name="rule_id" value="<?= $rule['id'] ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger py-0"><i class="fa-solid fa-trash"></i></button>
+                                            </form>
+
+                                            <!-- Edit Modal -->
+                                            <div class="modal fade text-start" id="editEmailRuleModal<?= $rule['id'] ?>" tabindex="-1">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <form method="POST">
+                                                            <?php csrf_field(); ?>
+                                                            <input type="hidden" name="action" value="update_email_rule">
+                                                            <input type="hidden" name="rule_id" value="<?= $rule['id'] ?>">
+                                                            <div class="modal-header bg-dark text-white">
+                                                                <h5 class="modal-title"><i class="fa-solid fa-pen-to-square me-2"></i>Edit Email Rule</h5>
+                                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                <div class="mb-3">
+                                                                    <label class="form-label fw-bold small">Rule Name</label>
+                                                                    <input type="text" name="rule_name" class="form-control form-control-sm" value="<?= htmlspecialchars($rule['name']) ?>" required>
+                                                                </div>
+                                                                <div class="mb-3">
+                                                                    <label class="form-label fw-bold small">Recipient Email Address</label>
+                                                                    <input type="email" name="recipient_email" class="form-control form-control-sm" value="<?= htmlspecialchars($rule['recipient_email']) ?>" required>
+                                                                </div>
+                                                                <div class="fw-bold small mb-2 text-primary">Notification Triggers:</div>
+                                                                <div class="form-check mb-2">
+                                                                    <input class="form-check-input" type="checkbox" name="event_creation" id="edit_ec_<?= $rule['id'] ?>" <?= $rule['event_creation'] ? 'checked' : '' ?>>
+                                                                    <label class="form-check-label small" for="edit_ec_<?= $rule['id'] ?>">Send Email on Incident Creation</label>
+                                                                </div>
+                                                                <div class="form-check mb-2">
+                                                                    <input class="form-check-input" type="checkbox" name="event_update" id="edit_eu_<?= $rule['id'] ?>" <?= $rule['event_update'] ? 'checked' : '' ?>>
+                                                                    <label class="form-check-label small" for="edit_eu_<?= $rule['id'] ?>">Send Email on Incident Update (includes timeline)</label>
+                                                                </div>
+                                                                <div class="form-check mb-2">
+                                                                    <input class="form-check-input" type="checkbox" name="metadata_change" id="edit_mc_<?= $rule['id'] ?>" <?= $rule['metadata_change'] ? 'checked' : '' ?>>
+                                                                    <label class="form-check-label small" for="edit_mc_<?= $rule['id'] ?>">Send Email on Metadata Change (includes timeline)</label>
+                                                                </div>
+                                                                <div class="form-check mb-2">
+                                                                    <input class="form-check-input" type="checkbox" name="event_closure" id="edit_ecl_<?= $rule['id'] ?>" <?= $rule['event_closure'] ? 'checked' : '' ?>>
+                                                                    <label class="form-check-label small" for="edit_ecl_<?= $rule['id'] ?>">Send Email on Incident Closure</label>
+                                                                </div>
+                                                                <div class="form-check mb-3">
+                                                                    <input class="form-check-input" type="checkbox" name="pir_on_closure" id="edit_pir_<?= $rule['id'] ?>" <?= $rule['pir_on_closure'] ? 'checked' : '' ?>>
+                                                                    <label class="form-check-label small" for="edit_pir_<?= $rule['id'] ?>">Send Post-Incident Review (PIR Report) on Closure</label>
+                                                                </div>
+                                                                <div class="form-check border-top pt-2">
+                                                                    <input class="form-check-input" type="checkbox" name="is_active" id="edit_act_<?= $rule['id'] ?>" <?= $rule['is_active'] ? 'checked' : '' ?>>
+                                                                    <label class="form-check-label small fw-bold" for="edit_act_<?= $rule['id'] ?>">Enable Rule</label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button type="submit" class="btn btn-sm btn-primary">Save Changes</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Email Rule Modal -->
+<div class="modal fade text-start" id="addEmailRuleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <?php csrf_field(); ?>
+                <input type="hidden" name="action" value="create_email_rule">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title"><i class="fa-solid fa-plus-circle me-2 text-info"></i>Add Outbound Email Rule</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Rule Name</label>
+                        <input type="text" name="rule_name" class="form-control form-control-sm" placeholder="e.g. NOC Executive Alerts" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Recipient Email Address</label>
+                        <input type="email" name="recipient_email" class="form-control form-control-sm" placeholder="alerts@example.com" required>
+                    </div>
+                    <div class="fw-bold small mb-2 text-primary">Notification Triggers:</div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="event_creation" id="add_ec" checked>
+                        <label class="form-check-label small" for="add_ec">Send Email on Incident Creation</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="event_update" id="add_eu" checked>
+                        <label class="form-check-label small" for="add_eu">Send Email on Incident Update (includes timeline)</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="metadata_change" id="add_mc">
+                        <label class="form-check-label small" for="add_mc">Send Email on Metadata Change (includes timeline)</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="event_closure" id="add_ecl" checked>
+                        <label class="form-check-label small" for="add_ecl">Send Email on Incident Closure</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="pir_on_closure" id="add_pir">
+                        <label class="form-check-label small" for="add_pir">Send Post-Incident Review (PIR Report) on Closure</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-success fw-bold">Create Email Rule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <div class="row justify-content-center text-start">
     <div class="col-md-10">
