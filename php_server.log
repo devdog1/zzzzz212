@@ -107,3 +107,19 @@ Stack trace:
 #1 {main}
   thrown in /app/plugins/incident-management/models/EventManager.php on line 27
 [Thu Sep 24 18:53:15 2026] 127.0.0.1:45276 Closing
+[Thu Sep 24 20:02:55 2026] 127.0.0.1:47768 Accepted
+[Thu Sep 24 20:02:55 2026] PHP Fatal error:  Uncaught Exception: Configuration file not found at /app/inc/config.php in /app/classes/Database.php:25
+Stack trace:
+#0 /app/test_settings_view.php(22): Database->__construct()
+#1 /app/plugins/incident-management/models/EventManager.php(27): PluginDatabase->__construct()
+#2 /app/test_settings_view.php(35): EventManager->__construct()
+#3 {main}
+  thrown in /app/classes/Database.php on line 25
+[Thu Sep 24 20:02:55 2026] 127.0.0.1:47768 [200]: GET /test_settings_view.php - Uncaught Exception: Configuration file not found at /app/inc/config.php in /app/classes/Database.php:25
+Stack trace:
+#0 /app/test_settings_view.php(22): Database->__construct()
+#1 /app/plugins/incident-management/models/EventManager.php(27): PluginDatabase->__construct()
+#2 /app/test_settings_view.php(35): EventManager->__construct()
+#3 {main}
+  thrown in /app/classes/Database.php on line 25
+[Thu Sep 24 20:02:55 2026] 127.0.0.1:47768 Closing

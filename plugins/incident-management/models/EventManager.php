@@ -804,29 +804,40 @@ class EventManager {
     // --- Outbound Email Rules ---
 
     public function listEmailRules($triggerEvent = null) {
+        $stmt = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules ORDER BY id DESC");
+        $all = $stmt->fetchAll();
         if ($triggerEvent) {
-            $stmt = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules WHERE trigger_event = ? ORDER BY id DESC", [$triggerEvent]);
-        } else {
-            $stmt = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules ORDER BY id DESC");
+            $filtered = [];
+            foreach ($all as $r) {
+                $trigs = array_filter(array_map('trim', explode(',', $r['trigger_event'] ?? '')));
+                if (in_array($triggerEvent, $trigs)) {
+                    $filtered[] = $r;
+                }
+            }
+            return $filtered;
         }
-        return $stmt->fetchAll();
+        return $all;
     }
 
-    public function createEmailRule($triggerEvent, $recipients, $isEnabled = 1) {
-        $triggerEvent = trim($triggerEvent);
+    public function createEmailRule($triggerEvents, $recipients, $isEnabled = 1) {
+        if (is_array($triggerEvents)) {
+            $triggerEventsStr = implode(',', array_unique(array_filter(array_map('trim', $triggerEvents))));
+        } else {
+            $triggerEventsStr = trim($triggerEvents);
+        }
         $recipients = trim($recipients);
-        if (empty($triggerEvent) || empty($recipients)) {
+        if (empty($triggerEventsStr) || empty($recipients)) {
             return false;
         }
         $sql = "INSERT INTO plug_incident_management_email_rules (trigger_event, recipients, is_enabled) VALUES (?, ?, ?)";
-        $this->pdb->query($sql, [$triggerEvent, $recipients, $isEnabled ? 1 : 0]);
+        $this->pdb->query($sql, [$triggerEventsStr, $recipients, $isEnabled ? 1 : 0]);
         $id = $this->db->lastInsertId();
         if (empty($id) || $id == 0) {
             $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM plug_incident_management_email_rules");
             $row = $stmt->fetch();
             $id = $row['max_id'] ?? 0;
         }
-        $this->logAudit('plug_incident_management_email_rules', $id, 'CREATE', null, ['trigger_event' => $triggerEvent, 'recipients' => $recipients, 'is_enabled' => $isEnabled]);
+        $this->logAudit('plug_incident_management_email_rules', $id, 'CREATE', null, ['trigger_event' => $triggerEventsStr, 'recipients' => $recipients, 'is_enabled' => $isEnabled]);
         return $id;
     }
 
@@ -859,9 +870,18 @@ class EventManager {
         if ($triggerEvent === 'pir_closure') $aliases[] = 'pir';
         if ($triggerEvent === 'pir') $aliases[] = 'pir_closure';
 
-        $placeholders = implode(',', array_fill(0, count($aliases), '?'));
-        $stmt = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules WHERE is_enabled = 1 AND trigger_event IN ($placeholders)", $aliases);
-        $rules = $stmt->fetchAll();
+        $allEnabled = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules WHERE is_enabled = 1")->fetchAll();
+
+        $rules = [];
+        foreach ($allEnabled as $r) {
+            $ruleTriggers = array_filter(array_map('trim', explode(',', $r['trigger_event'] ?? '')));
+            foreach ($aliases as $alias) {
+                if (in_array($alias, $ruleTriggers)) {
+                    $rules[] = $r;
+                    break;
+                }
+            }
+        }
 
         if (empty($rules)) return false;
 

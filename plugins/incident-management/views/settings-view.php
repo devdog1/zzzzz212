@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $message = "Incident system integration settings updated successfully.";
     } elseif (isset($_POST['action']) && $_POST['action'] === 'add_email_rule') {
-        $trigger = $_POST['trigger_event'] ?? '';
+        $trigger = $_POST['trigger_event'] ?? [];
         $recipients = $_POST['recipients'] ?? '';
         if ($em->createEmailRule($trigger, $recipients)) {
             $message = "Outbound email rule added successfully.";
@@ -308,21 +308,35 @@ if ($authObj && method_exists($authObj, 'getAccessToken')) {
             </div>
             <div class="card-body">
                 <!-- Add New Rule Form -->
-                <form method="POST" class="row g-2 mb-4 p-3 bg-light border rounded align-items-end">
+                <form method="POST" class="row g-3 mb-4 p-3 bg-light border rounded align-items-end">
                     <?php csrf_field(); ?>
                     <input type="hidden" name="action" value="add_email_rule">
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold small">Event Trigger</label>
-                        <select name="trigger_event" class="form-select form-select-sm" required>
-                            <option value="">-- Select Trigger --</option>
-                            <option value="creation">Incident Creation</option>
-                            <option value="update">Incident Update</option>
-                            <option value="metadata">Metadata Change</option>
-                            <option value="closure">Incident Closure</option>
-                            <option value="pir_closure">PIR on Closure</option>
-                        </select>
+                    <div class="col-md-5">
+                        <label class="form-label fw-bold small d-block">Event Triggers (Select one or more)</label>
+                        <div class="d-flex flex-wrap gap-2 pt-1">
+                            <div class="form-check form-check-inline me-2 mb-1">
+                                <input class="form-check-input" type="checkbox" name="trigger_event[]" value="creation" id="trig_creation">
+                                <label class="form-check-label small" for="trig_creation">Creation</label>
+                            </div>
+                            <div class="form-check form-check-inline me-2 mb-1">
+                                <input class="form-check-input" type="checkbox" name="trigger_event[]" value="update" id="trig_update">
+                                <label class="form-check-label small" for="trig_update">Update</label>
+                            </div>
+                            <div class="form-check form-check-inline me-2 mb-1">
+                                <input class="form-check-input" type="checkbox" name="trigger_event[]" value="metadata" id="trig_metadata">
+                                <label class="form-check-label small" for="trig_metadata">Metadata</label>
+                            </div>
+                            <div class="form-check form-check-inline me-2 mb-1">
+                                <input class="form-check-input" type="checkbox" name="trigger_event[]" value="closure" id="trig_closure">
+                                <label class="form-check-label small" for="trig_closure">Closure</label>
+                            </div>
+                            <div class="form-check form-check-inline me-2 mb-1">
+                                <input class="form-check-input" type="checkbox" name="trigger_event[]" value="pir_closure" id="trig_pir">
+                                <label class="form-check-label small" for="trig_pir">PIR on Closure</label>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-5">
                         <label class="form-label fw-bold small">Recipient Email Address(es)</label>
                         <input type="text" name="recipients" class="form-control form-control-sm" placeholder="e.g. noc@example.com, management@example.com" required>
                         <div class="form-text small" style="font-size:0.7rem;">Comma or semicolon separated email addresses.</div>
@@ -364,9 +378,14 @@ if ($authObj && method_exists($authObj, 'getAccessToken')) {
                                 <?php foreach ($emailRules as $rule): ?>
                                     <tr>
                                         <td>
-                                            <span class="badge bg-primary">
-                                                <?= htmlspecialchars($triggerLabels[$rule['trigger_event']] ?? ucfirst($rule['trigger_event'])) ?>
-                                            </span>
+                                            <?php
+                                            $ruleTrigs = array_filter(array_map('trim', explode(',', $rule['trigger_event'] ?? '')));
+                                            foreach ($ruleTrigs as $rt):
+                                            ?>
+                                                <span class="badge bg-primary me-1 mb-1">
+                                                    <?= htmlspecialchars($triggerLabels[$rt] ?? ucfirst($rt)) ?>
+                                                </span>
+                                            <?php endforeach; ?>
                                         </td>
                                         <td><code><?= htmlspecialchars($rule['recipients']) ?></code></td>
                                         <td>
