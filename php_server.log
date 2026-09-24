@@ -1,180 +1,125 @@
-[Fri Jun 12 04:40:24 2026] PHP 8.3.6 Development Server (http://localhost:8000) started
-[Fri Jun 12 04:40:27 2026] [::1]:54176 Accepted
-[Fri Jun 12 04:40:27 2026] [::1]:54176 [200]: GET /index.php
-[Fri Jun 12 04:40:27 2026] [::1]:54176 Closing
-[Fri Jun 12 04:51:24 2026] [::1]:35446 Accepted
-[Fri Jun 12 04:51:24 2026] [::1]:35446 [200]: GET /index.php
-[Fri Jun 12 04:51:24 2026] [::1]:35446 Closing
-[Fri Jun 12 04:51:25 2026] [::1]:35458 Accepted
-[Fri Jun 12 04:51:25 2026] [2026-06-12 04:51:25] [EventManager] Teams: Skipping Teams chat: No auth object provided.
-[Fri Jun 12 04:51:25 2026] [::1]:35458 [200]: POST /index.php
-[Fri Jun 12 04:51:25 2026] [::1]:35458 Closing
-[Fri Jun 12 04:54:30 2026] [::1]:53694 Accepted
-[Fri Jun 12 04:54:30 2026] [::1]:53694 [200]: GET /index.php
-[Fri Jun 12 04:54:30 2026] [::1]:53694 Closing
-[Fri Jun 12 04:54:31 2026] [::1]:53702 Accepted
-[Fri Jun 12 04:54:31 2026] [2026-06-12 04:54:31] [EventManager] Teams: Skipping Teams chat: No auth object provided.
-[Fri Jun 12 04:54:31 2026] [::1]:53702 [200]: POST /index.php
-[Fri Jun 12 04:54:31 2026] [::1]:53702 Closing
-[Fri Jun 12 04:54:31 2026] [::1]:53704 Accepted
-[Fri Jun 12 04:54:31 2026] [::1]:53704 [200]: GET /settings.php
-[Fri Jun 12 04:54:31 2026] [::1]:53704 Closing
-[Fri Jun 12 04:54:31 2026] [::1]:53718 Accepted
-[Fri Jun 12 04:54:31 2026] [::1]:53718 [200]: POST /settings.php
-[Fri Jun 12 04:54:31 2026] [::1]:53718 Closing
-[Fri Jun 12 04:54:31 2026] [::1]:53722 Accepted
-[Fri Jun 12 04:54:31 2026] [::1]:53722 [200]: GET /index.php
-[Fri Jun 12 04:54:31 2026] [::1]:53722 Closing
-[Fri Jun 12 04:58:07 2026] [::1]:49844 Accepted
-[Fri Jun 12 04:58:07 2026] [::1]:49844 [200]: GET /index.php
-[Fri Jun 12 04:58:07 2026] [::1]:49844 Closing
-[Fri Jun 12 04:58:08 2026] [::1]:49848 Accepted
-[Fri Jun 12 04:58:08 2026] [2026-06-12 04:58:08] [EventManager] Teams: Skipping Teams chat: No auth object provided.
-[Fri Jun 12 04:58:08 2026] [::1]:49848 [200]: POST /index.php
-[Fri Jun 12 04:58:08 2026] [::1]:49848 Closing
-[Fri Jun 12 04:58:08 2026] [::1]:49860 Accepted
-[Fri Jun 12 04:58:08 2026] [::1]:49860 [200]: GET /settings.php
-[Fri Jun 12 04:58:08 2026] [::1]:49860 Closing
-[Fri Jun 12 04:58:08 2026] [::1]:49862 Accepted
-[Fri Jun 12 04:58:08 2026] [::1]:49862 [200]: POST /settings.php
-[Fri Jun 12 04:58:08 2026] [::1]:49862 Closing
-[Fri Jun 12 04:58:08 2026] [::1]:49872 Accepted
-[Fri Jun 12 04:58:08 2026] [::1]:49872 [200]: GET /index.php
-[Fri Jun 12 04:58:08 2026] [::1]:49872 Closing
-[Fri Jun 12 05:01:43 2026] [::1]:43368 Accepted
-[Fri Jun 12 05:01:43 2026] [::1]:43368 [200]: GET /index.php
-[Fri Jun 12 05:01:43 2026] [::1]:43368 Closing
-[Fri Jun 12 05:01:43 2026] [::1]:43382 Accepted
-[Fri Jun 12 05:01:43 2026] [2026-06-12 05:01:43] [EventManager] Teams: Skipping Teams chat: No auth object provided.
-[Fri Jun 12 05:01:43 2026] [::1]:43382 [200]: POST /index.php
-[Fri Jun 12 05:01:43 2026] [::1]:43382 Closing
-[Fri Jun 12 05:01:43 2026] [::1]:43390 Accepted
-[Fri Jun 12 05:01:43 2026] [::1]:43390 [200]: GET /settings.php
-[Fri Jun 12 05:01:43 2026] [::1]:43390 Closing
-[Fri Jun 12 05:01:43 2026] [::1]:43394 Accepted
-[Fri Jun 12 05:01:43 2026] [::1]:43394 [200]: POST /settings.php
-[Fri Jun 12 05:01:43 2026] [::1]:43394 Closing
-[Fri Jun 12 05:01:43 2026] [::1]:43402 Accepted
-[Fri Jun 12 05:01:43 2026] [::1]:43402 [200]: GET /index.php
-[Fri Jun 12 05:01:43 2026] [::1]:43402 Closing
-[Fri Jun 12 05:07:29 2026] [::1]:40564 Accepted
-[Fri Jun 12 05:07:29 2026] [::1]:40564 [200]: GET /index.php
-[Fri Jun 12 05:07:29 2026] [::1]:40564 Closing
-[Fri Jun 12 05:07:30 2026] [::1]:40570 Accepted
-[Fri Jun 12 05:07:30 2026] [::1]:40570 [200]: GET /settings.php
-[Fri Jun 12 05:07:30 2026] [::1]:40570 Closing
-[Fri Jun 12 05:07:30 2026] [::1]:40580 Accepted
-[Fri Jun 12 05:07:30 2026] [::1]:40580 [200]: POST /settings.php
-[Fri Jun 12 05:07:30 2026] [::1]:40580 Closing
-[Fri Jun 12 05:07:30 2026] [::1]:40584 Accepted
-[Fri Jun 12 05:07:30 2026] [::1]:40584 [200]: GET /index.php
-[Fri Jun 12 05:07:30 2026] [::1]:40584 Closing
-[Fri Jun 12 05:10:04 2026] [::1]:51548 Accepted
-[Fri Jun 12 05:10:04 2026] [::1]:51548 [200]: GET /index.php
-[Fri Jun 12 05:10:04 2026] [::1]:51548 Closing
-[Fri Jun 12 05:10:04 2026] [::1]:51558 Accepted
-[Fri Jun 12 05:10:04 2026] [::1]:51558 [200]: GET /settings.php
-[Fri Jun 12 05:10:04 2026] [::1]:51558 Closing
-[Fri Jun 12 05:10:04 2026] [::1]:51566 Accepted
-[Fri Jun 12 05:10:04 2026] [::1]:51566 [200]: POST /settings.php
-[Fri Jun 12 05:10:04 2026] [::1]:51566 Closing
-[Fri Jun 12 05:10:04 2026] [::1]:51574 Accepted
-[Fri Jun 12 05:10:04 2026] [::1]:51574 [200]: GET /index.php
-[Fri Jun 12 05:10:04 2026] [::1]:51574 Closing
-[Fri Jun 12 13:52:11 2026] [::1]:45402 Accepted
-[Fri Jun 12 13:52:12 2026] [::1]:45402 [200]: GET /index.php
-[Fri Jun 12 13:52:12 2026] [::1]:45402 Closing
-[Fri Jun 12 13:52:12 2026] [::1]:45406 Accepted
-[Fri Jun 12 13:52:12 2026] [::1]:45406 [200]: GET /settings.php
-[Fri Jun 12 13:52:12 2026] [::1]:45406 Closing
-[Fri Jun 12 14:37:45 2026] [::1]:49994 Accepted
-[Fri Jun 12 14:37:45 2026] [::1]:49994 [200]: GET /index.php
-[Fri Jun 12 14:37:45 2026] [::1]:49994 Closing
-[Fri Jun 12 14:37:45 2026] [::1]:50004 Accepted
-[Fri Jun 12 14:37:45 2026] [::1]:50004 [200]: GET /settings.php
-[Fri Jun 12 14:37:45 2026] [::1]:50004 Closing
-[Fri Jun 12 14:37:46 2026] [::1]:50012 Accepted
-[Fri Jun 12 14:37:46 2026] [::1]:50012 [200]: POST /settings.php
-[Fri Jun 12 14:37:46 2026] [::1]:50012 Closing
-[Fri Jun 12 14:37:46 2026] [::1]:50014 Accepted
-[Fri Jun 12 14:37:46 2026] [::1]:50014 [200]: GET /index.php
-[Fri Jun 12 14:37:46 2026] [::1]:50014 Closing
-[Fri Jun 12 15:21:27 2026] [::1]:35606 Accepted
-[Fri Jun 12 15:21:27 2026] [::1]:35606 [200]: GET /index.php
-[Fri Jun 12 15:21:27 2026] [::1]:35606 Closing
-[Fri Jun 12 15:21:27 2026] [::1]:35620 Accepted
-[Fri Jun 12 15:21:27 2026] [::1]:35620 [200]: GET /settings.php
-[Fri Jun 12 15:21:27 2026] [::1]:35620 Closing
-[Fri Jun 12 15:21:27 2026] [::1]:35632 Accepted
-[Fri Jun 12 15:21:27 2026] [::1]:35632 [200]: POST /settings.php
-[Fri Jun 12 15:21:27 2026] [::1]:35632 Closing
-[Fri Jun 12 15:21:27 2026] [::1]:35648 Accepted
-[Fri Jun 12 15:21:27 2026] [::1]:35648 [200]: GET /index.php
-[Fri Jun 12 15:21:27 2026] [::1]:35648 Closing
-[Fri Jun 12 19:06:56 2026] [::1]:38014 Accepted
-[Fri Jun 12 19:06:56 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
-[Fri Jun 12 19:06:56 2026] [::1]:38014 [200]: HEAD /index.php
-[Fri Jun 12 19:06:56 2026] [::1]:38014 Closing
-[Fri Jun 12 19:15:03 2026] [::1]:34232 Accepted
-[Fri Jun 12 19:15:03 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
-[Fri Jun 12 19:15:03 2026] [::1]:34232 [200]: GET /index.php
-[Fri Jun 12 19:15:03 2026] [::1]:34232 Closing
-[Fri Jun 12 19:15:04 2026] [::1]:34242 Accepted
-[Fri Jun 12 19:15:04 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/overview.php on line 4
-[Fri Jun 12 19:15:04 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/overview.php:4
+[Thu Sep 24 18:16:20 2026] PHP 8.3.6 Development Server (http://0.0.0.0:8000) started
+[Thu Sep 24 18:16:21 2026] 127.0.0.1:58696 Accepted
+[Thu Sep 24 18:16:21 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Thu Sep 24 18:16:21 2026] 127.0.0.1:58696 [200]: HEAD /
+[Thu Sep 24 18:16:21 2026] 127.0.0.1:58696 Closing
+[Thu Sep 24 18:16:33 2026] 127.0.0.1:41832 Accepted
+[Thu Sep 24 18:16:33 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Thu Sep 24 18:16:33 2026] 127.0.0.1:41832 [200]: GET /index.php?route=incident_settings
+[Thu Sep 24 18:16:33 2026] 127.0.0.1:41832 Closing
+[Thu Sep 24 18:16:55 2026] 127.0.0.1:47240 Accepted
+[Thu Sep 24 18:16:55 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Thu Sep 24 18:16:55 2026] 127.0.0.1:47240 [200]: GET /settings.php
+[Thu Sep 24 18:16:55 2026] 127.0.0.1:47240 Closing
+[Thu Sep 24 18:19:15 2026] 127.0.0.1:52402 Accepted
+[Thu Sep 24 18:19:15 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Thu Sep 24 18:19:15 2026] 127.0.0.1:52402 [200]: GET /index.php?route=incident_settings
+[Thu Sep 24 18:19:15 2026] 127.0.0.1:52402 Closing
+[Thu Sep 24 18:38:05 2026] 127.0.0.1:47684 Accepted
+[Thu Sep 24 18:38:05 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Thu Sep 24 18:38:05 2026] 127.0.0.1:47684 [200]: HEAD /index.php
+[Thu Sep 24 18:38:05 2026] 127.0.0.1:47684 Closing
+[Thu Sep 24 18:40:40 2026] 127.0.0.1:59126 Accepted
+[Thu Sep 24 18:40:40 2026] PHP Fatal error:  Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
 Stack trace:
-#0 {main}
-  thrown in /app/overview.php on line 4
-[Fri Jun 12 19:15:04 2026] [::1]:34242 [500]: GET /overview.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/overview.php:4
+#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
+#1 /app/test_settings_view.php(25): require('...')
+#2 {main}
+  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
+[Thu Sep 24 18:40:40 2026] 127.0.0.1:59126 [500]: GET /test_settings_view.php - Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
 Stack trace:
-#0 {main}
-  thrown in /app/overview.php on line 4
-[Fri Jun 12 19:15:04 2026] [::1]:34242 Closing
-[Fri Jun 12 19:15:04 2026] [::1]:34246 Accepted
-[Fri Jun 12 19:15:04 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/videoUrls.php on line 4
-[Fri Jun 12 19:15:04 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/videoUrls.php:4
+#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
+#1 /app/test_settings_view.php(25): require('...')
+#2 {main}
+  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
+[Thu Sep 24 18:40:40 2026] 127.0.0.1:59126 Closing
+[Thu Sep 24 18:42:48 2026] 127.0.0.1:56532 Accepted
+[Thu Sep 24 18:42:48 2026] PHP Fatal error:  Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
 Stack trace:
-#0 {main}
-  thrown in /app/videoUrls.php on line 4
-[Fri Jun 12 19:15:04 2026] [::1]:34246 [500]: GET /videoUrls.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/videoUrls.php:4
+#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
+#1 /app/test_settings_view.php(25): require('...')
+#2 {main}
+  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
+[Thu Sep 24 18:42:48 2026] 127.0.0.1:56532 [500]: GET /test_settings_view.php - Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
 Stack trace:
-#0 {main}
-  thrown in /app/videoUrls.php on line 4
-[Fri Jun 12 19:15:04 2026] [::1]:34246 Closing
-[Fri Jun 12 19:27:51 2026] [::1]:43266 Accepted
-[Fri Jun 12 19:27:51 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
-[Fri Jun 12 19:27:51 2026] [::1]:43266 [200]: GET /index.php
-[Fri Jun 12 19:27:51 2026] [::1]:43266 Closing
-[Fri Jun 12 19:27:51 2026] [::1]:43270 Accepted
-[Fri Jun 12 19:27:51 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/overview.php on line 4
-[Fri Jun 12 19:27:51 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/overview.php:4
+#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
+#1 /app/test_settings_view.php(25): require('...')
+#2 {main}
+  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
+[Thu Sep 24 18:42:48 2026] 127.0.0.1:56532 Closing
+[Thu Sep 24 18:43:17 2026] 127.0.0.1:33580 Accepted
+[Thu Sep 24 18:43:17 2026] PHP Fatal error:  Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
 Stack trace:
-#0 {main}
-  thrown in /app/overview.php on line 4
-[Fri Jun 12 19:27:51 2026] [::1]:43270 [500]: GET /overview.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/overview.php:4
+#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
+#1 /app/test_settings_view.php(23): require('...')
+#2 {main}
+  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
+[Thu Sep 24 18:43:17 2026] 127.0.0.1:33580 [500]: GET /test_settings_view.php - Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
 Stack trace:
-#0 {main}
-  thrown in /app/overview.php on line 4
-[Fri Jun 12 19:27:51 2026] [::1]:43270 Closing
-[Fri Jun 12 19:27:51 2026] [::1]:43286 Accepted
-[Fri Jun 12 19:27:51 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/videoUrls.php on line 4
-[Fri Jun 12 19:27:51 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/videoUrls.php:4
+#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
+#1 /app/test_settings_view.php(23): require('...')
+#2 {main}
+  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
+[Thu Sep 24 18:43:17 2026] 127.0.0.1:33580 Closing
+[Thu Sep 24 18:46:05 2026] 127.0.0.1:56940 Accepted
+[Thu Sep 24 18:46:05 2026] PHP Fatal error:  Uncaught Error: Call to undefined function get_db_connection() in /app/plugins/incident-management/models/EventManager.php:28
 Stack trace:
-#0 {main}
-  thrown in /app/videoUrls.php on line 4
-[Fri Jun 12 19:27:51 2026] [::1]:43286 [500]: GET /videoUrls.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/videoUrls.php:4
+#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
+#1 /app/test_settings_view.php(36): require('...')
+#2 {main}
+  thrown in /app/plugins/incident-management/models/EventManager.php on line 28
+[Thu Sep 24 18:46:05 2026] 127.0.0.1:56940 [500]: GET /test_settings_view.php - Uncaught Error: Call to undefined function get_db_connection() in /app/plugins/incident-management/models/EventManager.php:28
 Stack trace:
-#0 {main}
-  thrown in /app/videoUrls.php on line 4
-[Fri Jun 12 19:27:51 2026] [::1]:43286 Closing
-[Fri Jun 12 19:33:50 2026] [::1]:48822 Accepted
-[Fri Jun 12 19:33:50 2026] PHP Warning:  require_once(/app/inc/config.php): Failed to open stream: No such file or directory in /app/test_overview.php on line 4
-[Fri Jun 12 19:33:50 2026] PHP Fatal error:  Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/test_overview.php:4
+#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
+#1 /app/test_settings_view.php(36): require('...')
+#2 {main}
+  thrown in /app/plugins/incident-management/models/EventManager.php on line 28
+[Thu Sep 24 18:46:05 2026] 127.0.0.1:56940 Closing
+[Thu Sep 24 18:46:54 2026] 127.0.0.1:60002 Accepted
+[Thu Sep 24 18:46:54 2026] PHP Fatal error:  Uncaught TypeError: method_exists(): Argument #1 ($object_or_class) must be of type object|string, null given in /app/plugins/incident-management/views/settings-view.php:49
 Stack trace:
-#0 {main}
-  thrown in /app/test_overview.php on line 4
-[Fri Jun 12 19:33:50 2026] [::1]:48822 [500]: GET /test_overview.php - Uncaught Error: Failed opening required '/app/inc/config.php' (include_path='.:/usr/share/php') in /app/test_overview.php:4
+#0 /app/plugins/incident-management/views/settings-view.php(49): method_exists()
+#1 /app/test_settings_view.php(44): require('...')
+#2 {main}
+  thrown in /app/plugins/incident-management/views/settings-view.php on line 49
+[Thu Sep 24 18:46:54 2026] 127.0.0.1:60002 [500]: GET /test_settings_view.php - Uncaught TypeError: method_exists(): Argument #1 ($object_or_class) must be of type object|string, null given in /app/plugins/incident-management/views/settings-view.php:49
 Stack trace:
-#0 {main}
-  thrown in /app/test_overview.php on line 4
-[Fri Jun 12 19:33:50 2026] [::1]:48822 Closing
+#0 /app/plugins/incident-management/views/settings-view.php(49): method_exists()
+#1 /app/test_settings_view.php(44): require('...')
+#2 {main}
+  thrown in /app/plugins/incident-management/views/settings-view.php on line 49
+[Thu Sep 24 18:46:54 2026] 127.0.0.1:60002 Closing
+[Thu Sep 24 18:49:49 2026] 127.0.0.1:51574 Accepted
+[Thu Sep 24 18:49:49 2026] 127.0.0.1:51574 [200]: GET /test_settings_view.php
+[Thu Sep 24 18:49:49 2026] 127.0.0.1:51574 Closing
+[Thu Sep 24 18:52:51 2026] 127.0.0.1:37588 Accepted
+[Thu Sep 24 18:52:51 2026] 127.0.0.1:37588 [404]: GET /test_settings_view.php - No such file or directory
+[Thu Sep 24 18:52:51 2026] 127.0.0.1:37588 Closing
+[Thu Sep 24 18:53:15 2026] 127.0.0.1:45276 Accepted
+[Thu Sep 24 18:53:15 2026] PHP Fatal error:  Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
+Stack trace:
+#0 /app/test_settings_view.php(28): EventManager->__construct()
+#1 {main}
+  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
+[Thu Sep 24 18:53:15 2026] 127.0.0.1:45276 [200]: GET /test_settings_view.php - Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
+Stack trace:
+#0 /app/test_settings_view.php(28): EventManager->__construct()
+#1 {main}
+  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
+[Thu Sep 24 18:53:15 2026] 127.0.0.1:45276 Closing
+[Thu Sep 24 20:02:55 2026] 127.0.0.1:47768 Accepted
+[Thu Sep 24 20:02:55 2026] PHP Fatal error:  Uncaught Exception: Configuration file not found at /app/inc/config.php in /app/classes/Database.php:25
+Stack trace:
+#0 /app/test_settings_view.php(22): Database->__construct()
+#1 /app/plugins/incident-management/models/EventManager.php(27): PluginDatabase->__construct()
+#2 /app/test_settings_view.php(35): EventManager->__construct()
+#3 {main}
+  thrown in /app/classes/Database.php on line 25
+[Thu Sep 24 20:02:55 2026] 127.0.0.1:47768 [200]: GET /test_settings_view.php - Uncaught Exception: Configuration file not found at /app/inc/config.php in /app/classes/Database.php:25
+Stack trace:
+#0 /app/test_settings_view.php(22): Database->__construct()
+#1 /app/plugins/incident-management/models/EventManager.php(27): PluginDatabase->__construct()
+#2 /app/test_settings_view.php(35): EventManager->__construct()
+#3 {main}
+  thrown in /app/classes/Database.php on line 25
+[Thu Sep 24 20:02:55 2026] 127.0.0.1:47768 Closing
