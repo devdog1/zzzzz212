@@ -569,6 +569,14 @@ if (!empty($maintBannerChanges)): ?>
                                                         <div class="text-info fw-bold"><i class="fa-brands fa-microsoft me-1"></i>Teams Chat Members Synced</div>
                                                         <div>Synced <?= (int)($new['count'] ?? 0) ?> member(s) to Teams chat</div>
 
+                                                    <?php elseif ($action === 'OUTBOUND_EMAILS_SENT'): ?>
+                                                        <div class="text-primary fw-bold"><i class="fa-solid fa-paper-plane me-1"></i>Outbound Email Dispatched</div>
+                                                        <div>Trigger: <strong><?= htmlspecialchars($new['trigger'] ?? 'N/A') ?></strong></div>
+                                                        <?php if (!empty($new['subject'])): ?><div>Subject: <em><?= htmlspecialchars($new['subject']) ?></em></div><?php endif; ?>
+                                                        <?php if (!empty($new['recipients'])): ?>
+                                                            <div class="text-secondary text-break">Recipients (<?= count($new['recipients']) ?>): <?= htmlspecialchars(implode(', ', (array)$new['recipients'])) ?></div>
+                                                        <?php endif; ?>
+
                                                     <?php elseif ($action === 'CREATE'): ?>
                                                         <div class="text-primary fw-bold"><i class="fa-solid fa-asterisk me-1"></i>Incident Reported</div>
 

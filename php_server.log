@@ -1,125 +1,13 @@
-[Thu Sep 24 18:16:20 2026] PHP 8.3.6 Development Server (http://0.0.0.0:8000) started
-[Thu Sep 24 18:16:21 2026] 127.0.0.1:58696 Accepted
-[Thu Sep 24 18:16:21 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
-[Thu Sep 24 18:16:21 2026] 127.0.0.1:58696 [200]: HEAD /
-[Thu Sep 24 18:16:21 2026] 127.0.0.1:58696 Closing
-[Thu Sep 24 18:16:33 2026] 127.0.0.1:41832 Accepted
-[Thu Sep 24 18:16:33 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
-[Thu Sep 24 18:16:33 2026] 127.0.0.1:41832 [200]: GET /index.php?route=incident_settings
-[Thu Sep 24 18:16:33 2026] 127.0.0.1:41832 Closing
-[Thu Sep 24 18:16:55 2026] 127.0.0.1:47240 Accepted
-[Thu Sep 24 18:16:55 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
-[Thu Sep 24 18:16:55 2026] 127.0.0.1:47240 [200]: GET /settings.php
-[Thu Sep 24 18:16:55 2026] 127.0.0.1:47240 Closing
-[Thu Sep 24 18:19:15 2026] 127.0.0.1:52402 Accepted
-[Thu Sep 24 18:19:15 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
-[Thu Sep 24 18:19:15 2026] 127.0.0.1:52402 [200]: GET /index.php?route=incident_settings
-[Thu Sep 24 18:19:15 2026] 127.0.0.1:52402 Closing
-[Thu Sep 24 18:38:05 2026] 127.0.0.1:47684 Accepted
-[Thu Sep 24 18:38:05 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
-[Thu Sep 24 18:38:05 2026] 127.0.0.1:47684 [200]: HEAD /index.php
-[Thu Sep 24 18:38:05 2026] 127.0.0.1:47684 Closing
-[Thu Sep 24 18:40:40 2026] 127.0.0.1:59126 Accepted
-[Thu Sep 24 18:40:40 2026] PHP Fatal error:  Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
-Stack trace:
-#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
-#1 /app/test_settings_view.php(25): require('...')
-#2 {main}
-  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
-[Thu Sep 24 18:40:40 2026] 127.0.0.1:59126 [500]: GET /test_settings_view.php - Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
-Stack trace:
-#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
-#1 /app/test_settings_view.php(25): require('...')
-#2 {main}
-  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
-[Thu Sep 24 18:40:40 2026] 127.0.0.1:59126 Closing
-[Thu Sep 24 18:42:48 2026] 127.0.0.1:56532 Accepted
-[Thu Sep 24 18:42:48 2026] PHP Fatal error:  Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
-Stack trace:
-#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
-#1 /app/test_settings_view.php(25): require('...')
-#2 {main}
-  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
-[Thu Sep 24 18:42:48 2026] 127.0.0.1:56532 [500]: GET /test_settings_view.php - Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
-Stack trace:
-#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
-#1 /app/test_settings_view.php(25): require('...')
-#2 {main}
-  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
-[Thu Sep 24 18:42:48 2026] 127.0.0.1:56532 Closing
-[Thu Sep 24 18:43:17 2026] 127.0.0.1:33580 Accepted
-[Thu Sep 24 18:43:17 2026] PHP Fatal error:  Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
-Stack trace:
-#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
-#1 /app/test_settings_view.php(23): require('...')
-#2 {main}
-  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
-[Thu Sep 24 18:43:17 2026] 127.0.0.1:33580 [500]: GET /test_settings_view.php - Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
-Stack trace:
-#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
-#1 /app/test_settings_view.php(23): require('...')
-#2 {main}
-  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
-[Thu Sep 24 18:43:17 2026] 127.0.0.1:33580 Closing
-[Thu Sep 24 18:46:05 2026] 127.0.0.1:56940 Accepted
-[Thu Sep 24 18:46:05 2026] PHP Fatal error:  Uncaught Error: Call to undefined function get_db_connection() in /app/plugins/incident-management/models/EventManager.php:28
-Stack trace:
-#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
-#1 /app/test_settings_view.php(36): require('...')
-#2 {main}
-  thrown in /app/plugins/incident-management/models/EventManager.php on line 28
-[Thu Sep 24 18:46:05 2026] 127.0.0.1:56940 [500]: GET /test_settings_view.php - Uncaught Error: Call to undefined function get_db_connection() in /app/plugins/incident-management/models/EventManager.php:28
-Stack trace:
-#0 /app/plugins/incident-management/views/settings-view.php(10): EventManager->__construct()
-#1 /app/test_settings_view.php(36): require('...')
-#2 {main}
-  thrown in /app/plugins/incident-management/models/EventManager.php on line 28
-[Thu Sep 24 18:46:05 2026] 127.0.0.1:56940 Closing
-[Thu Sep 24 18:46:54 2026] 127.0.0.1:60002 Accepted
-[Thu Sep 24 18:46:54 2026] PHP Fatal error:  Uncaught TypeError: method_exists(): Argument #1 ($object_or_class) must be of type object|string, null given in /app/plugins/incident-management/views/settings-view.php:49
-Stack trace:
-#0 /app/plugins/incident-management/views/settings-view.php(49): method_exists()
-#1 /app/test_settings_view.php(44): require('...')
-#2 {main}
-  thrown in /app/plugins/incident-management/views/settings-view.php on line 49
-[Thu Sep 24 18:46:54 2026] 127.0.0.1:60002 [500]: GET /test_settings_view.php - Uncaught TypeError: method_exists(): Argument #1 ($object_or_class) must be of type object|string, null given in /app/plugins/incident-management/views/settings-view.php:49
-Stack trace:
-#0 /app/plugins/incident-management/views/settings-view.php(49): method_exists()
-#1 /app/test_settings_view.php(44): require('...')
-#2 {main}
-  thrown in /app/plugins/incident-management/views/settings-view.php on line 49
-[Thu Sep 24 18:46:54 2026] 127.0.0.1:60002 Closing
-[Thu Sep 24 18:49:49 2026] 127.0.0.1:51574 Accepted
-[Thu Sep 24 18:49:49 2026] 127.0.0.1:51574 [200]: GET /test_settings_view.php
-[Thu Sep 24 18:49:49 2026] 127.0.0.1:51574 Closing
-[Thu Sep 24 18:52:51 2026] 127.0.0.1:37588 Accepted
-[Thu Sep 24 18:52:51 2026] 127.0.0.1:37588 [404]: GET /test_settings_view.php - No such file or directory
-[Thu Sep 24 18:52:51 2026] 127.0.0.1:37588 Closing
-[Thu Sep 24 18:53:15 2026] 127.0.0.1:45276 Accepted
-[Thu Sep 24 18:53:15 2026] PHP Fatal error:  Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
-Stack trace:
-#0 /app/test_settings_view.php(28): EventManager->__construct()
-#1 {main}
-  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
-[Thu Sep 24 18:53:15 2026] 127.0.0.1:45276 [200]: GET /test_settings_view.php - Uncaught Error: Class "PluginDatabase" not found in /app/plugins/incident-management/models/EventManager.php:27
-Stack trace:
-#0 /app/test_settings_view.php(28): EventManager->__construct()
-#1 {main}
-  thrown in /app/plugins/incident-management/models/EventManager.php on line 27
-[Thu Sep 24 18:53:15 2026] 127.0.0.1:45276 Closing
-[Thu Sep 24 20:02:55 2026] 127.0.0.1:47768 Accepted
-[Thu Sep 24 20:02:55 2026] PHP Fatal error:  Uncaught Exception: Configuration file not found at /app/inc/config.php in /app/classes/Database.php:25
-Stack trace:
-#0 /app/test_settings_view.php(22): Database->__construct()
-#1 /app/plugins/incident-management/models/EventManager.php(27): PluginDatabase->__construct()
-#2 /app/test_settings_view.php(35): EventManager->__construct()
-#3 {main}
-  thrown in /app/classes/Database.php on line 25
-[Thu Sep 24 20:02:55 2026] 127.0.0.1:47768 [200]: GET /test_settings_view.php - Uncaught Exception: Configuration file not found at /app/inc/config.php in /app/classes/Database.php:25
-Stack trace:
-#0 /app/test_settings_view.php(22): Database->__construct()
-#1 /app/plugins/incident-management/models/EventManager.php(27): PluginDatabase->__construct()
-#2 /app/test_settings_view.php(35): EventManager->__construct()
-#3 {main}
-  thrown in /app/classes/Database.php on line 25
-[Thu Sep 24 20:02:55 2026] 127.0.0.1:47768 Closing
+[Thu Sep 24 21:22:04 2026] PHP 8.3.6 Development Server (http://localhost:8000) started
+[Thu Sep 24 21:22:05 2026] [::1]:42430 Accepted
+[Thu Sep 24 21:22:06 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Thu Sep 24 21:22:06 2026] [::1]:42430 [200]: GET /index.php
+[Thu Sep 24 21:22:06 2026] [::1]:42430 Closing
+[Thu Sep 24 21:22:24 2026] [::1]:51310 Accepted
+[Thu Sep 24 21:22:24 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Thu Sep 24 21:22:24 2026] [::1]:51310 [200]: GET /index.php?route=incident_settings
+[Thu Sep 24 21:22:24 2026] [::1]:51310 Closing
+[Thu Sep 24 21:22:26 2026] [::1]:51318 Accepted
+[Thu Sep 24 21:22:26 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Thu Sep 24 21:22:26 2026] [::1]:51318 [200]: GET /index.php?route=incident_active
+[Thu Sep 24 21:22:26 2026] [::1]:51318 Closing

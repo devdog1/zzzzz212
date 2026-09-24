@@ -337,6 +337,8 @@ class EventManager {
 
         $this->initOTRSTicket($eventId, $filteredData['description'] ?? '');
 
+        $this->triggerOutboundEmails('creation', $eventId);
+
         return $eventId;
     }
 
@@ -421,8 +423,11 @@ class EventManager {
         $this->notifyTeamsOfMetadataChange($oldEvent, $newEvent);
         $this->notifyOTRSOfMetadataChange($oldEvent, $newEvent);
 
+        $this->triggerOutboundEmails('metadata', $eventId);
+
         if (strtolower($newEvent['state_name'] ?? '') === 'closed' && strtolower($oldEvent['state_name'] ?? '') !== 'closed') {
             $this->sendClosureSummary($eventId);
+            $this->triggerOutboundEmails('closure', $eventId);
         }
 
         return true;
@@ -1011,8 +1016,9 @@ class EventManager {
             );
         }
 
-        $this->logAudit('plug_incident_management_email_rules', $eventId, 'OUTBOUND_EMAILS_SENT', null, [
+        $this->logAudit('plug_incident_management_wb_events', $eventId, 'OUTBOUND_EMAILS_SENT', null, [
             'trigger' => $triggerEvent,
+            'subject' => $subject,
             'recipients_count' => count($recipientEmails),
             'recipients' => $recipientEmails
         ]);
@@ -1064,6 +1070,8 @@ class EventManager {
             $externalContent = !empty($customExternalMessage) ? $customExternalMessage : $updateText;
             $this->sendExternalMessages($eventId, $externalContent);
         }
+
+        $this->triggerOutboundEmails('update', $eventId, ['update_text' => $updateText]);
 
         // Post to Teams Chat
         $card = $this->getAdaptiveCardBase("Incident Update Posted", 'good');
