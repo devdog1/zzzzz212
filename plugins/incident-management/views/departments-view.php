@@ -72,10 +72,11 @@ $tags = $em->listAllTags(true);
 $areas = $em->listAllAreas(true);
 
 $azureGroups = [];
-if (method_exists(get_auth(), 'getAccessToken')) {
-    $token = get_auth()->getAccessToken();
-    if ($token && method_exists(get_auth(), 'getSSO')) {
-        $azureGroups = get_auth()->getSSO()->getAllGroups($token) ?? [];
+$authObj = function_exists('get_auth') ? get_auth() : null;
+if ($authObj && method_exists($authObj, 'getAccessToken')) {
+    $token = $authObj->getAccessToken();
+    if ($token && method_exists($authObj, 'getSSO')) {
+        $azureGroups = $authObj->getSSO()->getAllGroups($token) ?? [];
     }
 }
 ?>
