@@ -936,48 +936,48 @@ class EventManager {
 
         $subject = "[Incident #" . $eventId . "] " . ($event['title'] ?: 'Incident #' . $eventId) . " - " . $label;
 
-        $body = "<div style='font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;'>\r\n";
-        $body .= "<div style='background-color: #0d6efd; color: #ffffff; padding: 15px 20px;'>\r\n";
-        $body .= "<h2 style='margin: 0; font-size: 1.4rem;'>" . htmlspecialchars($label) . " (#" . $eventId . ")</h2>\r\n";
-        $body .= "<div style='font-size: 0.9rem; opacity: 0.9; margin-top: 4px;'>" . htmlspecialchars($event['title'] ?: 'Incident #' . $eventId) . "</div>\r\n";
+        $body = "<div style='font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; border: 1px solid #A1AEBA; border-radius: 8px; overflow: hidden;'>\r\n";
+        $body .= "<div style='background-color: #0065A4; color: #ffffff; padding: 18px 24px;'>\r\n";
+        $body .= "<h2 style='margin: 0; font-size: 1.4rem; color: #ffffff;'>" . htmlspecialchars($label) . " (#" . $eventId . ")</h2>\r\n";
+        $body .= "<div style='font-size: 0.9rem; color: #EFF6FB; opacity: 0.95; margin-top: 4px;'>" . htmlspecialchars($event['title'] ?: 'Incident #' . $eventId) . "</div>\r\n";
         $body .= "</div>\r\n";
 
-        $body .= "<div style='padding: 20px; background-color: #ffffff;'>\r\n";
+        $body .= "<div style='padding: 24px; background-color: #ffffff;'>\r\n";
 
-        $body .= "<h3 style='color: #333; margin-top: 0; border-bottom: 2px solid #0d6efd; padding-bottom: 5px; font-size: 1.1rem;'>Incident Details</h3>\r\n";
-        $body .= "<table style='width: 100%; border-collapse: collapse; margin-bottom: 20px;' cellpadding='6'>\r\n";
-        $body .= "<tr><th style='text-align: left; background: #f8f9fa; width: 30%; border: 1px solid #dee2e6;'>Subject/Title</th><td style='border: 1px solid #dee2e6;'>" . htmlspecialchars($event['title'] ?: 'N/A') . "</td></tr>\r\n";
-        $body .= "<tr><th style='text-align: left; background: #f8f9fa; border: 1px solid #dee2e6;'>Status</th><td style='border: 1px solid #dee2e6;'><b>" . htmlspecialchars($event['state_name'] ?: 'N/A') . "</b></td></tr>\r\n";
-        $body .= "<tr><th style='text-align: left; background: #f8f9fa; border: 1px solid #dee2e6;'>Type</th><td style='border: 1px solid #dee2e6;'>" . htmlspecialchars($event['type_name'] ?: 'N/A') . "</td></tr>\r\n";
-        $body .= "<tr><th style='text-align: left; background: #f8f9fa; border: 1px solid #dee2e6;'>Department</th><td style='border: 1px solid #dee2e6;'>" . htmlspecialchars($event['department_name'] ?: 'N/A') . "</td></tr>\r\n";
-        $body .= "<tr><th style='text-align: left; background: #f8f9fa; border: 1px solid #dee2e6;'>Customers Affected</th><td style='border: 1px solid #dee2e6;'>" . number_format($event['customers_affected'] ?? 0) . "</td></tr>\r\n";
-        $body .= "<tr><th style='text-align: left; background: #f8f9fa; border: 1px solid #dee2e6;'>Impact Score</th><td style='border: 1px solid #dee2e6;'>" . number_format($event['impactScore'] ?? 0) . "</td></tr>\r\n";
+        $body .= "<h3 style='color: #193B61; margin-top: 0; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Incident Details</h3>\r\n";
+        $body .= "<table style='width: 100%; border-collapse: collapse; margin-bottom: 20px;' cellpadding='8'>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; width: 30%; border: 1px solid #A1AEBA; color: #2A3239;'>Subject/Title</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($event['title'] ?: 'N/A') . "</td></tr>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Status</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'><b>" . htmlspecialchars($event['state_name'] ?: 'N/A') . "</b></td></tr>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Type</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($event['type_name'] ?: 'N/A') . "</td></tr>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Department</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($event['department_name'] ?: 'N/A') . "</td></tr>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Customers Affected</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . number_format($event['customers_affected'] ?? 0) . "</td></tr>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Impact Score</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . number_format($event['impactScore'] ?? 0) . "</td></tr>\r\n";
 
-        if (!empty($event['areas']))    $body .= "<tr><th style='text-align: left; background: #f8f9fa; border: 1px solid #dee2e6;'>Areas</th><td style='border: 1px solid #dee2e6;'>" . htmlspecialchars(implode(', ', array_column($event['areas'], 'name'))) . "</td></tr>\r\n";
-        if (!empty($event['services'])) $body .= "<tr><th style='text-align: left; background: #f8f9fa; border: 1px solid #dee2e6;'>Services</th><td style='border: 1px solid #dee2e6;'>" . htmlspecialchars(implode(', ', array_column($event['services'], 'name'))) . "</td></tr>\r\n";
-        if (!empty($event['tags']))     $body .= "<tr><th style='text-align: left; background: #f8f9fa; border: 1px solid #dee2e6;'>Tags</th><td style='border: 1px solid #dee2e6;'>" . htmlspecialchars(implode(', ', array_column($event['tags'], 'name'))) . "</td></tr>\r\n";
+        if (!empty($event['areas']))    $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Areas</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars(implode(', ', array_column($event['areas'], 'name'))) . "</td></tr>\r\n";
+        if (!empty($event['services'])) $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Services</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars(implode(', ', array_column($event['services'], 'name'))) . "</td></tr>\r\n";
+        if (!empty($event['tags']))     $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Tags</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars(implode(', ', array_column($event['tags'], 'name'))) . "</td></tr>\r\n";
         if (!empty($event['ticket_nr']) && $event['ticket_nr'] !== '0') {
-            $body .= "<tr><th style='text-align: left; background: #f8f9fa; border: 1px solid #dee2e6;'>OTRS Ticket</th><td style='border: 1px solid #dee2e6;'>" . htmlspecialchars($event['ticket_nr']) . "</td></tr>\r\n";
+            $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>OTRS Ticket</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($event['ticket_nr']) . "</td></tr>\r\n";
         }
         $body .= "</table>\r\n";
 
         if (!empty($event['description'])) {
-            $body .= "<h3 style='color: #333; margin-top: 15px; border-bottom: 2px solid #0d6efd; padding-bottom: 5px; font-size: 1.1rem;'>Description</h3>\r\n";
-            $body .= "<div style='background-color: #f8f9fa; border-left: 4px solid #0d6efd; padding: 12px; font-size: 0.95rem; white-space: pre-wrap; margin-bottom: 20px;'>" . nl2br(htmlspecialchars($event['description'])) . "</div>\r\n";
+            $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Description</h3>\r\n";
+            $body .= "<div style='background-color: #EFF6FB; border-left: 4px solid #0065A4; padding: 14px; font-size: 0.95rem; color: #2A3239; white-space: pre-wrap; margin-bottom: 20px;'>" . nl2br(htmlspecialchars($event['description'])) . "</div>\r\n";
         }
 
         if (!empty($extraContext['update_text'])) {
-            $body .= "<h3 style='color: #333; margin-top: 15px; border-bottom: 2px solid #198754; padding-bottom: 5px; font-size: 1.1rem;'>Latest Update Message</h3>\r\n";
-            $body .= "<div style='background-color: #f4fdf8; border-left: 4px solid #198754; padding: 12px; font-size: 0.95rem; white-space: pre-wrap; margin-bottom: 20px;'>" . nl2br(htmlspecialchars($extraContext['update_text'])) . "</div>\r\n";
+            $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #3384B6; padding-bottom: 6px; font-size: 1.1rem;'>Latest Update Message</h3>\r\n";
+            $body .= "<div style='background-color: #EFF6FB; border-left: 4px solid #3384B6; padding: 14px; font-size: 0.95rem; color: #2A3239; white-space: pre-wrap; margin-bottom: 20px;'>" . nl2br(htmlspecialchars($extraContext['update_text'])) . "</div>\r\n";
         }
 
         if (in_array($primaryTrigger, ['update', 'metadata', 'metadata_change', 'closure', 'pir_closure', 'pir'])) {
             $history = $this->getStateHistory($eventId);
             $updates = $this->getEventUpdates($eventId);
 
-            $body .= "<h3 style='color: #333; margin-top: 20px; border-bottom: 2px solid #0d6efd; padding-bottom: 5px; font-size: 1.1rem;'>Incident History Timeline</h3>\r\n";
-            $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px;' cellpadding='6'>\r\n";
-            $body .= "<thead style='background-color: #f1f3f5;'><tr><th style='text-align: left; border: 1px solid #dee2e6; width: 25%;'>Timestamp</th><th style='text-align: left; border: 1px solid #dee2e6; width: 20%;'>User / Author</th><th style='text-align: left; border: 1px solid #dee2e6;'>Event / Details</th></tr></thead>\r\n";
+            $body .= "<h3 style='color: #193B61; margin-top: 20px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Incident History Timeline</h3>\r\n";
+            $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px;' cellpadding='8'>\r\n";
+            $body .= "<thead style='background-color: #E8EBEE;'><tr><th style='text-align: left; border: 1px solid #A1AEBA; width: 25%; color: #2A3239;'>Timestamp</th><th style='text-align: left; border: 1px solid #A1AEBA; width: 20%; color: #2A3239;'>User / Author</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Event / Details</th></tr></thead>\r\n";
             $body .= "<tbody>\r\n";
 
             $combinedTimeline = [];
@@ -998,13 +998,13 @@ class EventManager {
             ksort($combinedTimeline);
 
             if (empty($combinedTimeline)) {
-                $body .= "<tr><td colspan='3' style='text-align: center; color: #6c757d; border: 1px solid #dee2e6;'>No timeline entries recorded.</td></tr>\r\n";
+                $body .= "<tr><td colspan='3' style='text-align: center; color: #5F7181; border: 1px solid #A1AEBA;'>No timeline entries recorded.</td></tr>\r\n";
             } else {
                 foreach ($combinedTimeline as $item) {
                     $body .= "<tr>";
-                    $body .= "<td style='border: 1px solid #dee2e6;'>" . htmlspecialchars($item['time']) . "</td>";
-                    $body .= "<td style='border: 1px solid #dee2e6;'>" . htmlspecialchars($item['user']) . "</td>";
-                    $body .= "<td style='border: 1px solid #dee2e6;'>" . htmlspecialchars($item['text']) . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($item['time']) . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($item['user']) . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($item['text']) . "</td>";
                     $body .= "</tr>\r\n";
                 }
             }
@@ -1015,7 +1015,7 @@ class EventManager {
 
         $confFooter = $this->getDefault('email_confidentiality_footer');
         if (!empty($confFooter)) {
-            $body .= "<div style='background-color: #f8f9fa; border-top: 1px solid #e0e0e0; padding: 15px 20px; font-size: 0.75rem; color: #6c757d;'>\r\n";
+            $body .= "<div style='background-color: #2A3239; border-top: 2px solid #0065A4; padding: 16px 24px; font-size: 0.75rem; color: #E8EBEE;'>\r\n";
             $body .= nl2br(htmlspecialchars($confFooter));
             $body .= "</div>\r\n";
         }
@@ -1120,9 +1120,9 @@ class EventManager {
         $this->postCardToTeamsChat($eventId, $card);
 
         // Add OTRS Article
-        $body = "<div style='font-family:sans-serif; border:1px solid #198754; border-radius:5px; padding:15px;'>\r\n";
-        $body .= "<h3 style='color:#198754; margin-top:0; border-bottom:1px solid #198754; padding-bottom:5px;'>Incident Update</h3>\r\n";
-        $body .= "<div style='padding:10px; background:#f9fff9; border:1px solid #e0eee0; white-space:pre-wrap;'>" . nl2br(htmlspecialchars($updateText)) . "</div>\r\n";
+        $body = "<div style='font-family:sans-serif; border:1px solid #0065A4; border-radius:5px; padding:15px;'>\r\n";
+        $body .= "<h3 style='color:#0065A4; margin-top:0; border-bottom:1px solid #0065A4; padding-bottom:5px;'>Incident Update</h3>\r\n";
+        $body .= "<div style='padding:10px; background:#EFF6FB; border:1px solid #A1AEBA; white-space:pre-wrap; color:#2A3239;'>" . nl2br(htmlspecialchars($updateText)) . "</div>\r\n";
         $body .= "<p style='font-size:0.8rem; color:#666; margin-top:15px;'>\r\n";
         $body .= "Posted by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>\r\n";
         $body .= "Timestamp: " . date('Y-m-d H:i:s') . "\r\n";
@@ -1396,12 +1396,12 @@ class EventManager {
 
         $this->postCardToTeamsChat($eventId, $card);
 
-        $body = "<div style='font-family:sans-serif; border:2px solid #198754; border-radius:8px; padding:20px;'>\r\n";
-        $body .= "<h2 style='color:#198754; margin-top:0; border-bottom:3px solid #198754; padding-bottom:10px;'>Incident Closure Summary</h2>\r\n";
+        $body = "<div style='font-family:sans-serif; border:2px solid #0065A4; border-radius:8px; padding:20px;'>\r\n";
+        $body .= "<h2 style='color:#0065A4; margin-top:0; border-bottom:3px solid #0065A4; padding-bottom:10px;'>Incident Closure Summary</h2>\r\n";
         $body .= "<p><b>Subject/Title:</b> " . htmlspecialchars($event['title'] ?? '') . "<br><b>Final Impact Score:</b> " . number_format($event['impactScore']) . "</p>\r\n";
-        $body .= "<h3 style='color:#333; border-bottom:1px solid #ddd;'>Full Incident Timeline</h3>\r\n";
+        $body .= "<h3 style='color:#193B61; border-bottom:1px solid #A1AEBA;'>Full Incident Timeline</h3>\r\n";
         $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='5'>\r\n";
-        $body .= "<tr style='background:#f4f4f4;'><th style='text-align:left;'>Time</th><th style='text-align:left;'>User</th><th style='text-align:left;'>Event</th></tr>\r\n";
+        $body .= "<tr style='background:#E8EBEE;'><th style='text-align:left; color:#2A3239;'>Time</th><th style='text-align:left; color:#2A3239;'>User</th><th style='text-align:left; color:#2A3239;'>Event</th></tr>\r\n";
 
         foreach ($timeline as $item) {
             $body .= "<tr>";
@@ -1794,8 +1794,8 @@ class EventManager {
         }
 
         if (!empty($changes)) {
-            $body = "<div style='font-family:sans-serif; border:1px solid #0d6efd; border-radius:5px; padding:15px;'>\r\n";
-            $body .= "<h3 style='color:#0d6efd; margin-top:0; border-bottom:2px solid #0d6efd; padding-bottom:5px;'>Incident Metadata Updated</h3>\r\n";
+            $body = "<div style='font-family:sans-serif; border:1px solid #0065A4; border-radius:5px; padding:15px;'>\r\n";
+            $body .= "<h3 style='color:#0065A4; margin-top:0; border-bottom:2px solid #0065A4; padding-bottom:5px;'>Incident Metadata Updated</h3>\r\n";
             $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='5'>\r\n";
             $body .= implode("\r\n", $changes);
             $body .= "</table>\r\n";
@@ -1835,8 +1835,8 @@ class EventManager {
                 ]);
                 $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_CREATED', null, array_merge(['url' => $this->getDefault('otrs_url')], (array)$res));
 
-                $body = "<div style='font-family:sans-serif; border:2px solid #dc3545; border-radius:8px; padding:20px;'>\r\n";
-                $body .= "<h2 style='color:#dc3545; margin-top:0; border-bottom:3px solid #dc3545; padding-bottom:10px;'>New Incident Reported</h2>\r\n";
+                $body = "<div style='font-family:sans-serif; border:2px solid #D51633; border-radius:8px; padding:20px;'>\r\n";
+                $body .= "<h2 style='color:#D51633; margin-top:0; border-bottom:3px solid #D51633; padding-bottom:10px;'>New Incident Reported</h2>\r\n";
 
                 $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='8'>\r\n";
                 $rows = [
