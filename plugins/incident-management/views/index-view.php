@@ -227,7 +227,7 @@ if (!empty($maintBannerChanges)): ?>
                     $minutesSinceUpdate = floor((time() - $lastUpdateTime) / 60);
                     $isStaleSla = $minutesSinceUpdate >= $slaThresholdMinutes;
 
-                    $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Mitigating', 'Reopened'];
+                    $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Reopened'];
                     $isCurrentStateOutage = in_array(ucfirst(strtolower($e['state_name'] ?? '')), $outageStates);
                     $pastOutageSeconds = 0;
                     $currentStateEnterTime = null;

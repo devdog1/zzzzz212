@@ -11,3 +11,7 @@
 [Thu Sep 24 21:22:26 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
 [Thu Sep 24 21:22:26 2026] [::1]:51318 [200]: GET /index.php?route=incident_active
 [Thu Sep 24 21:22:26 2026] [::1]:51318 Closing
+[Mon Oct  5 16:19:22 2026] [::1]:59670 Accepted
+[Mon Oct  5 16:19:22 2026] Attempting to open SQLite DB at: /app/event_mgmt.sqlite
+[Mon Oct  5 16:19:22 2026] [::1]:59670 [200]: GET /index.php?route=incident_closed
+[Mon Oct  5 16:19:22 2026] [::1]:59670 Closing

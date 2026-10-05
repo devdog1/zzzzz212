@@ -230,13 +230,16 @@ function formatDurationClosed($seconds) {
                                                     <h6 class="fw-bold text-dark">State History</h6>
                                                     <div class="d-flex flex-wrap mb-3">
                                                         <?php foreach ($history as $h):
+                                                            $isClosedState = (strtolower($h['state_name'] ?? '') === 'closed');
                                                             $enter = strtotime($h['enter_time']);
                                                             $exit = $h['exit_time'] ? strtotime($h['exit_time']) : time();
                                                             $duration = $exit - $enter;
                                                         ?>
                                                             <div class="me-3 border-start ps-2 mb-2">
                                                                 <div class="small fw-bold text-dark"><?= htmlspecialchars($h['state_name']) ?></div>
-                                                                <div class="small text-success"><?= formatDurationClosed($duration) ?></div>
+                                                                <?php if (!$isClosedState): ?>
+                                                                    <div class="small text-success"><?= formatDurationClosed($duration) ?></div>
+                                                                <?php endif; ?>
                                                             </div>
                                                         <?php endforeach; ?>
                                                     </div>
@@ -370,11 +373,16 @@ function formatDurationClosed($seconds) {
                                                     <div class="mb-3">
                                                         <h6 class="fw-bold text-dark mb-2">STATE DURATION BREAKDOWN</h6>
                                                         <?php foreach ($history as $h):
+                                                            $isClosedState = (strtolower($h['state_name'] ?? '') === 'closed');
                                                             $enter = strtotime($h['enter_time']);
                                                             $exit = $h['exit_time'] ? strtotime($h['exit_time']) : time();
                                                             $duration = $exit - $enter;
                                                         ?>
-                                                            <div>- <strong><?= htmlspecialchars($h['state_name']) ?>:</strong> <?= formatDurationClosed($duration) ?> (Entered: <?= $h['enter_time'] ?>)</div>
+                                                            <?php if ($isClosedState): ?>
+                                                                <div>- <strong>Closed:</strong> Entered at <?= htmlspecialchars($h['enter_time']) ?></div>
+                                                            <?php else: ?>
+                                                                <div>- <strong><?= htmlspecialchars($h['state_name']) ?>:</strong> <?= formatDurationClosed($duration) ?> (Entered: <?= htmlspecialchars($h['enter_time']) ?>)</div>
+                                                            <?php endif; ?>
                                                         <?php endforeach; ?>
                                                     </div>
 

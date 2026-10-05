@@ -21,7 +21,7 @@ class EventManager {
         'description', 'state_id', 'teams_message_Id', 'impactScoreNotified', 'impactScore', 'teams_chat_id'
     ];
 
-    private $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Mitigating', 'Reopened'];
+    private $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Reopened'];
 
     public function __construct($currentUser = 'system', $auth = null) {
         $this->pdb = new PluginDatabase('incident-management');
