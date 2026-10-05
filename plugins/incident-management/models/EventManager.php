@@ -300,7 +300,7 @@ class EventManager {
         $sql = "INSERT INTO plug_incident_management_wb_events (" . implode(',', $fields) . ") VALUES (" . implode(',', $placeholders) . ")";
         $this->pdb->query($sql, array_values($filteredData));
 
-        $eventId = (int)$this->db->lastInsertId();
+        $eventId = ($this->db && method_exists($this->db, 'lastInsertId')) ? (int)$this->db->lastInsertId() : 0;
         if ($eventId <= 0) {
             $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM plug_incident_management_wb_events");
             $eventId = (int)($stmt->fetch()['max_id'] ?? 0);
@@ -423,11 +423,11 @@ class EventManager {
         $this->notifyTeamsOfMetadataChange($oldEvent, $newEvent);
         $this->notifyOTRSOfMetadataChange($oldEvent, $newEvent);
 
-        $this->triggerOutboundEmails('metadata', $eventId);
-
         if (strtolower($newEvent['state_name'] ?? '') === 'closed' && strtolower($oldEvent['state_name'] ?? '') !== 'closed') {
             $this->sendClosureSummary($eventId);
-            $this->triggerOutboundEmails('closure', $eventId);
+            $this->triggerOutboundEmails(['closure', 'metadata'], $eventId);
+        } else {
+            $this->triggerOutboundEmails('metadata', $eventId);
         }
 
         return true;
@@ -700,7 +700,7 @@ class EventManager {
     private function createRef($table, $name) {
         $sql = "INSERT INTO `$table` (name) VALUES (?)";
         $this->pdb->query($sql, [$name]);
-        $id = $this->db->lastInsertId();
+        $id = ($this->db && method_exists($this->db, 'lastInsertId')) ? $this->db->lastInsertId() : 0;
         if (empty($id) || $id == 0) {
             $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM `$table`");
             $row = $stmt->fetch();
@@ -754,7 +754,12 @@ class EventManager {
     public function createDepartment($name, $azureGroupId = null) {
         $sql = "INSERT INTO plug_incident_management_department (name, azure_group_id) VALUES (?, ?)";
         $this->pdb->query($sql, [$name, $azureGroupId]);
-        $id = $this->db->lastInsertId();
+        $id = ($this->db && method_exists($this->db, 'lastInsertId')) ? $this->db->lastInsertId() : 0;
+        if (empty($id) || $id == 0) {
+            $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM plug_incident_management_department");
+            $row = $stmt->fetch();
+            $id = $row['max_id'] ?? 0;
+        }
         $this->logAudit('plug_incident_management_department', $id, 'CREATE', null, ['name' => $name, 'azure_group_id' => $azureGroupId]);
         return $id;
     }
@@ -836,7 +841,7 @@ class EventManager {
         }
         $sql = "INSERT INTO plug_incident_management_email_rules (trigger_event, recipients, is_enabled) VALUES (?, ?, ?)";
         $this->pdb->query($sql, [$triggerEventsStr, $recipients, $isEnabled ? 1 : 0]);
-        $id = $this->db->lastInsertId();
+        $id = ($this->db && method_exists($this->db, 'lastInsertId')) ? $this->db->lastInsertId() : 0;
         if (empty($id) || $id == 0) {
             $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM plug_incident_management_email_rules");
             $row = $stmt->fetch();
@@ -869,11 +874,17 @@ class EventManager {
         $event = $this->getEvent($eventId);
         if (!$event) return false;
 
-        $aliases = [$triggerEvent];
-        if ($triggerEvent === 'metadata') $aliases[] = 'metadata_change';
-        if ($triggerEvent === 'metadata_change') $aliases[] = 'metadata';
-        if ($triggerEvent === 'pir_closure') $aliases[] = 'pir';
-        if ($triggerEvent === 'pir') $aliases[] = 'pir_closure';
+        $triggerList = is_array($triggerEvent) ? $triggerEvent : [$triggerEvent];
+
+        $aliases = [];
+        foreach ($triggerList as $t) {
+            $aliases[] = $t;
+            if ($t === 'metadata') $aliases[] = 'metadata_change';
+            if ($t === 'metadata_change') $aliases[] = 'metadata';
+            if ($t === 'pir_closure') $aliases[] = 'pir';
+            if ($t === 'pir') $aliases[] = 'pir_closure';
+        }
+        $aliases = array_unique($aliases);
 
         $allEnabled = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules WHERE is_enabled = 1")->fetchAll();
 
@@ -901,8 +912,16 @@ class EventManager {
             }
         }
 
-        $recipientEmails = array_unique($recipientEmails);
+        $recipientEmails = array_values(array_unique($recipientEmails));
         if (empty($recipientEmails)) return false;
+
+        $priority = ['closure' => 1, 'pir_closure' => 2, 'pir' => 2, 'creation' => 3, 'update' => 4, 'metadata' => 5, 'metadata_change' => 5];
+        usort($triggerList, function($a, $b) use ($priority) {
+            $pa = $priority[$a] ?? 99;
+            $pb = $priority[$b] ?? 99;
+            return $pa <=> $pb;
+        });
+        $primaryTrigger = $triggerList[0];
 
         $triggerLabels = [
             'creation' => 'Incident Created',
@@ -913,7 +932,7 @@ class EventManager {
             'pir_closure' => 'Post-Incident Review (PIR) - Closed',
             'pir' => 'Post-Incident Review (PIR) - Closed'
         ];
-        $label = $triggerLabels[$triggerEvent] ?? ucfirst($triggerEvent);
+        $label = $triggerLabels[$primaryTrigger] ?? ucfirst($primaryTrigger);
 
         $subject = "[Incident #" . $eventId . "] " . ($event['title'] ?: 'Incident #' . $eventId) . " - " . $label;
 
@@ -952,7 +971,7 @@ class EventManager {
             $body .= "<div style='background-color: #f4fdf8; border-left: 4px solid #198754; padding: 12px; font-size: 0.95rem; white-space: pre-wrap; margin-bottom: 20px;'>" . nl2br(htmlspecialchars($extraContext['update_text'])) . "</div>\r\n";
         }
 
-        if (in_array($triggerEvent, ['update', 'metadata', 'metadata_change', 'closure', 'pir_closure', 'pir'])) {
+        if (in_array($primaryTrigger, ['update', 'metadata', 'metadata_change', 'closure', 'pir_closure', 'pir'])) {
             $history = $this->getStateHistory($eventId);
             $updates = $this->getEventUpdates($eventId);
 
@@ -1017,7 +1036,7 @@ class EventManager {
         }
 
         $this->logAudit('plug_incident_management_wb_events', $eventId, 'OUTBOUND_EMAILS_SENT', null, [
-            'trigger' => $triggerEvent,
+            'trigger' => is_array($triggerEvent) ? implode(', ', $triggerEvent) : $triggerEvent,
             'subject' => $subject,
             'recipients_count' => count($recipientEmails),
             'recipients' => $recipientEmails
@@ -1063,7 +1082,12 @@ class EventManager {
         $sql = "INSERT INTO plug_incident_management_event_updates (event_id, update_text, create_user) VALUES (?, ?, ?)";
         $this->pdb->query($sql, [$eventId, $updateText, $this->currentUser]);
 
-        $updateId = $this->db->lastInsertId();
+        $updateId = ($this->db && method_exists($this->db, 'lastInsertId')) ? $this->db->lastInsertId() : 0;
+        if (empty($updateId) || $updateId == 0) {
+            $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM plug_incident_management_event_updates");
+            $row = $stmt->fetch();
+            $updateId = $row['max_id'] ?? 0;
+        }
         $this->logAudit('plug_incident_management_event_updates', $updateId, 'CREATE', null, $data);
 
         if ($messageExternal) {
