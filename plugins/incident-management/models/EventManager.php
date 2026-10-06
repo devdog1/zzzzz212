@@ -183,7 +183,8 @@ class EventManager {
             'weekly_report_day' => ['Monday', 'Day of the week to dispatch automated weekly email report'],
             'weekly_report_time' => ['08:00', 'Time of day (24h) to dispatch automated weekly email report'],
             'weekly_report_include_stats' => ['1', 'Include weekly statistics and impact score breakdown (0 or 1)'],
-            'weekly_report_include_closed' => ['1', 'Include list of closed incidents from the past week (0 or 1)']
+            'weekly_report_include_closed' => ['1', 'Include list of closed incidents from the past week (0 or 1)'],
+            'weekly_report_last_run' => ['', 'Last date (Y-m-d) automated weekly email report was dispatched']
         ];
 
         foreach ($defaultSettings as $k => $v) {
@@ -435,6 +436,171 @@ class EventManager {
         } else {
             $this->triggerOutboundEmails('metadata', $eventId);
         }
+
+        return true;
+    }
+
+    public function sendWeeklyEmailReport($force = false) {
+        $enabled = $this->getDefault('weekly_report_enabled');
+        if (!$force && $enabled !== '1') {
+            return false;
+        }
+
+        $recipientsRaw = $this->getDefault('weekly_report_recipients');
+        if (empty($recipientsRaw)) {
+            return false;
+        }
+
+        $targetDay = $this->getDefault('weekly_report_day') ?: 'Monday';
+        $targetTime = $this->getDefault('weekly_report_time') ?: '08:00';
+        $includeStats = $this->getDefault('weekly_report_include_stats') ?? '1';
+        $includeClosed = $this->getDefault('weekly_report_include_closed') ?? '1';
+        $lastRun = $this->getDefault('weekly_report_last_run') ?: '';
+
+        $todayStr = date('Y-m-d');
+        $currentDay = date('l');
+        $currentHour = date('H');
+        $targetHour = explode(':', $targetTime)[0] ?? '08';
+
+        if (!$force) {
+            if ($lastRun === $todayStr) {
+                return false;
+            }
+            if (strcasecmp($currentDay, $targetDay) !== 0) {
+                return false;
+            }
+            if ($currentHour !== sprintf('%02d', (int)$targetHour)) {
+                return false;
+            }
+        }
+
+        $rawList = preg_split('/[,;\r\n]+/', $recipientsRaw);
+        $recipients = [];
+        foreach ($rawList as $email) {
+            $email = trim($email);
+            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $recipients[] = $email;
+            }
+        }
+        $recipients = array_values(array_unique($recipients));
+        if (empty($recipients)) return false;
+
+        $allEvents = $this->listEvents(true);
+        $activeEvents = [];
+        $closedPastWeek = [];
+        $now = time();
+        $sevenDaysAgo = $now - (7 * 86400);
+
+        $weeklyImpactScore = 0;
+        $totalWeeklyIncidents = 0;
+
+        foreach ($allEvents as $ev) {
+            $createTs = strtotime($ev['create_time'] ?? '');
+            $stateName = strtolower($ev['state_name'] ?? '');
+
+            if ($stateName !== 'closed') {
+                $activeEvents[] = $ev;
+            } else {
+                $updateTs = strtotime($ev['update_time'] ?? $ev['create_time']);
+                if ($updateTs >= $sevenDaysAgo) {
+                    $closedPastWeek[] = $ev;
+                }
+            }
+
+            if ($createTs >= $sevenDaysAgo) {
+                $weeklyImpactScore += (int)($ev['impactScore'] ?? 0);
+                $totalWeeklyIncidents++;
+            }
+        }
+
+        $subject = "[Weekly Report] Incident Management Summary - " . date('F j, Y');
+
+        $body = "<div style='font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; border: 1px solid #A1AEBA; border-radius: 8px; overflow: hidden;'>\r\n";
+        $body .= "<div style='background-color: #0065A4; color: #ffffff; padding: 18px 24px;'>\r\n";
+        $body .= "<h2 style='margin: 0; font-size: 1.4rem; color: #ffffff;'>Weekly Incident Report</h2>\r\n";
+        $body .= "<div style='font-size: 0.9rem; color: #EFF6FB; opacity: 0.95; margin-top: 4px;'>Summary for week ending " . date('F j, Y') . "</div>\r\n";
+        $body .= "</div>\r\n";
+
+        $body .= "<div style='padding: 24px; background-color: #ffffff;'>\r\n";
+
+        if ($includeStats === '1') {
+            $body .= "<h3 style='color: #193B61; margin-top: 0; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Weekly Performance & Metrics</h3>\r\n";
+            $body .= "<table style='width: 100%; border-collapse: collapse; margin-bottom: 20px;' cellpadding='10'>\r\n";
+            $body .= "<tr>";
+            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>New Incidents (7 Days)</div><div style='font-size: 1.5rem; font-weight: bold; color: #0065A4;'>" . number_format($totalWeeklyIncidents) . "</div></td>";
+            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>Weekly Impact Score</div><div style='font-size: 1.5rem; font-weight: bold; color: #D51633;'>" . number_format($weeklyImpactScore) . "</div></td>";
+            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>Currently Active</div><div style='font-size: 1.5rem; font-weight: bold; color: " . (count($activeEvents) > 0 ? '#D51633' : '#198754') . ";'>" . number_format(count($activeEvents)) . "</div></td>";
+            $body .= "</tr>\r\n";
+            $body .= "</table>\r\n";
+        }
+
+        $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Active Open Incidents (" . count($activeEvents) . ")</h3>\r\n";
+        if (empty($activeEvents)) {
+            $body .= "<p style='color: #198754; font-weight: bold;'>No active incidents currently reported.</p>\r\n";
+        } else {
+            $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px;' cellpadding='8'>\r\n";
+            $body .= "<thead style='background-color: #E8EBEE;'><tr><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>ID</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Subject/Title</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Department</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Status</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Impact</th></tr></thead>\r\n";
+            $body .= "<tbody>\r\n";
+            foreach ($activeEvents as $ev) {
+                $body .= "<tr>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>#" . $ev['id'] . "</td>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'><b>" . htmlspecialchars($ev['title'] ?: 'Incident #' . $ev['id']) . "</b></td>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['department_name'] ?: 'N/A') . "</td>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['state_name'] ?: 'N/A') . "</td>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . number_format($ev['impactScore'] ?? 0) . "</td>";
+                $body .= "</tr>\r\n";
+            }
+            $body .= "</tbody></table>\r\n";
+        }
+
+        if ($includeClosed === '1') {
+            $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Incidents Closed Past 7 Days (" . count($closedPastWeek) . ")</h3>\r\n";
+            if (empty($closedPastWeek)) {
+                $body .= "<p style='color: #5F7181;'>No incidents were closed in the past 7 days.</p>\r\n";
+            } else {
+                $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px;' cellpadding='8'>\r\n";
+                $body .= "<thead style='background-color: #E8EBEE;'><tr><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>ID</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Subject/Title</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Department</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Closed Date</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Impact</th></tr></thead>\r\n";
+                $body .= "<tbody>\r\n";
+                foreach ($closedPastWeek as $ev) {
+                    $body .= "<tr>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>#" . $ev['id'] . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['title'] ?: 'Incident #' . $ev['id']) . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['department_name'] ?: 'N/A') . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['update_time'] ?? 'N/A') . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . number_format($ev['impactScore'] ?? 0) . "</td>";
+                    $body .= "</tr>\r\n";
+                }
+                $body .= "</tbody></table>\r\n";
+            }
+        }
+
+        $body .= "</div>\r\n";
+
+        $confFooter = $this->getDefault('email_confidentiality_footer');
+        if (!empty($confFooter)) {
+            $body .= "<div style='background-color: #2A3239; border-top: 2px solid #0065A4; padding: 16px 24px; font-size: 0.75rem; color: #E8EBEE;'>\r\n";
+            $body .= nl2br(htmlspecialchars($confFooter));
+            $body .= "</div>\r\n";
+        }
+
+        $body .= "</div>\r\n";
+
+        $fromEmail = $this->getDefault('outbound_email_from') ?: 'noreply@example.com';
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: " . $fromEmail . "\r\n";
+
+        foreach ($recipients as $to) {
+            @mail($to, $subject, $body, $headers, "-f" . $fromEmail);
+        }
+
+        $this->updateDefault('weekly_report_last_run', $todayStr);
+
+        $this->logAudit('plug_incident_management_defaults', 0, 'WEEKLY_REPORT_SENT', null, [
+            'subject' => $subject,
+            'recipients_count' => count($recipients),
+            'recipients' => $recipients
+        ]);
 
         return true;
     }

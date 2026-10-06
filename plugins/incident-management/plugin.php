@@ -256,10 +256,31 @@ PluginManager::getInstance()->addAction('init_scheduler', function ($scheduler) 
         300,
         'incident-management'
     );
+
+    $scheduler->registerTask(
+        'incident_weekly_report_task',
+        'incident_management_run_weekly_report',
+        3600,
+        'incident-management'
+    );
 });
 
 function incident_management_run_sync() {
     log_action('INCIDENT_SYNC_TASK_RUN', ['status' => 'completed']);
+}
+
+function incident_management_run_weekly_report() {
+    try {
+        $em = new EventManager('system_scheduler');
+        $sent = $em->sendWeeklyEmailReport();
+        if ($sent) {
+            log_action('INCIDENT_WEEKLY_REPORT_TASK_RUN', ['status' => 'dispatched']);
+        } else {
+            log_action('INCIDENT_WEEKLY_REPORT_TASK_RUN', ['status' => 'skipped_or_not_due']);
+        }
+    } catch (Throwable $e) {
+        log_action('INCIDENT_WEEKLY_REPORT_TASK_ERROR', ['error' => $e->getMessage()]);
+    }
 }
 
 // 5. Inter-Plugin Service Registry
