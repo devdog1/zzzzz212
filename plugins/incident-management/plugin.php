@@ -250,20 +250,45 @@ PluginManager::getInstance()->addAction('index_dashboard_widgets', function ($us
 
 // 4. Background Task Registration
 PluginManager::getInstance()->addAction('init_scheduler', function ($scheduler) {
-    $scheduler->registerTask(
-        'incident_sync_task',
-        'incident_management_run_sync',
-        300,
-        'incident-management'
-    );
+    if (is_object($scheduler) && method_exists($scheduler, 'registerTask')) {
+        $scheduler->registerTask(
+            'incident_sync_task',
+            'incident_management_run_sync',
+            300,
+            'incident-management',
+            'Incident Sync Task',
+            'Synchronizes incident state and background metrics'
+        );
 
-    $scheduler->registerTask(
-        'incident_weekly_report_task',
-        'incident_management_run_weekly_report',
-        3600,
-        'incident-management'
-    );
+        $scheduler->registerTask(
+            'incident_weekly_report_task',
+            'incident_management_run_weekly_report',
+            3600,
+            'incident-management',
+            'Weekly Email Report Task',
+            'Dispatches weekly incident summary reports based on configured schedule'
+        );
+    }
 });
+
+$register_task_filter = function ($tasks) {
+    if (!is_array($tasks)) {
+        $tasks = [];
+    }
+    $tasks['incident_weekly_report_task'] = [
+        'id'          => 'incident_weekly_report_task',
+        'name'        => 'Weekly Email Report Task',
+        'callback'    => 'incident_management_run_weekly_report',
+        'interval'    => 3600,
+        'plugin'      => 'incident-management',
+        'description' => 'Dispatches weekly incident summary reports based on configured schedule'
+    ];
+    return $tasks;
+};
+
+PluginManager::getInstance()->addFilter('task_scheduler_tasks', $register_task_filter);
+PluginManager::getInstance()->addFilter('registered_tasks', $register_task_filter);
+PluginManager::getInstance()->addFilter('scheduler_tasks', $register_task_filter);
 
 function incident_management_run_sync() {
     log_action('INCIDENT_SYNC_TASK_RUN', ['status' => 'completed']);
