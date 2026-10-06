@@ -290,6 +290,54 @@ if ($authObj && method_exists($authObj, 'getAccessToken')) {
             </div>
         </div>
 
+        <!-- Weekly Email Report Settings -->
+        <div class="col-md-10 mb-4">
+            <div class="card shadow-sm border border-primary">
+                <div class="card-header bg-primary text-white fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-chart-line me-2"></i>Weekly Email Report Configuration</span>
+                    <span class="badge bg-light text-primary"><?= ($defaults['weekly_report_enabled'] ?? '0') === '1' ? 'Enabled' : 'Disabled' ?></span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3 border-bottom pb-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small"><i class="fa-solid fa-power-off me-1 text-primary"></i>Weekly Report Status</label>
+                            <select name="settings[weekly_report_enabled]" class="form-select form-select-sm">
+                                <option value="1" <?= ($defaults['weekly_report_enabled'] ?? '0') === '1' ? 'selected' : '' ?>>Enabled</option>
+                                <option value="0" <?= ($defaults['weekly_report_enabled'] ?? '0') === '0' ? 'selected' : '' ?>>Disabled</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small"><i class="fa-solid fa-calendar-day me-1 text-primary"></i>Dispatch Day</label>
+                            <select name="settings[weekly_report_day]" class="form-select form-select-sm">
+                                <?php
+                                $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                                $selectedDay = $defaults['weekly_report_day'] ?? 'Monday';
+                                foreach ($days as $day): ?>
+                                    <option value="<?= $day ?>" <?= $selectedDay === $day ? 'selected' : '' ?>><?= $day ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small"><i class="fa-solid fa-clock me-1 text-primary"></i>Dispatch Time (24h)</label>
+                            <input type="time" name="settings[weekly_report_time]" class="form-control form-control-sm" value="<?= htmlspecialchars($defaults['weekly_report_time'] ?? '08:00') ?>">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small"><i class="fa-solid fa-chart-pie me-1 text-primary"></i>Include Statistics</label>
+                            <select name="settings[weekly_report_include_stats]" class="form-select form-select-sm">
+                                <option value="1" <?= ($defaults['weekly_report_include_stats'] ?? '1') === '1' ? 'selected' : '' ?>>Yes (Stats & Impact)</option>
+                                <option value="0" <?= ($defaults['weekly_report_include_stats'] ?? '1') === '0' ? 'selected' : '' ?>>No</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label fw-bold small"><i class="fa-solid fa-users me-1 text-primary"></i>Weekly Report Recipients</label>
+                        <textarea name="settings[weekly_report_recipients]" class="form-control form-control-sm" rows="2" placeholder="management@example.com, ops@example.com"><?= htmlspecialchars($defaults['weekly_report_recipients'] ?? '') ?></textarea>
+                        <div class="form-text small">Enter comma-separated or line-separated recipient email addresses to receive the automated weekly incident report.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="col-md-10 mb-4 text-center">
             <button type="submit" class="btn btn-primary btn-md fw-bold px-4">
                 <i class="fa-solid fa-save me-1"></i>Save Integration Settings

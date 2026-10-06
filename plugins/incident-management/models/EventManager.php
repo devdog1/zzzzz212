@@ -177,7 +177,13 @@ class EventManager {
             'otrs_user_id' => ['1', 'OTRS Default User ID / Agent ID for ticket creation'],
             'teams_enabled' => ['1', 'Enable Microsoft Teams integration and chat creation (0 or 1)'],
             'email_confidentiality_footer' => ['CONFIDENTIALITY NOTICE: This email and any attachments are confidential and intended solely for the use of the individual or entity to whom they are addressed.', 'Confidentiality statement footer for outbound emails'],
-            'outbound_email_from' => ['noreply@example.com', 'From and envelope sender email address for outbound emails']
+            'outbound_email_from' => ['noreply@example.com', 'From and envelope sender email address for outbound emails'],
+            'weekly_report_enabled' => ['0', 'Enable automated weekly email report dispatch (0 or 1)'],
+            'weekly_report_recipients' => ['', 'Recipient email addresses for automated weekly email reports'],
+            'weekly_report_day' => ['Monday', 'Day of the week to dispatch automated weekly email report'],
+            'weekly_report_time' => ['08:00', 'Time of day (24h) to dispatch automated weekly email report'],
+            'weekly_report_include_stats' => ['1', 'Include weekly statistics and impact score breakdown (0 or 1)'],
+            'weekly_report_include_closed' => ['1', 'Include list of closed incidents from the past week (0 or 1)']
         ];
 
         foreach ($defaultSettings as $k => $v) {

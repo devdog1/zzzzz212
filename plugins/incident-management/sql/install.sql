@@ -188,4 +188,10 @@ INSERT IGNORE INTO `plug_incident_management_defaults` (`setting_key`, `setting_
 ('netbox_token', '', 'NetBox API Token'),
 ('external_email_template', 'Hello,\n\nAn incident has been reported that may affect your circuit {circuit_cid}.\n\nIncident Description: {description}\nLatest Update: {update_text}\n\nWe will keep you informed.', 'Template for external circuit owner emails'),
 ('email_confidentiality_footer', 'CONFIDENTIALITY NOTICE: This email and any attachments are confidential and intended solely for the use of the individual or entity to whom they are addressed.', 'Confidentiality statement footer for outbound emails'),
-('outbound_email_from', 'noreply@example.com', 'From and envelope sender email address for outbound emails');
+('outbound_email_from', 'noreply@example.com', 'From and envelope sender email address for outbound emails'),
+('weekly_report_enabled', '0', 'Enable automated weekly email report dispatch (0 or 1)'),
+('weekly_report_recipients', '', 'Recipient email addresses for automated weekly email reports'),
+('weekly_report_day', 'Monday', 'Day of the week to dispatch automated weekly email report'),
+('weekly_report_time', '08:00', 'Time of day (24h) to dispatch automated weekly email report'),
+('weekly_report_include_stats', '1', 'Include weekly statistics and impact score breakdown (0 or 1)'),
+('weekly_report_include_closed', '1', 'Include list of closed incidents from the past week (0 or 1)');
