@@ -294,17 +294,21 @@ function incident_management_run_sync() {
     log_action('INCIDENT_SYNC_TASK_RUN', ['status' => 'completed']);
 }
 
-function incident_management_run_weekly_report() {
+function incident_management_run_weekly_report($force = true) {
     try {
-        $em = new EventManager('system_scheduler');
-        $sent = $em->sendWeeklyEmailReport();
+        $user = $_SESSION['user']['name'] ?? ($_SESSION['user']['display_name'] ?? 'system_scheduler');
+        $em = new EventManager($user);
+        $sent = $em->sendWeeklyEmailReport($force);
         if ($sent) {
             log_action('INCIDENT_WEEKLY_REPORT_TASK_RUN', ['status' => 'dispatched']);
+            return true;
         } else {
             log_action('INCIDENT_WEEKLY_REPORT_TASK_RUN', ['status' => 'skipped_or_not_due']);
+            return false;
         }
     } catch (Throwable $e) {
         log_action('INCIDENT_WEEKLY_REPORT_TASK_ERROR', ['error' => $e->getMessage()]);
+        return false;
     }
 }
 

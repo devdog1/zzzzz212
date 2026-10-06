@@ -448,7 +448,18 @@ class EventManager {
 
         $recipientsRaw = $this->getDefault('weekly_report_recipients');
         if (empty($recipientsRaw)) {
-            return false;
+            $rules = $this->listEmailRules();
+            $fallbackRecipients = [];
+            foreach ($rules as $r) {
+                if (!empty($r['recipients'])) {
+                    $fallbackRecipients[] = $r['recipients'];
+                }
+            }
+            $recipientsRaw = implode(',', $fallbackRecipients);
+        }
+
+        if (empty($recipientsRaw)) {
+            $recipientsRaw = $this->getDefault('outbound_email_from') ?: 'admin@example.com';
         }
 
         $targetDay = $this->getDefault('weekly_report_day') ?: 'Monday';
@@ -592,6 +603,12 @@ class EventManager {
 
         foreach ($recipients as $to) {
             @mail($to, $subject, $body, $headers, "-f" . $fromEmail);
+            try {
+                $this->pdb->query(
+                    "INSERT INTO plug_incident_management_external_message_log (event_id, recipient, subject, message) VALUES (?, ?, ?, ?)",
+                    [0, $to, $subject, $body]
+                );
+            } catch (Throwable $t) {}
         }
 
         $this->updateDefault('weekly_report_last_run', $todayStr);
