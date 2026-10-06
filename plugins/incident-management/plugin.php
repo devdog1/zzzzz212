@@ -74,17 +74,35 @@ PluginManager::getInstance()->addAction('index_dashboard_widgets', function ($us
         return;
     }
 
-    $activeCount = 0;
-    $totalImpact = 0;
+    $activeEvents = [];
+    $dailyImpact = 0;
+    $weeklyImpact = 0;
+    $monthlyImpact = 0;
     $assignedTickets = [];
     $OTRSTicketLink = '#';
 
     try {
         $em = new EventManager($userContext['display_name'] ?? 'system');
         $activeEvents = $em->listEvents(false);
-        $activeCount = count($activeEvents);
-        $stats = $em->getStatistics();
-        $totalImpact = $stats['total_impact'] ?? 0;
+
+        $allEvents = $em->listEvents(true);
+        $now = time();
+
+        foreach ($allEvents as $ev) {
+            $createTs = strtotime($ev['create_time'] ?? '');
+            if (!$createTs) continue;
+            $score = (int)($ev['impactScore'] ?? 0);
+
+            if (($now - $createTs) <= 86400) {
+                $dailyImpact += $score;
+            }
+            if (($now - $createTs) <= (7 * 86400)) {
+                $weeklyImpact += $score;
+            }
+            if (($now - $createTs) <= (30 * 86400)) {
+                $monthlyImpact += $score;
+            }
+        }
 
         $OTRSTicketLink = $em->getDefault('otrs_ticket_link') ?: '#';
         $userEmail = $_SESSION['user']['email'] ?? ($userContext['username'] ?? '');
@@ -115,19 +133,59 @@ PluginManager::getInstance()->addAction('index_dashboard_widgets', function ($us
                             <h6 class="card-title fw-bold mb-0 text-dark">Active Incidents</h6>
                             <small class="text-muted">Incident Management System</small>
                         </div>
-                        <div class="bg-danger-subtle rounded-circle p-2 text-center" style="width: 45px; height: 45px;">
+                        <div class="bg-danger-subtle rounded-circle p-2 text-center" style="width: 42px; height: 45px;">
                             <i class="fa-solid fa-triangle-exclamation text-danger fs-4"></i>
                         </div>
                     </div>
                     <hr class="my-2">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="fs-3 fw-bold text-danger"><?= $activeCount ?></span>
-                        <span class="badge bg-secondary">Impact Score: <?= number_format($totalImpact) ?></span>
+
+                    <div class="mb-3">
+                        <div class="small fw-bold text-muted mb-1" style="font-size: 0.75rem;">Impact Score Breakdown:</div>
+                        <div class="row text-center g-1">
+                            <div class="col-4">
+                                <div class="p-1 bg-light border rounded">
+                                    <div class="text-muted" style="font-size: 0.68rem; font-weight: 600;">Daily</div>
+                                    <div class="fw-bold text-danger small"><?= number_format($dailyImpact) ?></div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-1 bg-light border rounded">
+                                    <div class="text-muted" style="font-size: 0.68rem; font-weight: 600;">Weekly</div>
+                                    <div class="fw-bold text-danger small"><?= number_format($weeklyImpact) ?></div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-1 bg-light border rounded">
+                                    <div class="text-muted" style="font-size: 0.68rem; font-weight: 600;">Monthly</div>
+                                    <div class="fw-bold text-danger small"><?= number_format($monthlyImpact) ?></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="small fw-bold text-dark mb-1" style="font-size: 0.8rem;">
+                            Open Incidents (<?= count($activeEvents) ?>):
+                        </div>
+                        <?php if (empty($activeEvents)): ?>
+                            <div class="text-success small py-1" style="font-size: 0.8rem;">
+                                <i class="fa-solid fa-circle-check me-1"></i>No open incidents currently reported.
+                            </div>
+                        <?php else: ?>
+                            <div class="list-group list-group-flush overflow-auto" style="max-height: 140px;">
+                                <?php foreach ($activeEvents as $event): ?>
+                                    <a href="<?= url_for('incident_active') ?>" class="list-group-item list-group-item-action px-1 py-1 border-0 small text-truncate fw-bold text-dark" style="font-size: 0.8rem;" title="<?= htmlspecialchars($event['title'] ?: 'Incident #' . $event['id']) ?>">
+                                        <i class="fa-solid fa-fire text-danger me-1"></i>#<?= $event['id'] ?>: <?= htmlspecialchars($event['title'] ?: 'Incident #' . $event['id']) ?>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center mt-2">
+
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
                     <a href="<?= url_for('incident_active') ?>" class="btn btn-sm btn-danger fw-bold">
-                        <i class="fa-solid fa-plus-circle me-1"></i>+ Report Incident
+                        <i class="fa-solid fa-plus-circle me-1"></i>+ Report
                     </a>
                     <a href="<?= url_for('incident_active') ?>" class="btn btn-sm btn-outline-secondary">
                         <i class="fa-solid fa-fire me-1"></i>View Active
@@ -192,16 +250,62 @@ PluginManager::getInstance()->addAction('index_dashboard_widgets', function ($us
 
 // 4. Background Task Registration
 PluginManager::getInstance()->addAction('init_scheduler', function ($scheduler) {
-    $scheduler->registerTask(
-        'incident_sync_task',
-        'incident_management_run_sync',
-        300,
-        'incident-management'
-    );
+    if (is_object($scheduler) && method_exists($scheduler, 'registerTask')) {
+        $scheduler->registerTask(
+            'incident_sync_task',
+            'incident_management_run_sync',
+            300,
+            'incident-management',
+            'Incident Sync Task',
+            'Synchronizes incident state and background metrics'
+        );
+
+        $scheduler->registerTask(
+            'incident_weekly_report_task',
+            'incident_management_run_weekly_report',
+            3600,
+            'incident-management',
+            'Weekly Email Report Task',
+            'Dispatches weekly incident summary reports based on configured schedule'
+        );
+    }
 });
+
+$register_task_filter = function ($tasks) {
+    if (!is_array($tasks)) {
+        $tasks = [];
+    }
+    $tasks['incident_weekly_report_task'] = [
+        'id'          => 'incident_weekly_report_task',
+        'name'        => 'Weekly Email Report Task',
+        'callback'    => 'incident_management_run_weekly_report',
+        'interval'    => 3600,
+        'plugin'      => 'incident-management',
+        'description' => 'Dispatches weekly incident summary reports based on configured schedule'
+    ];
+    return $tasks;
+};
+
+PluginManager::getInstance()->addFilter('task_scheduler_tasks', $register_task_filter);
+PluginManager::getInstance()->addFilter('registered_tasks', $register_task_filter);
+PluginManager::getInstance()->addFilter('scheduler_tasks', $register_task_filter);
 
 function incident_management_run_sync() {
     log_action('INCIDENT_SYNC_TASK_RUN', ['status' => 'completed']);
+}
+
+function incident_management_run_weekly_report() {
+    try {
+        $em = new EventManager('system_scheduler');
+        $sent = $em->sendWeeklyEmailReport();
+        if ($sent) {
+            log_action('INCIDENT_WEEKLY_REPORT_TASK_RUN', ['status' => 'dispatched']);
+        } else {
+            log_action('INCIDENT_WEEKLY_REPORT_TASK_RUN', ['status' => 'skipped_or_not_due']);
+        }
+    } catch (Throwable $e) {
+        log_action('INCIDENT_WEEKLY_REPORT_TASK_ERROR', ['error' => $e->getMessage()]);
+    }
 }
 
 // 5. Inter-Plugin Service Registry

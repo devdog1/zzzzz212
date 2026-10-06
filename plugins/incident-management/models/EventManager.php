@@ -21,7 +21,7 @@ class EventManager {
         'description', 'state_id', 'teams_message_Id', 'impactScoreNotified', 'impactScore', 'teams_chat_id'
     ];
 
-    private $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Mitigating', 'Reopened'];
+    private $outageStates = ['Detected', 'Acknowledged', 'Investigating', 'Identified', 'Reopened'];
 
     public function __construct($currentUser = 'system', $auth = null) {
         $this->pdb = new PluginDatabase('incident-management');
@@ -175,7 +175,16 @@ class EventManager {
             'otrs_state' => ['new', 'OTRS Default Ticket State'],
             'otrs_priority' => ['3 normal', 'OTRS Default Ticket Priority'],
             'otrs_user_id' => ['1', 'OTRS Default User ID / Agent ID for ticket creation'],
-            'teams_enabled' => ['1', 'Enable Microsoft Teams integration and chat creation (0 or 1)']
+            'teams_enabled' => ['1', 'Enable Microsoft Teams integration and chat creation (0 or 1)'],
+            'email_confidentiality_footer' => ['CONFIDENTIALITY NOTICE: This email and any attachments are confidential and intended solely for the use of the individual or entity to whom they are addressed.', 'Confidentiality statement footer for outbound emails'],
+            'outbound_email_from' => ['noreply@example.com', 'From and envelope sender email address for outbound emails'],
+            'weekly_report_enabled' => ['0', 'Enable automated weekly email report dispatch (0 or 1)'],
+            'weekly_report_recipients' => ['', 'Recipient email addresses for automated weekly email reports'],
+            'weekly_report_day' => ['Monday', 'Day of the week to dispatch automated weekly email report'],
+            'weekly_report_time' => ['08:00', 'Time of day (24h) to dispatch automated weekly email report'],
+            'weekly_report_include_stats' => ['1', 'Include weekly statistics and impact score breakdown (0 or 1)'],
+            'weekly_report_include_closed' => ['1', 'Include list of closed incidents from the past week (0 or 1)'],
+            'weekly_report_last_run' => ['', 'Last date (Y-m-d) automated weekly email report was dispatched']
         ];
 
         foreach ($defaultSettings as $k => $v) {
@@ -298,7 +307,7 @@ class EventManager {
         $sql = "INSERT INTO plug_incident_management_wb_events (" . implode(',', $fields) . ") VALUES (" . implode(',', $placeholders) . ")";
         $this->pdb->query($sql, array_values($filteredData));
 
-        $eventId = (int)$this->db->lastInsertId();
+        $eventId = ($this->db && method_exists($this->db, 'lastInsertId')) ? (int)$this->db->lastInsertId() : 0;
         if ($eventId <= 0) {
             $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM plug_incident_management_wb_events");
             $eventId = (int)($stmt->fetch()['max_id'] ?? 0);
@@ -334,6 +343,8 @@ class EventManager {
         }
 
         $this->initOTRSTicket($eventId, $filteredData['description'] ?? '');
+
+        $this->triggerOutboundEmails('creation', $eventId);
 
         return $eventId;
     }
@@ -421,7 +432,175 @@ class EventManager {
 
         if (strtolower($newEvent['state_name'] ?? '') === 'closed' && strtolower($oldEvent['state_name'] ?? '') !== 'closed') {
             $this->sendClosureSummary($eventId);
+            $this->triggerOutboundEmails(['closure', 'metadata'], $eventId);
+        } else {
+            $this->triggerOutboundEmails('metadata', $eventId);
         }
+
+        return true;
+    }
+
+    public function sendWeeklyEmailReport($force = false) {
+        $enabled = $this->getDefault('weekly_report_enabled');
+        if (!$force && $enabled !== '1') {
+            return false;
+        }
+
+        $recipientsRaw = $this->getDefault('weekly_report_recipients');
+        if (empty($recipientsRaw)) {
+            return false;
+        }
+
+        $targetDay = $this->getDefault('weekly_report_day') ?: 'Monday';
+        $targetTime = $this->getDefault('weekly_report_time') ?: '08:00';
+        $includeStats = $this->getDefault('weekly_report_include_stats') ?? '1';
+        $includeClosed = $this->getDefault('weekly_report_include_closed') ?? '1';
+        $lastRun = $this->getDefault('weekly_report_last_run') ?: '';
+
+        $todayStr = date('Y-m-d');
+        $currentDay = date('l');
+        $currentHour = date('H');
+        $targetHour = explode(':', $targetTime)[0] ?? '08';
+
+        if (!$force) {
+            if ($lastRun === $todayStr) {
+                return false;
+            }
+            if (strcasecmp($currentDay, $targetDay) !== 0) {
+                return false;
+            }
+            if ($currentHour !== sprintf('%02d', (int)$targetHour)) {
+                return false;
+            }
+        }
+
+        $rawList = preg_split('/[,;\r\n]+/', $recipientsRaw);
+        $recipients = [];
+        foreach ($rawList as $email) {
+            $email = trim($email);
+            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $recipients[] = $email;
+            }
+        }
+        $recipients = array_values(array_unique($recipients));
+        if (empty($recipients)) return false;
+
+        $allEvents = $this->listEvents(true);
+        $activeEvents = [];
+        $closedPastWeek = [];
+        $now = time();
+        $sevenDaysAgo = $now - (7 * 86400);
+
+        $weeklyImpactScore = 0;
+        $totalWeeklyIncidents = 0;
+
+        foreach ($allEvents as $ev) {
+            $createTs = strtotime($ev['create_time'] ?? '');
+            $stateName = strtolower($ev['state_name'] ?? '');
+
+            if ($stateName !== 'closed') {
+                $activeEvents[] = $ev;
+            } else {
+                $updateTs = strtotime($ev['update_time'] ?? $ev['create_time']);
+                if ($updateTs >= $sevenDaysAgo) {
+                    $closedPastWeek[] = $ev;
+                }
+            }
+
+            if ($createTs >= $sevenDaysAgo) {
+                $weeklyImpactScore += (int)($ev['impactScore'] ?? 0);
+                $totalWeeklyIncidents++;
+            }
+        }
+
+        $subject = "[Weekly Report] Incident Management Summary - " . date('F j, Y');
+
+        $body = "<div style='font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; border: 1px solid #A1AEBA; border-radius: 8px; overflow: hidden;'>\r\n";
+        $body .= "<div style='background-color: #0065A4; color: #ffffff; padding: 18px 24px;'>\r\n";
+        $body .= "<h2 style='margin: 0; font-size: 1.4rem; color: #ffffff;'>Weekly Incident Report</h2>\r\n";
+        $body .= "<div style='font-size: 0.9rem; color: #EFF6FB; opacity: 0.95; margin-top: 4px;'>Summary for week ending " . date('F j, Y') . "</div>\r\n";
+        $body .= "</div>\r\n";
+
+        $body .= "<div style='padding: 24px; background-color: #ffffff;'>\r\n";
+
+        if ($includeStats === '1') {
+            $body .= "<h3 style='color: #193B61; margin-top: 0; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Weekly Performance & Metrics</h3>\r\n";
+            $body .= "<table style='width: 100%; border-collapse: collapse; margin-bottom: 20px;' cellpadding='10'>\r\n";
+            $body .= "<tr>";
+            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>New Incidents (7 Days)</div><div style='font-size: 1.5rem; font-weight: bold; color: #0065A4;'>" . number_format($totalWeeklyIncidents) . "</div></td>";
+            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>Weekly Impact Score</div><div style='font-size: 1.5rem; font-weight: bold; color: #D51633;'>" . number_format($weeklyImpactScore) . "</div></td>";
+            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>Currently Active</div><div style='font-size: 1.5rem; font-weight: bold; color: " . (count($activeEvents) > 0 ? '#D51633' : '#198754') . ";'>" . number_format(count($activeEvents)) . "</div></td>";
+            $body .= "</tr>\r\n";
+            $body .= "</table>\r\n";
+        }
+
+        $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Active Open Incidents (" . count($activeEvents) . ")</h3>\r\n";
+        if (empty($activeEvents)) {
+            $body .= "<p style='color: #198754; font-weight: bold;'>No active incidents currently reported.</p>\r\n";
+        } else {
+            $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px;' cellpadding='8'>\r\n";
+            $body .= "<thead style='background-color: #E8EBEE;'><tr><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>ID</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Subject/Title</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Department</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Status</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Impact</th></tr></thead>\r\n";
+            $body .= "<tbody>\r\n";
+            foreach ($activeEvents as $ev) {
+                $body .= "<tr>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>#" . $ev['id'] . "</td>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'><b>" . htmlspecialchars($ev['title'] ?: 'Incident #' . $ev['id']) . "</b></td>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['department_name'] ?: 'N/A') . "</td>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['state_name'] ?: 'N/A') . "</td>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . number_format($ev['impactScore'] ?? 0) . "</td>";
+                $body .= "</tr>\r\n";
+            }
+            $body .= "</tbody></table>\r\n";
+        }
+
+        if ($includeClosed === '1') {
+            $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Incidents Closed Past 7 Days (" . count($closedPastWeek) . ")</h3>\r\n";
+            if (empty($closedPastWeek)) {
+                $body .= "<p style='color: #5F7181;'>No incidents were closed in the past 7 days.</p>\r\n";
+            } else {
+                $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px;' cellpadding='8'>\r\n";
+                $body .= "<thead style='background-color: #E8EBEE;'><tr><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>ID</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Subject/Title</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Department</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Closed Date</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Impact</th></tr></thead>\r\n";
+                $body .= "<tbody>\r\n";
+                foreach ($closedPastWeek as $ev) {
+                    $body .= "<tr>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>#" . $ev['id'] . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['title'] ?: 'Incident #' . $ev['id']) . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['department_name'] ?: 'N/A') . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['update_time'] ?? 'N/A') . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . number_format($ev['impactScore'] ?? 0) . "</td>";
+                    $body .= "</tr>\r\n";
+                }
+                $body .= "</tbody></table>\r\n";
+            }
+        }
+
+        $body .= "</div>\r\n";
+
+        $confFooter = $this->getDefault('email_confidentiality_footer');
+        if (!empty($confFooter)) {
+            $body .= "<div style='background-color: #2A3239; border-top: 2px solid #0065A4; padding: 16px 24px; font-size: 0.75rem; color: #E8EBEE;'>\r\n";
+            $body .= nl2br(htmlspecialchars($confFooter));
+            $body .= "</div>\r\n";
+        }
+
+        $body .= "</div>\r\n";
+
+        $fromEmail = $this->getDefault('outbound_email_from') ?: 'noreply@example.com';
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: " . $fromEmail . "\r\n";
+
+        foreach ($recipients as $to) {
+            @mail($to, $subject, $body, $headers, "-f" . $fromEmail);
+        }
+
+        $this->updateDefault('weekly_report_last_run', $todayStr);
+
+        $this->logAudit('plug_incident_management_defaults', 0, 'WEEKLY_REPORT_SENT', null, [
+            'subject' => $subject,
+            'recipients_count' => count($recipients),
+            'recipients' => $recipients
+        ]);
 
         return true;
     }
@@ -693,7 +872,7 @@ class EventManager {
     private function createRef($table, $name) {
         $sql = "INSERT INTO `$table` (name) VALUES (?)";
         $this->pdb->query($sql, [$name]);
-        $id = $this->db->lastInsertId();
+        $id = ($this->db && method_exists($this->db, 'lastInsertId')) ? $this->db->lastInsertId() : 0;
         if (empty($id) || $id == 0) {
             $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM `$table`");
             $row = $stmt->fetch();
@@ -747,7 +926,12 @@ class EventManager {
     public function createDepartment($name, $azureGroupId = null) {
         $sql = "INSERT INTO plug_incident_management_department (name, azure_group_id) VALUES (?, ?)";
         $this->pdb->query($sql, [$name, $azureGroupId]);
-        $id = $this->db->lastInsertId();
+        $id = ($this->db && method_exists($this->db, 'lastInsertId')) ? $this->db->lastInsertId() : 0;
+        if (empty($id) || $id == 0) {
+            $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM plug_incident_management_department");
+            $row = $stmt->fetch();
+            $id = $row['max_id'] ?? 0;
+        }
         $this->logAudit('plug_incident_management_department', $id, 'CREATE', null, ['name' => $name, 'azure_group_id' => $azureGroupId]);
         return $id;
     }
@@ -799,6 +983,240 @@ class EventManager {
     public function updateArea($id, $name) { return $this->updateRef('plug_incident_management_area', $id, $name); }
     public function toggleArea($id, $isDisabled) { return $this->toggleDisabledRef('plug_incident_management_area', $id, $isDisabled); }
 
+    // --- Outbound Email Rules ---
+
+    public function listEmailRules($triggerEvent = null) {
+        $stmt = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules ORDER BY id DESC");
+        $all = $stmt->fetchAll();
+        if ($triggerEvent) {
+            $filtered = [];
+            foreach ($all as $r) {
+                $trigs = array_filter(array_map('trim', explode(',', $r['trigger_event'] ?? '')));
+                if (in_array($triggerEvent, $trigs)) {
+                    $filtered[] = $r;
+                }
+            }
+            return $filtered;
+        }
+        return $all;
+    }
+
+    public function createEmailRule($triggerEvents, $recipients, $isEnabled = 1) {
+        if (is_array($triggerEvents)) {
+            $triggerEventsStr = implode(',', array_unique(array_filter(array_map('trim', $triggerEvents))));
+        } else {
+            $triggerEventsStr = trim($triggerEvents);
+        }
+        $recipients = trim($recipients);
+        if (empty($triggerEventsStr) || empty($recipients)) {
+            return false;
+        }
+        $sql = "INSERT INTO plug_incident_management_email_rules (trigger_event, recipients, is_enabled) VALUES (?, ?, ?)";
+        $this->pdb->query($sql, [$triggerEventsStr, $recipients, $isEnabled ? 1 : 0]);
+        $id = ($this->db && method_exists($this->db, 'lastInsertId')) ? $this->db->lastInsertId() : 0;
+        if (empty($id) || $id == 0) {
+            $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM plug_incident_management_email_rules");
+            $row = $stmt->fetch();
+            $id = $row['max_id'] ?? 0;
+        }
+        $this->logAudit('plug_incident_management_email_rules', $id, 'CREATE', null, ['trigger_event' => $triggerEventsStr, 'recipients' => $recipients, 'is_enabled' => $isEnabled]);
+        return $id;
+    }
+
+    public function deleteEmailRule($id) {
+        $stmt = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules WHERE id = ?", [$id]);
+        $oldRow = $stmt->fetch();
+        if (!$oldRow) return false;
+        $this->pdb->query("DELETE FROM plug_incident_management_email_rules WHERE id = ?", [$id]);
+        $this->logAudit('plug_incident_management_email_rules', $id, 'DELETE', $oldRow, null);
+        return true;
+    }
+
+    public function toggleEmailRule($id, $isEnabled) {
+        $stmt = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules WHERE id = ?", [$id]);
+        $oldRow = $stmt->fetch();
+        if (!$oldRow) return false;
+        $val = $isEnabled ? 1 : 0;
+        $this->pdb->query("UPDATE plug_incident_management_email_rules SET is_enabled = ? WHERE id = ?", [$val, $id]);
+        $this->logAudit('plug_incident_management_email_rules', $id, 'UPDATE', $oldRow, ['is_enabled' => $val]);
+        return true;
+    }
+
+    public function triggerOutboundEmails($triggerEvent, $eventId, $extraContext = []) {
+        $event = $this->getEvent($eventId);
+        if (!$event) return false;
+
+        $triggerList = is_array($triggerEvent) ? $triggerEvent : [$triggerEvent];
+
+        $aliases = [];
+        foreach ($triggerList as $t) {
+            $aliases[] = $t;
+            if ($t === 'metadata') $aliases[] = 'metadata_change';
+            if ($t === 'metadata_change') $aliases[] = 'metadata';
+            if ($t === 'pir_closure') $aliases[] = 'pir';
+            if ($t === 'pir') $aliases[] = 'pir_closure';
+        }
+        $aliases = array_unique($aliases);
+
+        $allEnabled = $this->pdb->query("SELECT * FROM plug_incident_management_email_rules WHERE is_enabled = 1")->fetchAll();
+
+        $rules = [];
+        foreach ($allEnabled as $r) {
+            $ruleTriggers = array_filter(array_map('trim', explode(',', $r['trigger_event'] ?? '')));
+            foreach ($aliases as $alias) {
+                if (in_array($alias, $ruleTriggers)) {
+                    $rules[] = $r;
+                    break;
+                }
+            }
+        }
+
+        if (empty($rules)) return false;
+
+        $recipientEmails = [];
+        foreach ($rules as $r) {
+            $rawList = preg_split('/[,;\r\n]+/', $r['recipients']);
+            foreach ($rawList as $email) {
+                $email = trim($email);
+                if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $recipientEmails[] = $email;
+                }
+            }
+        }
+
+        $recipientEmails = array_values(array_unique($recipientEmails));
+        if (empty($recipientEmails)) return false;
+
+        $priority = ['closure' => 1, 'pir_closure' => 2, 'pir' => 2, 'creation' => 3, 'update' => 4, 'metadata' => 5, 'metadata_change' => 5];
+        usort($triggerList, function($a, $b) use ($priority) {
+            $pa = $priority[$a] ?? 99;
+            $pb = $priority[$b] ?? 99;
+            return $pa <=> $pb;
+        });
+        $primaryTrigger = $triggerList[0];
+
+        $triggerLabels = [
+            'creation' => 'Incident Created',
+            'update' => 'Incident Update',
+            'metadata' => 'Metadata Changed',
+            'metadata_change' => 'Metadata Changed',
+            'closure' => 'Incident Closed',
+            'pir_closure' => 'Post-Incident Review (PIR) - Closed',
+            'pir' => 'Post-Incident Review (PIR) - Closed'
+        ];
+        $label = $triggerLabels[$primaryTrigger] ?? ucfirst($primaryTrigger);
+
+        $subject = "[Incident #" . $eventId . "] " . ($event['title'] ?: 'Incident #' . $eventId) . " - " . $label;
+
+        $body = "<div style='font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; border: 1px solid #A1AEBA; border-radius: 8px; overflow: hidden;'>\r\n";
+        $body .= "<div style='background-color: #0065A4; color: #ffffff; padding: 18px 24px;'>\r\n";
+        $body .= "<h2 style='margin: 0; font-size: 1.4rem; color: #ffffff;'>" . htmlspecialchars($label) . " (#" . $eventId . ")</h2>\r\n";
+        $body .= "<div style='font-size: 0.9rem; color: #EFF6FB; opacity: 0.95; margin-top: 4px;'>" . htmlspecialchars($event['title'] ?: 'Incident #' . $eventId) . "</div>\r\n";
+        $body .= "</div>\r\n";
+
+        $body .= "<div style='padding: 24px; background-color: #ffffff;'>\r\n";
+
+        $body .= "<h3 style='color: #193B61; margin-top: 0; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Incident Details</h3>\r\n";
+        $body .= "<table style='width: 100%; border-collapse: collapse; margin-bottom: 20px;' cellpadding='8'>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; width: 30%; border: 1px solid #A1AEBA; color: #2A3239;'>Subject/Title</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($event['title'] ?: 'N/A') . "</td></tr>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Status</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'><b>" . htmlspecialchars($event['state_name'] ?: 'N/A') . "</b></td></tr>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Type</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($event['type_name'] ?: 'N/A') . "</td></tr>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Department</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($event['department_name'] ?: 'N/A') . "</td></tr>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Customers Affected</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . number_format($event['customers_affected'] ?? 0) . "</td></tr>\r\n";
+        $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Impact Score</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . number_format($event['impactScore'] ?? 0) . "</td></tr>\r\n";
+
+        if (!empty($event['areas']))    $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Areas</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars(implode(', ', array_column($event['areas'], 'name'))) . "</td></tr>\r\n";
+        if (!empty($event['services'])) $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Services</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars(implode(', ', array_column($event['services'], 'name'))) . "</td></tr>\r\n";
+        if (!empty($event['tags']))     $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>Tags</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars(implode(', ', array_column($event['tags'], 'name'))) . "</td></tr>\r\n";
+        if (!empty($event['ticket_nr']) && $event['ticket_nr'] !== '0') {
+            $body .= "<tr><th style='text-align: left; background: #E8EBEE; border: 1px solid #A1AEBA; color: #2A3239;'>OTRS Ticket</th><td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($event['ticket_nr']) . "</td></tr>\r\n";
+        }
+        $body .= "</table>\r\n";
+
+        if (!empty($event['description'])) {
+            $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Description</h3>\r\n";
+            $body .= "<div style='background-color: #EFF6FB; border-left: 4px solid #0065A4; padding: 14px; font-size: 0.95rem; color: #2A3239; white-space: pre-wrap; margin-bottom: 20px;'>" . nl2br(htmlspecialchars($event['description'])) . "</div>\r\n";
+        }
+
+        if (!empty($extraContext['update_text'])) {
+            $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #3384B6; padding-bottom: 6px; font-size: 1.1rem;'>Latest Update Message</h3>\r\n";
+            $body .= "<div style='background-color: #EFF6FB; border-left: 4px solid #3384B6; padding: 14px; font-size: 0.95rem; color: #2A3239; white-space: pre-wrap; margin-bottom: 20px;'>" . nl2br(htmlspecialchars($extraContext['update_text'])) . "</div>\r\n";
+        }
+
+        if (in_array($primaryTrigger, ['update', 'metadata', 'metadata_change', 'closure', 'pir_closure', 'pir'])) {
+            $history = $this->getStateHistory($eventId);
+            $updates = $this->getEventUpdates($eventId);
+
+            $body .= "<h3 style='color: #193B61; margin-top: 20px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Incident History Timeline</h3>\r\n";
+            $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px;' cellpadding='8'>\r\n";
+            $body .= "<thead style='background-color: #E8EBEE;'><tr><th style='text-align: left; border: 1px solid #A1AEBA; width: 25%; color: #2A3239;'>Timestamp</th><th style='text-align: left; border: 1px solid #A1AEBA; width: 20%; color: #2A3239;'>User / Author</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Event / Details</th></tr></thead>\r\n";
+            $body .= "<tbody>\r\n";
+
+            $combinedTimeline = [];
+            foreach ($history as $h) {
+                $combinedTimeline[$h['enter_time'] . '_state'] = [
+                    'time' => $h['enter_time'],
+                    'user' => $h['user'] ?: 'System',
+                    'text' => "State changed to: " . ($h['state_name'] ?? 'N/A')
+                ];
+            }
+            foreach ($updates as $u) {
+                $combinedTimeline[$u['create_time'] . '_update'] = [
+                    'time' => $u['create_time'],
+                    'user' => $u['create_user'] ?: 'System',
+                    'text' => "Update: " . $u['update_text']
+                ];
+            }
+            ksort($combinedTimeline);
+
+            if (empty($combinedTimeline)) {
+                $body .= "<tr><td colspan='3' style='text-align: center; color: #5F7181; border: 1px solid #A1AEBA;'>No timeline entries recorded.</td></tr>\r\n";
+            } else {
+                foreach ($combinedTimeline as $item) {
+                    $body .= "<tr>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($item['time']) . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($item['user']) . "</td>";
+                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($item['text']) . "</td>";
+                    $body .= "</tr>\r\n";
+                }
+            }
+            $body .= "</tbody>\r\n</table>\r\n";
+        }
+
+        $body .= "</div>\r\n";
+
+        $confFooter = $this->getDefault('email_confidentiality_footer');
+        if (!empty($confFooter)) {
+            $body .= "<div style='background-color: #2A3239; border-top: 2px solid #0065A4; padding: 16px 24px; font-size: 0.75rem; color: #E8EBEE;'>\r\n";
+            $body .= nl2br(htmlspecialchars($confFooter));
+            $body .= "</div>\r\n";
+        }
+
+        $body .= "</div>\r\n";
+
+        $fromEmail = $this->getDefault('outbound_email_from') ?: 'noreply@example.com';
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: " . $fromEmail . "\r\n";
+
+        foreach ($recipientEmails as $to) {
+            @mail($to, $subject, $body, $headers, "-f" . $fromEmail);
+            $this->pdb->query(
+                "INSERT INTO plug_incident_management_external_message_log (event_id, recipient, subject, message) VALUES (?, ?, ?, ?)",
+                [$eventId, $to, $subject, $body]
+            );
+        }
+
+        $this->logAudit('plug_incident_management_wb_events', $eventId, 'OUTBOUND_EMAILS_SENT', null, [
+            'trigger' => is_array($triggerEvent) ? implode(', ', $triggerEvent) : $triggerEvent,
+            'subject' => $subject,
+            'recipients_count' => count($recipientEmails),
+            'recipients' => $recipientEmails
+        ]);
+
+        return true;
+    }
+
     // --- System Defaults ---
 
     public function getDefaults() {
@@ -836,13 +1254,20 @@ class EventManager {
         $sql = "INSERT INTO plug_incident_management_event_updates (event_id, update_text, create_user) VALUES (?, ?, ?)";
         $this->pdb->query($sql, [$eventId, $updateText, $this->currentUser]);
 
-        $updateId = $this->db->lastInsertId();
+        $updateId = ($this->db && method_exists($this->db, 'lastInsertId')) ? $this->db->lastInsertId() : 0;
+        if (empty($updateId) || $updateId == 0) {
+            $stmt = $this->pdb->query("SELECT MAX(id) as max_id FROM plug_incident_management_event_updates");
+            $row = $stmt->fetch();
+            $updateId = $row['max_id'] ?? 0;
+        }
         $this->logAudit('plug_incident_management_event_updates', $updateId, 'CREATE', null, $data);
 
         if ($messageExternal) {
             $externalContent = !empty($customExternalMessage) ? $customExternalMessage : $updateText;
             $this->sendExternalMessages($eventId, $externalContent);
         }
+
+        $this->triggerOutboundEmails('update', $eventId, ['update_text' => $updateText]);
 
         // Post to Teams Chat
         $card = $this->getAdaptiveCardBase("Incident Update Posted", 'good');
@@ -867,9 +1292,9 @@ class EventManager {
         $this->postCardToTeamsChat($eventId, $card);
 
         // Add OTRS Article
-        $body = "<div style='font-family:sans-serif; border:1px solid #198754; border-radius:5px; padding:15px;'>\r\n";
-        $body .= "<h3 style='color:#198754; margin-top:0; border-bottom:1px solid #198754; padding-bottom:5px;'>Incident Update</h3>\r\n";
-        $body .= "<div style='padding:10px; background:#f9fff9; border:1px solid #e0eee0; white-space:pre-wrap;'>" . nl2br(htmlspecialchars($updateText)) . "</div>\r\n";
+        $body = "<div style='font-family:sans-serif; border:1px solid #0065A4; border-radius:5px; padding:15px;'>\r\n";
+        $body .= "<h3 style='color:#0065A4; margin-top:0; border-bottom:1px solid #0065A4; padding-bottom:5px;'>Incident Update</h3>\r\n";
+        $body .= "<div style='padding:10px; background:#EFF6FB; border:1px solid #A1AEBA; white-space:pre-wrap; color:#2A3239;'>" . nl2br(htmlspecialchars($updateText)) . "</div>\r\n";
         $body .= "<p style='font-size:0.8rem; color:#666; margin-top:15px;'>\r\n";
         $body .= "Posted by: <b>" . htmlspecialchars($this->currentUser) . "</b><br>\r\n";
         $body .= "Timestamp: " . date('Y-m-d H:i:s') . "\r\n";
@@ -1143,12 +1568,12 @@ class EventManager {
 
         $this->postCardToTeamsChat($eventId, $card);
 
-        $body = "<div style='font-family:sans-serif; border:2px solid #198754; border-radius:8px; padding:20px;'>\r\n";
-        $body .= "<h2 style='color:#198754; margin-top:0; border-bottom:3px solid #198754; padding-bottom:10px;'>Incident Closure Summary</h2>\r\n";
+        $body = "<div style='font-family:sans-serif; border:2px solid #0065A4; border-radius:8px; padding:20px;'>\r\n";
+        $body .= "<h2 style='color:#0065A4; margin-top:0; border-bottom:3px solid #0065A4; padding-bottom:10px;'>Incident Closure Summary</h2>\r\n";
         $body .= "<p><b>Subject/Title:</b> " . htmlspecialchars($event['title'] ?? '') . "<br><b>Final Impact Score:</b> " . number_format($event['impactScore']) . "</p>\r\n";
-        $body .= "<h3 style='color:#333; border-bottom:1px solid #ddd;'>Full Incident Timeline</h3>\r\n";
+        $body .= "<h3 style='color:#193B61; border-bottom:1px solid #A1AEBA;'>Full Incident Timeline</h3>\r\n";
         $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='5'>\r\n";
-        $body .= "<tr style='background:#f4f4f4;'><th style='text-align:left;'>Time</th><th style='text-align:left;'>User</th><th style='text-align:left;'>Event</th></tr>\r\n";
+        $body .= "<tr style='background:#E8EBEE;'><th style='text-align:left; color:#2A3239;'>Time</th><th style='text-align:left; color:#2A3239;'>User</th><th style='text-align:left; color:#2A3239;'>Event</th></tr>\r\n";
 
         foreach ($timeline as $item) {
             $body .= "<tr>";
@@ -1541,8 +1966,8 @@ class EventManager {
         }
 
         if (!empty($changes)) {
-            $body = "<div style='font-family:sans-serif; border:1px solid #0d6efd; border-radius:5px; padding:15px;'>\r\n";
-            $body .= "<h3 style='color:#0d6efd; margin-top:0; border-bottom:2px solid #0d6efd; padding-bottom:5px;'>Incident Metadata Updated</h3>\r\n";
+            $body = "<div style='font-family:sans-serif; border:1px solid #0065A4; border-radius:5px; padding:15px;'>\r\n";
+            $body .= "<h3 style='color:#0065A4; margin-top:0; border-bottom:2px solid #0065A4; padding-bottom:5px;'>Incident Metadata Updated</h3>\r\n";
             $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='5'>\r\n";
             $body .= implode("\r\n", $changes);
             $body .= "</table>\r\n";
@@ -1582,8 +2007,8 @@ class EventManager {
                 ]);
                 $this->logAudit('plug_incident_management_wb_events', $eventId, 'OTRS_TICKET_CREATED', null, array_merge(['url' => $this->getDefault('otrs_url')], (array)$res));
 
-                $body = "<div style='font-family:sans-serif; border:2px solid #dc3545; border-radius:8px; padding:20px;'>\r\n";
-                $body .= "<h2 style='color:#dc3545; margin-top:0; border-bottom:3px solid #dc3545; padding-bottom:10px;'>New Incident Reported</h2>\r\n";
+                $body = "<div style='font-family:sans-serif; border:2px solid #D51633; border-radius:8px; padding:20px;'>\r\n";
+                $body .= "<h2 style='color:#D51633; margin-top:0; border-bottom:3px solid #D51633; padding-bottom:10px;'>New Incident Reported</h2>\r\n";
 
                 $body .= "<table style='width:100%; border-collapse:collapse;' cellpadding='8'>\r\n";
                 $rows = [
@@ -1664,8 +2089,10 @@ class EventManager {
                 $template
             );
 
+            $fromEmail = $this->getDefault('outbound_email_from') ?: 'noreply@example.com';
+            $headers = "From: " . $fromEmail;
             foreach (array_unique($recipients) as $to) {
-                @mail($to, $subject, $message, "From: noreply@example.com");
+                @mail($to, $subject, $message, $headers, "-f" . $fromEmail);
 
                 $this->pdb->query(
                     "INSERT INTO plug_incident_management_external_message_log (event_id, recipient, subject, message) VALUES (?, ?, ?, ?)",

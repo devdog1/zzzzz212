@@ -80,6 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         }
 
+        $em->triggerOutboundEmails('pir_closure', $eventId);
+
         $rfoSuccessMessage = "Reason for Outage (RFO) document initiated for Incident #" . $eventId . "! Pre-populated fields and timeline synced to Document Manager.";
     } catch (Throwable $t) {
         $rfoErrorMessage = "Error starting RFO for Incident #" . ($eventId ?? 'N/A') . ": " . $t->getMessage();
@@ -228,13 +230,16 @@ function formatDurationClosed($seconds) {
                                                     <h6 class="fw-bold text-dark">State History</h6>
                                                     <div class="d-flex flex-wrap mb-3">
                                                         <?php foreach ($history as $h):
+                                                            $isClosedState = (strtolower($h['state_name'] ?? '') === 'closed');
                                                             $enter = strtotime($h['enter_time']);
                                                             $exit = $h['exit_time'] ? strtotime($h['exit_time']) : time();
                                                             $duration = $exit - $enter;
                                                         ?>
                                                             <div class="me-3 border-start ps-2 mb-2">
                                                                 <div class="small fw-bold text-dark"><?= htmlspecialchars($h['state_name']) ?></div>
-                                                                <div class="small text-success"><?= formatDurationClosed($duration) ?></div>
+                                                                <?php if (!$isClosedState): ?>
+                                                                    <div class="small text-success"><?= formatDurationClosed($duration) ?></div>
+                                                                <?php endif; ?>
                                                             </div>
                                                         <?php endforeach; ?>
                                                     </div>
@@ -306,6 +311,14 @@ function formatDurationClosed($seconds) {
                                                                             <div class="text-danger fw-bold"><i class="fa-brands fa-microsoft me-1"></i>Teams Group Chat Creation Failed</div>
                                                                             <div class="text-secondary">Error: <?= htmlspecialchars($new['error'] ?? 'Teams API Error') ?></div>
 
+                                                                        <?php elseif ($action === 'OUTBOUND_EMAILS_SENT'): ?>
+                                                                            <div class="text-primary fw-bold"><i class="fa-solid fa-paper-plane me-1"></i>Outbound Email Dispatched</div>
+                                                                            <div>Trigger: <strong><?= htmlspecialchars($new['trigger'] ?? 'N/A') ?></strong></div>
+                                                                            <?php if (!empty($new['subject'])): ?><div>Subject: <em><?= htmlspecialchars($new['subject']) ?></em></div><?php endif; ?>
+                                                                            <?php if (!empty($new['recipients'])): ?>
+                                                                                <div class="text-secondary text-break">Recipients (<?= count($new['recipients']) ?>): <?= htmlspecialchars(implode(', ', (array)$new['recipients'])) ?></div>
+                                                                            <?php endif; ?>
+
                                                                         <?php else: ?>
                                                                             <div><strong class="badge bg-secondary"><?= htmlspecialchars($action) ?></strong> <?= htmlspecialchars(substr($audit['new_values'] ?? '', 0, 100)) ?></div>
                                                                         <?php endif; ?>
@@ -360,11 +373,16 @@ function formatDurationClosed($seconds) {
                                                     <div class="mb-3">
                                                         <h6 class="fw-bold text-dark mb-2">STATE DURATION BREAKDOWN</h6>
                                                         <?php foreach ($history as $h):
+                                                            $isClosedState = (strtolower($h['state_name'] ?? '') === 'closed');
                                                             $enter = strtotime($h['enter_time']);
                                                             $exit = $h['exit_time'] ? strtotime($h['exit_time']) : time();
                                                             $duration = $exit - $enter;
                                                         ?>
-                                                            <div>- <strong><?= htmlspecialchars($h['state_name']) ?>:</strong> <?= formatDurationClosed($duration) ?> (Entered: <?= $h['enter_time'] ?>)</div>
+                                                            <?php if ($isClosedState): ?>
+                                                                <div>- <strong>Closed:</strong> Entered at <?= htmlspecialchars($h['enter_time']) ?></div>
+                                                            <?php else: ?>
+                                                                <div>- <strong><?= htmlspecialchars($h['state_name']) ?>:</strong> <?= formatDurationClosed($duration) ?> (Entered: <?= htmlspecialchars($h['enter_time']) ?>)</div>
+                                                            <?php endif; ?>
                                                         <?php endforeach; ?>
                                                     </div>
 
