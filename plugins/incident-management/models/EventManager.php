@@ -496,93 +496,207 @@ class EventManager {
         $recipients = array_values(array_unique($recipients));
         if (empty($recipients)) return false;
 
-        $allEvents = $this->listEvents(true);
-        $activeEvents = [];
-        $closedPastWeek = [];
         $now = time();
-        $sevenDaysAgo = $now - (7 * 86400);
 
-        $weeklyImpactScore = 0;
-        $totalWeeklyIncidents = 0;
+        // Previous week calculation: Saturday 00:00:00 through Friday 23:59:59
+        if (date('N', $now) == 5) {
+            $prevFridayEnd = strtotime('today 23:59:59', $now);
+        } else {
+            $prevFridayEnd = strtotime('last friday 23:59:59', $now);
+        }
+        $prevSaturdayStart = strtotime('-6 days 00:00:00', $prevFridayEnd);
+
+        $prevWeekStartStr = date('M j, Y', $prevSaturdayStart);
+        $prevWeekEndStr   = date('M j, Y', $prevFridayEnd);
+
+        // Annual Cycle: Sept 1st to Aug 31st
+        $currentYear  = (int)date('Y', $now);
+        $currentMonth = (int)date('m', $now);
+        if ($currentMonth >= 9) {
+            $cycleStart = strtotime("{$currentYear}-09-01 00:00:00");
+            $cycleEnd   = strtotime(($currentYear + 1) . "-08-31 23:59:59");
+            $cycleLabel = "{$currentYear}-" . ($currentYear + 1);
+        } else {
+            $cycleStart = strtotime(($currentYear - 1) . "-09-01 00:00:00");
+            $cycleEnd   = strtotime("{$currentYear}-08-31 23:59:59");
+            $cycleLabel = ($currentYear - 1) . "-{$currentYear}";
+        }
+
+        // Build weekly buckets for annual chart
+        $weeklyBuckets = [];
+        $iterStart = $cycleStart;
+        $weekNum = 1;
+
+        while ($iterStart < $cycleEnd && $iterStart <= $now) {
+            $iterEnd = min($cycleEnd, $iterStart + (7 * 86400) - 1);
+            $weeklyBuckets[] = [
+                'week_num'    => $weekNum,
+                'start'       => $iterStart,
+                'end'         => $iterEnd,
+                'start_label' => date('M j', $iterStart),
+                'end_label'   => date('M j', $iterEnd),
+                'count'       => 0,
+                'impact'      => 0
+            ];
+            $iterStart += (7 * 86400);
+            $weekNum++;
+        }
+
+        $allEvents = $this->listEvents(true);
+        $prevWeekIncidents = [];
+        $activeEvents = [];
+        $prevWeekImpactScore = 0;
+        $prevWeekCount = 0;
 
         foreach ($allEvents as $ev) {
             $createTs = strtotime($ev['create_time'] ?? '');
+            $updateTs = strtotime($ev['update_time'] ?? $ev['create_time']);
+            $score = (int)($ev['impactScore'] ?? 0);
             $stateName = strtolower($ev['state_name'] ?? '');
 
             if ($stateName !== 'closed') {
                 $activeEvents[] = $ev;
-            } else {
-                $updateTs = strtotime($ev['update_time'] ?? $ev['create_time']);
-                if ($updateTs >= $sevenDaysAgo) {
-                    $closedPastWeek[] = $ev;
+            }
+
+            // Check if incident was created or updated during the preceding Saturday - Friday window
+            if (($createTs >= $prevSaturdayStart && $createTs <= $prevFridayEnd) ||
+                ($updateTs >= $prevSaturdayStart && $updateTs <= $prevFridayEnd)) {
+                $prevWeekIncidents[] = $ev;
+                if ($createTs >= $prevSaturdayStart && $createTs <= $prevFridayEnd) {
+                    $prevWeekImpactScore += $score;
+                    $prevWeekCount++;
                 }
             }
 
-            if ($createTs >= $sevenDaysAgo) {
-                $weeklyImpactScore += (int)($ev['impactScore'] ?? 0);
-                $totalWeeklyIncidents++;
+            // Map into weekly buckets for Sept 1 - Aug 31 chart
+            foreach ($weeklyBuckets as &$bucket) {
+                if ($createTs >= $bucket['start'] && $createTs <= $bucket['end']) {
+                    $bucket['count']++;
+                    $bucket['impact'] += $score;
+                }
             }
+            unset($bucket);
         }
 
-        $subject = "[Weekly Report] Incident Management Summary - " . date('F j, Y');
+        $subject = "[Weekly Incident Report] Summary (" . $prevWeekStartStr . " - " . $prevWeekEndStr . ")";
 
-        $body = "<div style='font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; border: 1px solid #A1AEBA; border-radius: 8px; overflow: hidden;'>\r\n";
-        $body .= "<div style='background-color: #0065A4; color: #ffffff; padding: 18px 24px;'>\r\n";
-        $body .= "<h2 style='margin: 0; font-size: 1.4rem; color: #ffffff;'>Weekly Incident Report</h2>\r\n";
-        $body .= "<div style='font-size: 0.9rem; color: #EFF6FB; opacity: 0.95; margin-top: 4px;'>Summary for week ending " . date('F j, Y') . "</div>\r\n";
+        $body = "<div style='font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; border: 1px solid #A1AEBA; border-radius: 8px; overflow: hidden;'>\r\n";
+        $body .= "<div style='background-color: #0065A4; color: #ffffff; padding: 20px 24px;'>\r\n";
+        $body .= "<h2 style='margin: 0; font-size: 1.5rem; color: #ffffff;'>Weekly Incident Summary Report</h2>\r\n";
+        $body .= "<div style='font-size: 0.95rem; color: #EFF6FB; opacity: 0.95; margin-top: 6px;'>Reporting Period: <b>" . $prevWeekStartStr . "</b> to <b>" . $prevWeekEndStr . "</b> (Sat - Fri)</div>\r\n";
         $body .= "</div>\r\n";
 
         $body .= "<div style='padding: 24px; background-color: #ffffff;'>\r\n";
 
+        // Metrics Summary Cards
         if ($includeStats === '1') {
-            $body .= "<h3 style='color: #193B61; margin-top: 0; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Weekly Performance & Metrics</h3>\r\n";
-            $body .= "<table style='width: 100%; border-collapse: collapse; margin-bottom: 20px;' cellpadding='10'>\r\n";
+            $body .= "<h3 style='color: #193B61; margin-top: 0; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Previous Week Key Metrics</h3>\r\n";
+            $body .= "<table style='width: 100%; border-collapse: collapse; margin-bottom: 25px;' cellpadding='12'>\r\n";
             $body .= "<tr>";
-            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>New Incidents (7 Days)</div><div style='font-size: 1.5rem; font-weight: bold; color: #0065A4;'>" . number_format($totalWeeklyIncidents) . "</div></td>";
-            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>Weekly Impact Score</div><div style='font-size: 1.5rem; font-weight: bold; color: #D51633;'>" . number_format($weeklyImpactScore) . "</div></td>";
-            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>Currently Active</div><div style='font-size: 1.5rem; font-weight: bold; color: " . (count($activeEvents) > 0 ? '#D51633' : '#198754') . ";'>" . number_format(count($activeEvents)) . "</div></td>";
+            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA; border-radius: 6px;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>New Incidents (Sat-Fri)</div><div style='font-size: 1.6rem; font-weight: bold; color: #0065A4; margin-top: 4px;'>" . number_format($prevWeekCount) . "</div></td>";
+            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA; border-radius: 6px;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>Weekly Impact Score</div><div style='font-size: 1.6rem; font-weight: bold; color: #D51633; margin-top: 4px;'>" . number_format($prevWeekImpactScore) . "</div></td>";
+            $body .= "<td style='width: 33%; text-align: center; background: #EFF6FB; border: 1px solid #A1AEBA; border-radius: 6px;'><div style='font-size: 0.8rem; color: #2A3239; font-weight: 600;'>Currently Open Incidents</div><div style='font-size: 1.6rem; font-weight: bold; color: " . (count($activeEvents) > 0 ? '#D51633' : '#198754') . "; margin-top: 4px;'>" . number_format(count($activeEvents)) . "</div></td>";
             $body .= "</tr>\r\n";
             $body .= "</table>\r\n";
         }
 
-        $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Active Open Incidents (" . count($activeEvents) . ")</h3>\r\n";
-        if (empty($activeEvents)) {
-            $body .= "<p style='color: #198754; font-weight: bold;'>No active incidents currently reported.</p>\r\n";
+        // Running Bar Chart: Annual Cycle (Sept 1st - Aug 31st)
+        $body .= "<h3 style='color: #193B61; margin-top: 10px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Annual Running Weekly Trend (Sept 1 - Aug 31) &mdash; Cycle " . $cycleLabel . "</h3>\r\n";
+        $body .= "<div style='background-color: #EFF6FB; border: 1px solid #3384B6; border-radius: 6px; padding: 16px; margin-bottom: 25px;'>\r\n";
+        $body .= "<div style='font-size: 0.8rem; color: #2A3239; margin-bottom: 12px; font-weight: 600;'>\r\n";
+        $body .= "<span style='display: inline-block; width: 12px; height: 12px; background-color: #0065A4; margin-right: 4px; border-radius: 2px;'></span> Incidents Count &nbsp;&nbsp;&nbsp;&nbsp;";
+        $body .= "<span style='display: inline-block; width: 12px; height: 12px; background-color: #D51633; margin-right: 4px; border-radius: 2px;'></span> Weekly Impact Score\r\n";
+        $body .= "</div>\r\n";
+
+        $maxCount = 1;
+        $maxImpact = 1;
+        foreach ($weeklyBuckets as $b) {
+            if ($b['count'] > $maxCount) $maxCount = $b['count'];
+            if ($b['impact'] > $maxImpact) $maxImpact = $b['impact'];
+        }
+
+        $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.78rem;' cellpadding='4'>\r\n";
+        foreach ($weeklyBuckets as $b) {
+            $cntPct = max(2, min(100, round(($b['count'] / $maxCount) * 100)));
+            $impPct = max(2, min(100, round(($b['impact'] / $maxImpact) * 100)));
+
+            $body .= "<tr>\r\n";
+            $body .= "<td style='width: 125px; white-space: nowrap; color: #193B61; font-weight: bold;'>Wk " . $b['week_num'] . " (" . $b['start_label'] . ")</td>\r\n";
+            $body .= "<td style='padding-bottom: 6px;'>\r\n";
+
+            // Bar 1: Incidents Count
+            $body .= "<div style='background: #0065A4; color: #ffffff; width: " . $cntPct . "%; min-width: 24px; height: 14px; line-height: 14px; border-radius: 3px; font-size: 0.68rem; font-weight: bold; text-align: right; padding-right: 4px; margin-bottom: 2px; box-sizing: border-box;'>";
+            $body .= $b['count'] . "</div>\r\n";
+
+            // Bar 2: Impact Score
+            $body .= "<div style='background: #D51633; color: #ffffff; width: " . $impPct . "%; min-width: 24px; height: 14px; line-height: 14px; border-radius: 3px; font-size: 0.68rem; font-weight: bold; text-align: right; padding-right: 4px; box-sizing: border-box;'>";
+            $body .= number_format($b['impact']) . "</div>\r\n";
+
+            $body .= "</td>\r\n";
+            $body .= "</tr>\r\n";
+        }
+        $body .= "</table>\r\n";
+        $body .= "</div>\r\n";
+
+        // Previous Week Incidents Detailed List
+        $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Previous Week Incident Details (" . count($prevWeekIncidents) . " Incidents)</h3>\r\n";
+        if (empty($prevWeekIncidents)) {
+            $body .= "<p style='color: #198754; font-weight: bold;'>No incidents reported or updated during previous week (" . $prevWeekStartStr . " - " . $prevWeekEndStr . ").</p>\r\n";
         } else {
-            $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px;' cellpadding='8'>\r\n";
-            $body .= "<thead style='background-color: #E8EBEE;'><tr><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>ID</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Subject/Title</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Department</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Status</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Impact</th></tr></thead>\r\n";
+            foreach ($prevWeekIncidents as $ev) {
+                $updates = $this->getEventUpdates($ev['id']);
+                $latestUpdate = !empty($updates) ? $updates[0]['update_text'] : '';
+
+                $body .= "<div style='border: 1px solid #A1AEBA; border-radius: 6px; padding: 16px; margin-bottom: 16px; background-color: #EFF6FB;'>\r\n";
+                $body .= "<div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3384B6; padding-bottom: 8px; margin-bottom: 12px;'>\r\n";
+                $body .= "<span style='font-size: 1.05rem; font-weight: bold; color: #0065A4;'>#" . $ev['id'] . ": " . htmlspecialchars($ev['title'] ?: 'Incident #' . $ev['id']) . "</span>\r\n";
+                $body .= "<span style='font-size: 0.8rem; font-weight: bold; padding: 3px 8px; background-color: #193B61; color: #ffffff; border-radius: 4px;'>" . htmlspecialchars($ev['state_name'] ?: 'N/A') . "</span>\r\n";
+                $body .= "</div>\r\n";
+
+                $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 10px;' cellpadding='5'>\r\n";
+                $body .= "<tr>";
+                $body .= "<td style='width: 25%;'><b>Type:</b> " . htmlspecialchars($ev['type_name'] ?: 'N/A') . "</td>";
+                $body .= "<td style='width: 35%;'><b>Department:</b> " . htmlspecialchars($ev['department_name'] ?: 'N/A') . "</td>";
+                $body .= "<td style='width: 20%;'><b>Customers:</b> " . number_format($ev['customers_affected'] ?? 0) . "</td>";
+                $body .= "<td style='width: 20%;'><b>Impact Score:</b> <span style='color: #D51633; font-weight: bold;'>" . number_format($ev['impactScore'] ?? 0) . "</span></td>";
+                $body .= "</tr>\r\n";
+
+                if (!empty($ev['areas']))    $body .= "<tr><td colspan='2'><b>Affected Areas:</b> " . htmlspecialchars(implode(', ', array_column($ev['areas'], 'name'))) . "</td>";
+                if (!empty($ev['services'])) $body .= "<td colspan='2'><b>Services:</b> " . htmlspecialchars(implode(', ', array_column($ev['services'], 'name'))) . "</td></tr>\r\n";
+
+                $body .= "<tr><td colspan='2'><b>Created:</b> " . htmlspecialchars($ev['create_time']) . "</td><td colspan='2'><b>Last Update:</b> " . htmlspecialchars($ev['update_time']) . "</td></tr>\r\n";
+                $body .= "</table>\r\n";
+
+                if (!empty($ev['description'])) {
+                    $body .= "<div style='font-size: 0.85rem; color: #2A3239; background: #ffffff; border-left: 3px solid #0065A4; padding: 8px 12px; margin-bottom: 8px; white-space: pre-wrap;'><b>Description:</b> " . htmlspecialchars($ev['description']) . "</div>\r\n";
+                }
+
+                if (!empty($latestUpdate)) {
+                    $body .= "<div style='font-size: 0.85rem; color: #2A3239; background: #ffffff; border-left: 3px solid #3384B6; padding: 8px 12px; white-space: pre-wrap;'><b>Latest Update:</b> " . htmlspecialchars($latestUpdate) . "</div>\r\n";
+                }
+
+                $body .= "</div>\r\n";
+            }
+        }
+
+        // Active Incidents Overview Section
+        $body .= "<h3 style='color: #193B61; margin-top: 20px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Currently Open Active Incidents (" . count($activeEvents) . ")</h3>\r\n";
+        if (empty($activeEvents)) {
+            $body .= "<p style='color: #198754; font-weight: bold;'>No active open incidents currently in the system.</p>\r\n";
+        } else {
+            $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 20px;' cellpadding='8'>\r\n";
+            $body .= "<thead style='background-color: #E8EBEE;'><tr><th style='text-align: left; border: 1px solid #A1AEBA;'>ID</th><th style='text-align: left; border: 1px solid #A1AEBA;'>Subject/Title</th><th style='text-align: left; border: 1px solid #A1AEBA;'>Department</th><th style='text-align: left; border: 1px solid #A1AEBA;'>Status</th><th style='text-align: left; border: 1px solid #A1AEBA;'>Impact</th></tr></thead>\r\n";
             $body .= "<tbody>\r\n";
             foreach ($activeEvents as $ev) {
                 $body .= "<tr>";
-                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>#" . $ev['id'] . "</td>";
-                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'><b>" . htmlspecialchars($ev['title'] ?: 'Incident #' . $ev['id']) . "</b></td>";
-                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['department_name'] ?: 'N/A') . "</td>";
-                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['state_name'] ?: 'N/A') . "</td>";
-                $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . number_format($ev['impactScore'] ?? 0) . "</td>";
+                $body .= "<td style='border: 1px solid #A1AEBA;'>#" . $ev['id'] . "</td>";
+                $body .= "<td style='border: 1px solid #A1AEBA;'><b>" . htmlspecialchars($ev['title'] ?: 'Incident #' . $ev['id']) . "</b></td>";
+                $body .= "<td style='border: 1px solid #A1AEBA;'>" . htmlspecialchars($ev['department_name'] ?: 'N/A') . "</td>";
+                $body .= "<td style='border: 1px solid #A1AEBA;'>" . htmlspecialchars($ev['state_name'] ?: 'N/A') . "</td>";
+                $body .= "<td style='border: 1px solid #A1AEBA; color: #D51633; font-weight: bold;'>" . number_format($ev['impactScore'] ?? 0) . "</td>";
                 $body .= "</tr>\r\n";
             }
             $body .= "</tbody></table>\r\n";
-        }
-
-        if ($includeClosed === '1') {
-            $body .= "<h3 style='color: #193B61; margin-top: 15px; border-bottom: 2px solid #0065A4; padding-bottom: 6px; font-size: 1.1rem;'>Incidents Closed Past 7 Days (" . count($closedPastWeek) . ")</h3>\r\n";
-            if (empty($closedPastWeek)) {
-                $body .= "<p style='color: #5F7181;'>No incidents were closed in the past 7 days.</p>\r\n";
-            } else {
-                $body .= "<table style='width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px;' cellpadding='8'>\r\n";
-                $body .= "<thead style='background-color: #E8EBEE;'><tr><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>ID</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Subject/Title</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Department</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Closed Date</th><th style='text-align: left; border: 1px solid #A1AEBA; color: #2A3239;'>Impact</th></tr></thead>\r\n";
-                $body .= "<tbody>\r\n";
-                foreach ($closedPastWeek as $ev) {
-                    $body .= "<tr>";
-                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>#" . $ev['id'] . "</td>";
-                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['title'] ?: 'Incident #' . $ev['id']) . "</td>";
-                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['department_name'] ?: 'N/A') . "</td>";
-                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . htmlspecialchars($ev['update_time'] ?? 'N/A') . "</td>";
-                    $body .= "<td style='border: 1px solid #A1AEBA; color: #2A3239;'>" . number_format($ev['impactScore'] ?? 0) . "</td>";
-                    $body .= "</tr>\r\n";
-                }
-                $body .= "</tbody></table>\r\n";
-            }
         }
 
         $body .= "</div>\r\n";
