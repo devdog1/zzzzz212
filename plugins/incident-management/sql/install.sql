@@ -148,6 +148,50 @@ CREATE TABLE IF NOT EXISTS `plug_incident_management_email_rules` (
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS `plug_incident_management_rfo_details` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `document_id` INT UNIQUE NOT NULL,
+    `incident_number` VARCHAR(100),
+    `service_affected` VARCHAR(255),
+    `systems_affected` TEXT,
+    `customers_affected` TEXT,
+    `geographic_areas_affected` TEXT,
+    `incident_severity` VARCHAR(50),
+    `start_datetime` DATETIME,
+    `detection_datetime` DATETIME,
+    `escalation_datetime` DATETIME,
+    `service_restoration_datetime` DATETIME,
+    `total_duration` VARCHAR(100),
+    `impact_description` TEXT,
+    `initial_symptoms` TEXT,
+    `detection_method` TEXT,
+    `root_cause` TEXT,
+    `contributing_factors` TEXT,
+    `resolution` TEXT,
+    `recovery_actions` TEXT,
+    `corrective_actions` TEXT,
+    `preventative_actions` TEXT,
+    `lessons_learned` TEXT,
+    `monitoring_improvements` TEXT,
+    `assigned_owner_id` INT,
+    `reviewer_id` INT,
+    `approver_id` INT,
+    `related_tickets` TEXT,
+    `related_changes` TEXT,
+    `related_rfos` TEXT
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `plug_incident_management_rfo_timelines` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `document_id` INT NOT NULL,
+    `timestamp` DATETIME NOT NULL,
+    `event` VARCHAR(255) NOT NULL,
+    `person` VARCHAR(100),
+    `source` VARCHAR(100),
+    `notes` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 -- Seed Default States
 INSERT IGNORE INTO `plug_incident_management_state` (`id`, `name`) VALUES
 (1, 'Detected'),
@@ -194,4 +238,6 @@ INSERT IGNORE INTO `plug_incident_management_defaults` (`setting_key`, `setting_
 ('weekly_report_day', 'Monday', 'Day of the week to dispatch automated weekly email report'),
 ('weekly_report_time', '08:00', 'Time of day (24h) to dispatch automated weekly email report'),
 ('weekly_report_include_stats', '1', 'Include weekly statistics and impact score breakdown (0 or 1)'),
-('weekly_report_include_closed', '1', 'Include list of closed incidents from the past week (0 or 1)');
+('weekly_report_include_closed', '1', 'Include list of closed incidents from the past week (0 or 1)'),
+('rfo_enabled', '1', 'Enable RFO / Incident Report Module (0 or 1)'),
+('rfo_auto_create_on_close', '1', 'Automatically generate RFO report when incident is closed (0 or 1)');

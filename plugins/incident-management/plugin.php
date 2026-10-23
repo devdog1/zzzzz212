@@ -17,6 +17,15 @@ require_once __DIR__ . '/models/EventManager.php';
 require_once __DIR__ . '/models/OTRSClient.php';
 require_once __DIR__ . '/models/OTRSDB.php';
 require_once __DIR__ . '/models/NetBoxClient.php';
+require_once __DIR__ . '/models/rfo_functions.php';
+
+// Action Hook Registration for RFO Creation and Timelines
+PluginManager::getInstance()->addAction('doc_handle_create_rfo_hook', 'incident_handle_create_rfo_hook', 10, 1);
+PluginManager::getInstance()->addAction('doc_handle_add_rfo_timeline_hook', 'incident_handle_add_rfo_timeline_hook', 10, 1);
+PluginManager::getInstance()->addAction('doc_manager_create_rfo', 'incident_handle_create_rfo_hook', 10, 1);
+PluginManager::getInstance()->addAction('doc_manager_add_rfo_timeline', 'incident_handle_add_rfo_timeline_hook', 10, 1);
+PluginManager::getInstance()->addAction('incident_create_rfo', 'incident_handle_create_rfo_hook', 10, 1);
+PluginManager::getInstance()->addAction('incident_add_rfo_timeline', 'incident_handle_add_rfo_timeline_hook', 10, 1);
 
 // 1. Navigation Menu Filter
 PluginManager::getInstance()->addFilter('theme_nav_links', function ($links) {
@@ -24,23 +33,26 @@ PluginManager::getInstance()->addFilter('theme_nav_links', function ($links) {
         return $links;
     }
 
+    $children = [
+        ['label' => 'Active Incidents', 'icon' => 'fa-solid fa-fire', 'route' => 'incident_active', 'permission' => 'incident_management_view_events'],
+        ['label' => 'Closed Archive', 'icon' => 'fa-solid fa-box-archive', 'route' => 'incident_closed', 'permission' => 'incident_management_view_events'],
+        ['label' => 'RFO Reports', 'icon' => 'fa-solid fa-file-contract', 'route' => 'incident_rfo', 'permission' => 'incident_management_view_events'],
+        ['label' => 'Search Incidents', 'icon' => 'fa-solid fa-magnifying-glass', 'route' => 'incident_search', 'permission' => 'incident_management_view_events'],
+        ['label' => 'Statistics', 'icon' => 'fa-solid fa-chart-line', 'route' => 'incident_statistics', 'permission' => 'incident_management_view_events'],
+        ['label' => 'Reports', 'icon' => 'fa-solid fa-file-contract', 'route' => 'incident_reports', 'permission' => 'incident_management_view_events'],
+        ['label' => 'Network Overview', 'icon' => 'fa-solid fa-network-wired', 'route' => 'incident_overview', 'permission' => 'incident_management_view_events'],
+        ['label' => 'NOC TV Wallboard (Public)', 'icon' => 'fa-solid fa-desktop', 'url' => 'noc-wallboard.php', 'target' => '_blank', 'permission' => 'incident_management_view_events'],
+        ['label' => 'Change Calendar', 'icon' => 'fa-solid fa-calendar-days', 'route' => 'incident_calendar', 'permission' => 'incident_management_view_events'],
+        ['label' => 'Reference Data', 'icon' => 'fa-solid fa-sitemap', 'route' => 'incident_departments', 'permission' => 'incident_management_manage_departments'],
+        ['label' => 'Incident Settings', 'icon' => 'fa-solid fa-sliders', 'route' => 'incident_settings', 'permission' => 'incident_management_manage_settings'],
+    ];
+
     $links[] = [
         'route' => 'incident_active',
         'label' => 'Incidents',
         'icon'  => 'fa-solid fa-triangle-exclamation',
         'permission' => 'incident_management_view_events',
-        'children' => [
-            ['label' => 'Active Incidents', 'icon' => 'fa-solid fa-fire', 'route' => 'incident_active', 'permission' => 'incident_management_view_events'],
-            ['label' => 'Closed Archive', 'icon' => 'fa-solid fa-box-archive', 'route' => 'incident_closed', 'permission' => 'incident_management_view_events'],
-            ['label' => 'Search Incidents', 'icon' => 'fa-solid fa-magnifying-glass', 'route' => 'incident_search', 'permission' => 'incident_management_view_events'],
-            ['label' => 'Statistics', 'icon' => 'fa-solid fa-chart-line', 'route' => 'incident_statistics', 'permission' => 'incident_management_view_events'],
-            ['label' => 'Reports', 'icon' => 'fa-solid fa-file-contract', 'route' => 'incident_reports', 'permission' => 'incident_management_view_events'],
-            ['label' => 'Network Overview', 'icon' => 'fa-solid fa-network-wired', 'route' => 'incident_overview', 'permission' => 'incident_management_view_events'],
-            ['label' => 'NOC TV Wallboard (Public)', 'icon' => 'fa-solid fa-desktop', 'url' => 'noc-wallboard.php', 'target' => '_blank', 'permission' => 'incident_management_view_events'],
-            ['label' => 'Change Calendar', 'icon' => 'fa-solid fa-calendar-days', 'route' => 'incident_calendar', 'permission' => 'incident_management_view_events'],
-            ['label' => 'Reference Data', 'icon' => 'fa-solid fa-sitemap', 'route' => 'incident_departments', 'permission' => 'incident_management_manage_departments'],
-            ['label' => 'Incident Settings', 'icon' => 'fa-solid fa-sliders', 'route' => 'incident_settings', 'permission' => 'incident_management_manage_settings'],
-        ]
+        'children' => $children
     ];
     return $links;
 });
@@ -50,6 +62,8 @@ PluginManager::getInstance()->addAction('register_routes', function () {
     $routes = [
         'incident_active'      => 'index-view.php',
         'incident_closed'      => 'closed-view.php',
+        'incident_rfo'         => 'rfo-view.php',
+        'doc_manager_rfo'      => 'rfo-view.php',
         'incident_search'      => 'search-view.php',
         'incident_statistics'  => 'statistics-view.php',
         'incident_reports'     => 'reports-view.php',
