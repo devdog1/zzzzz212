@@ -74,12 +74,42 @@ if ($authObj && method_exists($authObj, 'getAccessToken')) {
     <input type="hidden" name="action" value="update_defaults">
 
     <div class="row justify-content-center">
-        <!-- SLA & Escalation Settings -->
+        <!-- RFO / Incident Report Settings -->
         <div class="col-md-10 mb-4">
             <div class="card shadow-sm border border-warning">
                 <div class="card-header bg-warning text-dark fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-triangle-exclamation me-2"></i>Reason For Outage (RFO) Module Configuration</span>
+                    <span class="badge bg-dark text-white"><?= ($defaults['rfo_enabled'] ?? '1') === '1' ? 'Enabled' : 'Disabled' ?></span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Enable RFO Module</label>
+                            <select name="settings[rfo_enabled]" class="form-select form-select-sm">
+                                <option value="1" <?= ($defaults['rfo_enabled'] ?? '1') === '1' ? 'selected' : '' ?>>Enabled</option>
+                                <option value="0" <?= ($defaults['rfo_enabled'] ?? '1') === '0' ? 'selected' : '' ?>>Disabled</option>
+                            </select>
+                            <div class="form-text small">Controls access to RFO report generation, editing, and export features.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Auto-Initiate RFO Report on Incident Closure</label>
+                            <select name="settings[rfo_auto_create_on_close]" class="form-select form-select-sm">
+                                <option value="1" <?= ($defaults['rfo_auto_create_on_close'] ?? '1') === '1' ? 'selected' : '' ?>>Enabled (Auto-Sync Timeline)</option>
+                                <option value="0" <?= ($defaults['rfo_auto_create_on_close'] ?? '1') === '0' ? 'selected' : '' ?>>Disabled (Manual Only)</option>
+                            </select>
+                            <div class="form-text small">Automatically creates a pre-populated RFO report with incident timeline when an incident is closed.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLA & Escalation Settings -->
+        <div class="col-md-10 mb-4">
+            <div class="card shadow-sm border border-secondary">
+                <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
                     <span><i class="fa-solid fa-bell me-2"></i>SLA Alerting & Escalation Thresholds</span>
-                    <span class="badge bg-dark text-white">Active</span>
+                    <span class="badge bg-secondary">Active</span>
                 </div>
                 <div class="card-body">
                     <div class="row g-3">

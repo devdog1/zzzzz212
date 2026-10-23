@@ -193,6 +193,50 @@ CREATE TABLE IF NOT EXISTS `users` (
     `last_login` DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS `plug_incident_management_rfo_details` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `document_id` INTEGER UNIQUE NOT NULL,
+    `incident_number` TEXT,
+    `service_affected` TEXT,
+    `systems_affected` TEXT,
+    `customers_affected` TEXT,
+    `geographic_areas_affected` TEXT,
+    `incident_severity` TEXT,
+    `start_datetime` DATETIME,
+    `detection_datetime` DATETIME,
+    `escalation_datetime` DATETIME,
+    `service_restoration_datetime` DATETIME,
+    `total_duration` TEXT,
+    `impact_description` TEXT,
+    `initial_symptoms` TEXT,
+    `detection_method` TEXT,
+    `root_cause` TEXT,
+    `contributing_factors` TEXT,
+    `resolution` TEXT,
+    `recovery_actions` TEXT,
+    `corrective_actions` TEXT,
+    `preventative_actions` TEXT,
+    `lessons_learned` TEXT,
+    `monitoring_improvements` TEXT,
+    `assigned_owner_id` INTEGER,
+    `reviewer_id` INTEGER,
+    `approver_id` INTEGER,
+    `related_tickets` TEXT,
+    `related_changes` TEXT,
+    `related_rfos` TEXT
+);
+
+CREATE TABLE IF NOT EXISTS `plug_incident_management_rfo_timelines` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `document_id` INTEGER NOT NULL,
+    `timestamp` DATETIME NOT NULL,
+    `event` TEXT NOT NULL,
+    `person` TEXT,
+    `source` TEXT,
+    `notes` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS `roles` (
     `id` INTEGER PRIMARY KEY AUTOINCREMENT,
     `role_name` TEXT UNIQUE

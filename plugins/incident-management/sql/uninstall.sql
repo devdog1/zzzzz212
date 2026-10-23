@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS `plug_incident_management_rfo_timelines`;
+DROP TABLE IF EXISTS `plug_incident_management_rfo_details`;
 DROP TABLE IF EXISTS `plug_incident_management_external_message_log`;
 DROP TABLE IF EXISTS `plug_incident_management_event_circuits`;
 DROP TABLE IF EXISTS `plug_incident_management_event_state_history`;
