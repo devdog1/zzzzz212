@@ -20,12 +20,12 @@ require_once __DIR__ . '/models/NetBoxClient.php';
 require_once __DIR__ . '/models/rfo_functions.php';
 
 // Action Hook Registration for RFO Creation and Timelines
-PluginManager::getInstance()->addAction('doc_handle_create_rfo_hook', 'doc_handle_create_rfo_hook', 10, 1);
-PluginManager::getInstance()->addAction('doc_handle_add_rfo_timeline_hook', 'doc_handle_add_rfo_timeline_hook', 10, 1);
-PluginManager::getInstance()->addAction('doc_manager_create_rfo', 'doc_handle_create_rfo_hook', 10, 1);
-PluginManager::getInstance()->addAction('doc_manager_add_rfo_timeline', 'doc_handle_add_rfo_timeline_hook', 10, 1);
-PluginManager::getInstance()->addAction('incident_create_rfo', 'doc_handle_create_rfo_hook', 10, 1);
-PluginManager::getInstance()->addAction('incident_add_rfo_timeline', 'doc_handle_add_rfo_timeline_hook', 10, 1);
+PluginManager::getInstance()->addAction('doc_handle_create_rfo_hook', 'incident_handle_create_rfo_hook', 10, 1);
+PluginManager::getInstance()->addAction('doc_handle_add_rfo_timeline_hook', 'incident_handle_add_rfo_timeline_hook', 10, 1);
+PluginManager::getInstance()->addAction('doc_manager_create_rfo', 'incident_handle_create_rfo_hook', 10, 1);
+PluginManager::getInstance()->addAction('doc_manager_add_rfo_timeline', 'incident_handle_add_rfo_timeline_hook', 10, 1);
+PluginManager::getInstance()->addAction('incident_create_rfo', 'incident_handle_create_rfo_hook', 10, 1);
+PluginManager::getInstance()->addAction('incident_add_rfo_timeline', 'incident_handle_add_rfo_timeline_hook', 10, 1);
 
 // 1. Navigation Menu Filter
 PluginManager::getInstance()->addFilter('theme_nav_links', function ($links) {

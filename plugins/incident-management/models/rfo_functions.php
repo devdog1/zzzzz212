@@ -21,15 +21,17 @@ function incident_get_pdb() {
     return $pdb;
 }
 
-/**
- * Programmatically create an RFO / Incident Report document and save its details.
- * Compatible with doc_manager hook calls and direct invocation.
- *
- * @param array $data Contains title, incident_id, incident_number, service_affected, systems_affected, impact_description, timeline_entries, etc.
- * @return int Created RFO document ID
- */
-function doc_create_rfo_report($data) {
-    return incident_create_rfo_report($data);
+if (!function_exists('doc_create_rfo_report')) {
+    /**
+     * Programmatically create an RFO / Incident Report document and save its details.
+     * Compatible with doc_manager hook calls and direct invocation.
+     *
+     * @param array $data Contains title, incident_id, incident_number, service_affected, systems_affected, impact_description, timeline_entries, etc.
+     * @return int Created RFO document ID
+     */
+    function doc_create_rfo_report($data) {
+        return incident_create_rfo_report($data);
+    }
 }
 
 function incident_create_rfo_report($data) {
@@ -107,8 +109,10 @@ function incident_create_rfo_report($data) {
     return $doc_id;
 }
 
-function doc_save_rfo_details($doc_id, $data) {
-    return incident_save_rfo_details($doc_id, $data);
+if (!function_exists('doc_save_rfo_details')) {
+    function doc_save_rfo_details($doc_id, $data) {
+        return incident_save_rfo_details($doc_id, $data);
+    }
 }
 
 function incident_save_rfo_details($doc_id, $data) {
@@ -150,8 +154,10 @@ function incident_save_rfo_details($doc_id, $data) {
     }
 }
 
-function doc_get_rfo_details($doc_id) {
-    return incident_get_rfo_details($doc_id);
+if (!function_exists('doc_get_rfo_details')) {
+    function doc_get_rfo_details($doc_id) {
+        return incident_get_rfo_details($doc_id);
+    }
 }
 
 function incident_get_rfo_details($doc_id) {
@@ -162,8 +168,10 @@ function incident_get_rfo_details($doc_id) {
     return $res ?: null;
 }
 
-function doc_add_rfo_timeline_entry($doc_id, $timestamp, $event, $person = '', $source = '', $notes = '') {
-    return incident_add_rfo_timeline_entry($doc_id, $timestamp, $event, $person, $source, $notes);
+if (!function_exists('doc_add_rfo_timeline_entry')) {
+    function doc_add_rfo_timeline_entry($doc_id, $timestamp, $event, $person = '', $source = '', $notes = '') {
+        return incident_add_rfo_timeline_entry($doc_id, $timestamp, $event, $person, $source, $notes);
+    }
 }
 
 function incident_add_rfo_timeline_entry($doc_id, $timestamp, $event, $person = '', $source = '', $notes = '') {
@@ -175,8 +183,10 @@ function incident_add_rfo_timeline_entry($doc_id, $timestamp, $event, $person = 
     ", [(int)$doc_id, $timestamp, $event, $person, $source, $notes]);
 }
 
-function doc_get_rfo_timelines($doc_id) {
-    return incident_get_rfo_timelines($doc_id);
+if (!function_exists('doc_get_rfo_timelines')) {
+    function doc_get_rfo_timelines($doc_id) {
+        return incident_get_rfo_timelines($doc_id);
+    }
 }
 
 function incident_get_rfo_timelines($doc_id) {
@@ -185,8 +195,10 @@ function incident_get_rfo_timelines($doc_id) {
     return $pdb->query("SELECT * FROM {$tb} WHERE document_id = ? ORDER BY timestamp ASC", [(int)$doc_id])->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function doc_search_rfos($criteria = []) {
-    return incident_search_rfos($criteria);
+if (!function_exists('doc_search_rfos')) {
+    function doc_search_rfos($criteria = []) {
+        return incident_search_rfos($criteria);
+    }
 }
 
 function incident_search_rfos($criteria = []) {
@@ -213,8 +225,10 @@ function incident_search_rfos($criteria = []) {
     return $pdb->query($sql, $params)->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function doc_delete_rfo($doc_id) {
-    return incident_delete_rfo($doc_id);
+if (!function_exists('doc_delete_rfo')) {
+    function doc_delete_rfo($doc_id) {
+        return incident_delete_rfo($doc_id);
+    }
 }
 
 function incident_delete_rfo($doc_id) {
@@ -230,11 +244,23 @@ function incident_delete_rfo($doc_id) {
  * INTER-PLUGIN HOOK HANDLERS
  * ========================================================= */
 
-function doc_handle_create_rfo_hook($data) {
+if (!function_exists('doc_handle_create_rfo_hook')) {
+    function doc_handle_create_rfo_hook($data) {
+        return incident_handle_create_rfo_hook($data);
+    }
+}
+
+if (!function_exists('doc_handle_add_rfo_timeline_hook')) {
+    function doc_handle_add_rfo_timeline_hook($data) {
+        return incident_handle_add_rfo_timeline_hook($data);
+    }
+}
+
+function incident_handle_create_rfo_hook($data) {
     return incident_create_rfo_report($data);
 }
 
-function doc_handle_add_rfo_timeline_hook($data) {
+function incident_handle_add_rfo_timeline_hook($data) {
     $doc_id = (int)($data['document_id'] ?? ($data['incident_id'] ?? 0));
     if (!$doc_id && !empty($data['incident_number'])) {
         $pdb = incident_get_pdb();
